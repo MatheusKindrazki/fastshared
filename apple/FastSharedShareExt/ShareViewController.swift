@@ -114,13 +114,65 @@ final class ShareViewController: PlatformViewController {
     }
 
     private func stage(provider: NSItemProvider) async -> StagedItem? {
-        let candidates: [UTType] = [.fileURL, .image, .movie, .pdf, .data, .item]
-        for type in candidates where provider.hasItemConformingToTypeIdentifier(type.identifier) {
+        // WHY: binary UTIs come first. When loaded via loadFileRepresentation,
+        // `public.file-url` returns a sidecar file (a .webloc-style text blob
+        // containing the URL), not the real payload. Apps like CleanShot,
+        // Xnapper, and Finder register both .image AND .fileURL on the same
+        // provider — if we pick .fileURL first we upload a 100-byte text file
+        // instead of the PNG the user actually meant to share.
+        let binaryCandidates: [UTType] = [.image, .movie, .pdf, .audio, .data, .item]
+        for type in binaryCandidates where provider.hasItemConformingToTypeIdentifier(type.identifier) {
             if let staged = await loadFileRepresentation(provider: provider, typeIdentifier: type.identifier) {
                 return staged
             }
         }
+        // Fallback: only a public.file-url representation was offered (e.g. some
+        // macOS Finder shares). Resolve the URL via loadItem and copy the real
+        // file from disk.
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            if let staged = await resolveFileURL(provider: provider) {
+                return staged
+            }
+        }
         return nil
+    }
+
+    private func resolveFileURL(provider: NSItemProvider) async -> StagedItem? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                if let error {
+                    self.log.error("fileURL loadItem failed: \(error.localizedDescription, privacy: .public)")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let resolved: URL?
+                if let direct = item as? URL { resolved = direct }
+                else if let data = item as? Data { resolved = URL(dataRepresentation: data, relativeTo: nil) }
+                else { resolved = nil }
+                guard let url = resolved else {
+                    self.log.error("fileURL loadItem returned a non-URL item")
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    let destination = try AppGroupPaths.stagingDirectory().appendingPathComponent(UUID().uuidString).appendingPathExtension(url.pathExtension)
+                    try self.streamCopy(from: url, to: destination)
+                    let filename = url.lastPathComponent
+                    let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
+                    let contentType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                    let staged = StagedItem(localURL: destination,
+                                            contentType: contentType,
+                                            sizeBytes: size,
+                                            filename: filename)
+                    continuation.resume(returning: staged)
+                } catch {
+                    self.log.error("fileURL stage copy failed: \(error.localizedDescription, privacy: .public)")
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     private func loadFileRepresentation(provider: NSItemProvider, typeIdentifier: String) async -> StagedItem? {
