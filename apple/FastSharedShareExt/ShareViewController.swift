@@ -15,17 +15,20 @@ typealias PlatformViewController = NSViewController
 final class ShareViewController: PlatformViewController {
     private let log = Logger(subsystem: Log.subsystem, category: "share")
     private let viewModel = ShareViewModel()
+    private var autoDismissTask: Task<Void, Never>?
 
     #if canImport(UIKit)
     override func viewDidLoad() {
         super.viewDidLoad()
         embed(makeRootView())
         Task { await ingestAttachments() }
+        observeDismissal()
     }
 
     private func embed(_ root: some View) {
         let host = UIHostingController(rootView: root)
         addChild(host)
+        host.view.backgroundColor = .clear
         host.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(host.view)
         NSLayoutConstraint.activate([
@@ -38,13 +41,14 @@ final class ShareViewController: PlatformViewController {
     }
     #elseif canImport(AppKit)
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 300))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 440))
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         embed(makeRootView())
         Task { await ingestAttachments() }
+        observeDismissal()
     }
 
     private func embed(_ root: some View) {
@@ -62,11 +66,35 @@ final class ShareViewController: PlatformViewController {
     #endif
 
     private func makeRootView() -> ShareRootView {
-        ShareRootView(viewModel: viewModel, onUpload: { [weak self] in
-            await self?.performUpload()
-        }, onCancel: { [weak self] in
-            self?.cancel()
-        })
+        ShareRootView(viewModel: viewModel,
+                      onUpload: { [weak self] in
+                          await self?.performUpload()
+                      },
+                      onCancel: { [weak self] in
+                          self?.cancel()
+                      },
+                      onDismiss: { [weak self] in
+                          self?.completeAndDismiss()
+                      })
+    }
+
+    /// Observes the ViewModel for explicit dismissal / cancel signals coming from SwiftUI.
+    private func observeDismissal() {
+        // WHY: we rely on a small Task that polls the two dismissal flags rather than wiring Combine; the
+        // extension lives briefly and we want zero new observation machinery in the view layer.
+        Task { @MainActor [weak self] in
+            while let self, !Task.isCancelled {
+                if self.viewModel.cancelled {
+                    self.cancel()
+                    return
+                }
+                if self.viewModel.readyToDismiss {
+                    self.completeAndDismiss()
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 120_000_000)
+            }
+        }
     }
 
     private func ingestAttachments() async {
@@ -143,7 +171,17 @@ final class ShareViewController: PlatformViewController {
     }
 
     private func performUpload() async {
-        await viewModel.beginUploading()
+        // Only one item is expected from a share sheet in the MVP shape. If multiple were staged we still only
+        // track the first for UI state; the service will enqueue them all in the background.
+        guard let first = await viewModel.items.first else {
+            log.error("performUpload invoked with zero staged items")
+            return
+        }
+
+        await MainActor.run {
+            viewModel.phase = .preparing
+        }
+
         let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
         let tokenStore = DeviceTokenStore(keychain: keychain)
         let apiClient = APIClient(tokenStore: tokenStore)
@@ -156,28 +194,44 @@ final class ShareViewController: PlatformViewController {
                                     background: BackgroundSessionManager.shared,
                                     orchestrator: orchestrator)
 
-        let policy = viewModel.retentionPolicy
-        for item in viewModel.items {
-            do {
-                _ = try await service.enqueue(stagedURL: item.localURL,
-                                              contentType: item.contentType,
-                                              originalFilename: item.filename,
-                                              retentionPolicy: policy)
-                log.info("share uploaded file=\(item.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
-            } catch {
-                log.error("enqueue failed retentionPolicy=\(policy.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        let policy = await viewModel.retentionPolicy
+        do {
+            let job = try await service.enqueue(stagedURL: first.localURL,
+                                                contentType: first.contentType,
+                                                originalFilename: first.filename,
+                                                retentionPolicy: policy)
+            log.info("share enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
+            await MainActor.run {
+                viewModel.startObserving(clientJobId: job.clientJobId,
+                                         filename: first.filename,
+                                         totalBytes: first.sizeBytes)
+            }
+
+            // Fire-and-forget any remaining items; their UI isn't tracked in MVP but they still upload.
+            let remaining = await viewModel.items.dropFirst()
+            for item in remaining {
+                Task.detached {
+                    _ = try? await service.enqueue(stagedURL: item.localURL,
+                                                   contentType: item.contentType,
+                                                   originalFilename: item.filename,
+                                                   retentionPolicy: policy)
+                }
+            }
+        } catch {
+            log.error("enqueue failed retentionPolicy=\(policy.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            await MainActor.run {
+                viewModel.reportEnqueueFailure(error: error, requestId: UUID())
             }
         }
-        await finishRequest()
     }
 
-    private func finishRequest() async {
-        await MainActor.run {
-            self.extensionContext?.completeRequest(returningItems: nil)
-        }
+    private func completeAndDismiss() {
+        autoDismissTask?.cancel()
+        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
 
     private func cancel() {
+        autoDismissTask?.cancel()
         extensionContext?.cancelRequest(withError: NSError(domain: "dev.kindrazki.fastshared.ShareExt",
                                                            code: NSUserCancelledError,
                                                            userInfo: nil))
