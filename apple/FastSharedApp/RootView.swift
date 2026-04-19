@@ -51,7 +51,12 @@ struct RootView: View {
                     }
                 }
         }
-        .tint(BrandPalette.amberAccent.hot)
+        // WHY: the redesign ships with violet as the default accent; tinting
+        // the whole NavigationStack here propagates to system-default chrome
+        // (nav back button, toolbar icons, progress views) without touching
+        // every child. Existing `BrandPalette.amberAccent` reads are left in
+        // place where the semantic is specifically "warm heat point".
+        .tint(BrandPalette.accent.hot)
         // WHY: ground the whole window with the brand ink so every pixel outside
         // the safe area (notch/dynamic-island column, home-indicator strip, side
         // margins on landscape) reads as dark — not the default window white. The
@@ -80,7 +85,7 @@ struct RootView: View {
         } detail: {
             HistoryView()
         }
-        .tint(BrandPalette.amberAccent.hot)
+        .tint(BrandPalette.accent.hot)
         .background(BrandPalette.ground)
         .preferredColorScheme(.dark)
         #endif

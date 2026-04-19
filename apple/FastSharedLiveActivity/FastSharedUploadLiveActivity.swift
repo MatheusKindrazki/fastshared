@@ -44,7 +44,10 @@ private struct LockScreenView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            HeroGlyph(state: state)
+            // v3 lock-screen hero — Plane + Arc sits in place of the old halo
+            // glyph during uploading/completed. For `.failed` we fall back to
+            // the triangle warning since the mark alone doesn't read as error.
+            LockHero(state: state)
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -124,9 +127,11 @@ private struct ExpandedLeading: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "paperplane.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.amberAccent.hot)
+            // v3 expanded leading — compact Plane + Arc glyph replaces the
+            // paperplane SF Symbol. The mark itself carries the brand signal;
+            // 18pt matches the density of the adjacent text.
+            LAPlaneArc(size: 18)
+                .accessibilityHidden(true)
             Text(attributes.filename)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(BrandPalette.text)
@@ -225,11 +230,29 @@ private struct CompactLeadingView: View {
     var body: some View {
         switch state.phase {
         case .uploading:
-            AmberRing(progress: state.progress)
-                .frame(width: 18, height: 18)
+            // v3 compact leading while uploading — plane+arc mark with a
+            // subtle ring overlay showing progress. The mark carries the
+            // brand; the thin ring is functional.
+            ZStack {
+                LAPlaneArc(size: 18)
+                Circle()
+                    .trim(from: 0, to: max(0.04, min(1, state.progress)))
+                    .stroke(
+                        BrandPalette.amberAccent.hot.opacity(0.85),
+                        style: StrokeStyle(lineWidth: 1.6, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 18, height: 18)
+            }
+            .frame(width: 18, height: 18)
         case .completed:
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundStyle(BrandPalette.amberAccent.hot)
+            ZStack {
+                Circle().fill(BrandPalette.amberAccent.hot)
+                    .frame(width: 18, height: 18)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(Color.white)
+            }
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(BrandPalette.amberAccent.fade)
@@ -253,8 +276,9 @@ private struct CompactTrailingView: View {
                 .foregroundStyle(BrandPalette.amberAccent.dust)
                 .lineLimit(1)
         case .failed:
-            Text("Failed")
-                .font(.system(size: 12, weight: .semibold))
+            Text("FAILED")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .tracking(1.2)
                 .foregroundStyle(BrandPalette.amberAccent.fade)
         }
     }
@@ -287,33 +311,27 @@ private struct MinimalView: View {
 
 // MARK: - Shared parts
 
-private struct HeroGlyph: View {
+/// Lock-screen hero composition — v3 Plane + Arc sits in a 44pt tile during
+/// uploading (with a functional ring overlay) and completed. Failure falls
+/// back to the triangle warning against a coral wash.
+private struct LockHero: View {
     let state: FastSharedActivityAttributes.ContentState
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
             switch state.phase {
             case .uploading:
-                Circle()
-                    .fill(BrandPalette.amberAccent.hot.opacity(0.18))
+                LAPlaneArc(size: 44)
                 Circle()
                     .trim(from: 0, to: max(0.02, min(1, state.progress)))
-                    .stroke(BrandPalette.arc, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .stroke(
+                        BrandPalette.amberAccent.hot,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                    )
                     .rotationEffect(.degrees(-90))
-                    .padding(3)
-                Circle()
-                    .fill(RadialGradient(colors: [BrandPalette.amberAccent.soft, BrandPalette.amberAccent.hot],
-                                         center: .center,
-                                         startRadius: 0,
-                                         endRadius: 18))
-                    .padding(10)
+                    .padding(2)
             case .completed:
-                Circle().fill(BrandPalette.amberAccent.hot.opacity(0.22))
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 24, weight: .regular))
-                    .foregroundStyle(BrandPalette.amberAccent.hot)
+                LAPlaneArc(size: 44)
             case .failed:
                 Circle().fill(BrandPalette.amberAccent.fade.opacity(0.2))
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -321,6 +339,73 @@ private struct HeroGlyph: View {
                     .foregroundStyle(BrandPalette.amberAccent.fade)
             }
         }
+    }
+}
+
+/// Plane+Arc mark — inline re-declaration for the Live Activity target
+/// (widget extensions can't link the app-target `PlaneArcMark`). Same
+/// viewBox-140 coordinates, same dart path, same gradient stops.
+private struct LAPlaneArc: View {
+    var size: CGFloat = 44
+
+    var body: some View {
+        let a = BrandPalette.amberAccent
+        let arcStrokeWidth = size * (9.0 / 140.0)
+
+        ZStack {
+            LAArcPath()
+                .stroke(
+                    LinearGradient(
+                        stops: [
+                            .init(color: a.fade.opacity(0), location: 0),
+                            .init(color: a.hot.opacity(0.95), location: 0.5),
+                            .init(color: a.soft, location: 1),
+                        ],
+                        startPoint: .bottomLeading,
+                        endPoint: .topTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .round)
+                )
+                .frame(width: size, height: size)
+
+            GeometryReader { geo in
+                let s = geo.size.width / 140.0
+                let transform = CGAffineTransform(translationX: 84 * s, y: 64 * s)
+                    .scaledBy(x: 1.1 * s, y: 1.1 * s)
+                ZStack {
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: 0).applying(transform))
+                        p.addLine(to: CGPoint(x: 22, y: -26).applying(transform))
+                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
+                        p.addLine(to: CGPoint(x: 4, y: 4).applying(transform))
+                        p.addLine(to: CGPoint(x: 0, y: 18).applying(transform))
+                        p.addLine(to: CGPoint(x: -4, y: 4).applying(transform))
+                        p.closeSubpath()
+                    }
+                    .fill(BrandPalette.text)
+                    Path { p in
+                        p.move(to: CGPoint(x: 4, y: 4).applying(transform))
+                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
+                    }
+                    .stroke(BrandPalette.text.opacity(0.35), lineWidth: 1)
+                }
+            }
+            .frame(width: size, height: size)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct LAArcPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = rect.width / 140.0
+        var p = Path()
+        p.move(to: CGPoint(x: 26 * s, y: 110 * s))
+        p.addQuadCurve(
+            to: CGPoint(x: 82 * s, y: 68 * s),
+            control: CGPoint(x: 60 * s, y: 98 * s)
+        )
+        return p
     }
 }
 

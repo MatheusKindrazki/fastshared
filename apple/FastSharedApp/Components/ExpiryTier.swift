@@ -6,11 +6,11 @@ import FastSharedCore
 ///
 /// The tiers are ordered by proximity to death:
 /// - `.underOneMinute` blinks (immediate action).
-/// - `.underOneHour` is coral.
-/// - `.underSixHours` is teal.
-/// - `.underOneDay` is teal.
-/// - `.later` is green.
-/// - `.forever` is reserved for links > 7d; currently the longest retention is 30d.
+/// - `.underOneHour`   is fade (coral terminus).
+/// - `.underSixHours`  is hot.
+/// - `.underOneDay`    is hot.
+/// - `.later`          is soft.
+/// - `.forever`        is reserved for links > 7d; currently the longest retention is 30d.
 enum ExpiryTier: Int, CaseIterable, Hashable, Comparable {
     case underOneMinute
     case underOneHour
@@ -41,12 +41,15 @@ enum ExpiryTier: Int, CaseIterable, Hashable, Comparable {
         }
     }
 
+    /// Semantic tier color — reads the current `BrandPalette.accent` (violet
+    /// by default) so the whole ramp re-tints when the accent switches.
     var accent: Color {
+        let a = BrandPalette.accent
         switch self {
-        case .underOneMinute, .underOneHour: return BrandPalette.coral
-        case .underSixHours:                 return BrandPalette.amber
-        case .underOneDay:                   return BrandPalette.amber
-        case .later, .forever:               return BrandPalette.ember
+        case .underOneMinute, .underOneHour: return a.fade
+        case .underSixHours:                 return a.hot
+        case .underOneDay:                   return a.hot
+        case .later, .forever:               return a.soft
         }
     }
 }

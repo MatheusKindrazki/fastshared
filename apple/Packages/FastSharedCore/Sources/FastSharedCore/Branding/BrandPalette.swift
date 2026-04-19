@@ -80,6 +80,15 @@ public enum BrandPalette {
         dust: Color(red: 0xc7 / 255.0, green: 0xf2 / 255.0, blue: 0xe3 / 255.0)
     )
 
+    // MARK: - Semantic accent helper
+    //
+    // The redesign ships with **violet** as the default accent. Views that want
+    // the neutral "hot point" should read `BrandPalette.accent` rather than
+    // reaching into a named accent palette directly. Legacy call sites that
+    // still say `BrandPalette.amberAccent` continue to render amber and are
+    // left as-is per the migration plan — new code should prefer `.accent`.
+    public static let accent: Accent = violetAccent
+
     // MARK: - Gradients
 
     /// The signature "link transfer" stroke gradient. amber soft → hot → fade.
