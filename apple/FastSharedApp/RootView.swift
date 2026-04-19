@@ -28,16 +28,19 @@ struct RootView: View {
                             SettingsView()
                         } label: {
                             Image(systemName: "gearshape")
+                                .foregroundStyle(BrandPalette.milk.opacity(0.75))
                         }
                     }
                 }
         }
+        .tint(BrandPalette.amber)
         #else
         NavigationSplitView {
             MacSidebar()
         } detail: {
             HistoryView()
         }
+        .tint(BrandPalette.amber)
         #endif
     }
 
@@ -64,7 +67,7 @@ private extension View {
         #else
         self.sheet(isPresented: isPresented) {
             content()
-                .frame(minWidth: 520, minHeight: 600)
+                .frame(minWidth: 640, minHeight: 720)
         }
         #endif
     }
