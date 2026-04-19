@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 600" role="img" aria-label="fastshared logo">
+  <title>fastshared</title>
+  <defs>
+    <linearGradient id="arc" x1="0%" y1="60%" x2="100%" y2="30%">
+      <stop offset="0%"   stop-color="#ffc487"/>
+      <stop offset="18%"  stop-color="#ff9f47"/>
+      <stop offset="55%"  stop-color="#ff6a4a" stop-opacity="0.92"/>
+      <stop offset="82%"  stop-color="#ff4e7c" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="arcCore" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%"   stop-color="#fff3dc" stop-opacity="0.9"/>
+      <stop offset="45%"  stop-color="#ffe0b8" stop-opacity="0.55"/>
+      <stop offset="80%"  stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="sphere" cx="38%" cy="34%" r="72%">
+      <stop offset="0%"  stop-color="#fff6e0"/>
+      <stop offset="22%" stop-color="#ffd28b"/>
+      <stop offset="58%" stop-color="#ff8838"/>
+      <stop offset="100%" stop-color="#a73b14"/>
+    </radialGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <g transform="translate(40,40) scale(0.508)">
+    <circle cx="760" cy="420" r="52" fill="none" stroke="currentColor" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.32"/>
+    <circle cx="760" cy="420" r="14" fill="currentColor" opacity="0.22"/>
+    <path d="M 300 580 C 420 300, 620 620, 760 420"
+          stroke="url(#arc)" stroke-width="92" stroke-linecap="round" fill="none" filter="url(#softGlow)"/>
+    <path d="M 300 580 C 420 300, 620 620, 760 420"
+          stroke="url(#arcCore)" stroke-width="22" stroke-linecap="round" fill="none"/>
+    <g fill="#ffe0b8">
+      <circle cx="794" cy="416" r="11" opacity="0.92"/>
+      <circle cx="828" cy="408" r="7"  opacity="0.68"/>
+      <circle cx="858" cy="428" r="5"  opacity="0.48"/>
+      <circle cx="892" cy="414" r="3.5" opacity="0.32"/>
+      <circle cx="922" cy="434" r="2.2" opacity="0.2"/>
+    </g>
+    <circle cx="300" cy="580" r="124" fill="url(#sphere)" filter="url(#softGlow)"/>
+    <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
+    <ellipse cx="262" cy="532" rx="14" ry="8" fill="#ffffff" opacity="0.85"/>
+  </g>
+
+  <text x="600" y="400"
+        font-family="'Bricolage Grotesque', 'Söhne', 'Inter Tight', system-ui, -apple-system, sans-serif"
+        font-weight="700"
+        font-size="320"
+        letter-spacing="-14"
+        fill="currentColor">fastshared</text>
+  <circle cx="2280" cy="390" r="22" fill="#ff9f47"/>
+</svg>
