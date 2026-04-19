@@ -50,12 +50,14 @@ struct OnboardingView: View {
             .blendMode(.screen)
             .allowsHitTesting(false)
 
-            // Ambient sphere — blurred, top-right. Wider blur so it carries
-            // past the content box into the screen edges.
-            Sphere(size: 280)
-                .opacity(0.45)
-                .blur(radius: 48)
-                .offset(x: 200, y: -90)
+            // Ambient plane-arc — framed hero moment bleeding into the top-right
+            // corner, per v3 `Onboarding()` (design/screens.jsx). The mark itself
+            // ships with its own ambient glow; we add a little extra blur + opacity
+            // so it reads as decorative backdrop rather than hero focus.
+            PlaneArcMark(size: 160, framed: true, ambient: true)
+                .opacity(0.5)
+                .blur(radius: 12)
+                .offset(x: 180, y: -40)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
