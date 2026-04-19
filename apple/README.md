@@ -2,6 +2,20 @@
 
 Native iOS/iPadOS/macOS client for FastShared. A user shares a file via the system Share Sheet, a Share Extension stages it in an App Group container, a background `URLSession` uploads it directly to Cloudflare R2 via a presigned URL, and the backend mints a short link that is copied to the clipboard and persisted to history.
 
+## Pro subscription
+
+FastShared Pro is layered on top of the Free experience (3 uploads/day, 100 MB per file, 24h retention, no cross-device sync). The Apple client slice is documented end-to-end in [`docs/plan/pro-feature-B-apple.md`](../docs/plan/pro-feature-B-apple.md).
+
+Key pieces (Plan B):
+
+- `FastSharedCore/Subscription/SubscriptionStore.swift` — StoreKit 2 actor that owns `isPro` / `tier` / `expiresAt` / caps, verifies every JWS against `/v1/iap/verify`, caches the last-known-good snapshot in the App Group.
+- `FastSharedCore/Usage/UsageTracker.swift` — UTC-keyed daily upload counter shared between main app + share ext.
+- `FastSharedCore/CloudKit/CloudKitSyncEngine.swift` — Pro-gated `CKSyncEngine` wrapper; mirrors `ShareLinkEntity` rows into the user's private CloudKit DB. Stop never deletes cloud data.
+- `FastSharedApp/Scenes/PaywallView.swift` + `PaywallTierCard.swift` — the paywall surface, driven by `PaywallCoordinator` and presented from every upsell moment (daily cap, cloud-sync toggle, extended retention, large file, 402 server-forced).
+- `FastSharedApp/FastShared.storekit` — hand-authored StoreKit configuration with the three production SKUs (`dev.kindrazki.fastshared.pro.monthly|annual|lifetime`).
+
+QA: `docs/plan/pro-feature-B-apple-qa-matrix.md`.
+
 ## Requirements
 
 - Xcode 15 or newer
