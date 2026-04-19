@@ -60,6 +60,65 @@ Not targeted at enterprise compliance buyers. Not targeted at cross-platform pow
 - Cloudflare R2 private bucket with always-signed GETs.
 - Deployed Workers backend with Neon Postgres and three cron triggers.
 
+## Tiers (v1.1 Pro launch)
+
+FastShared ships in two tiers:
+
+### Free — acquisition + casual users
+- 5 uploads per day.
+- 100 MB max file size.
+- Up to 24 h retention ceiling.
+- Single-device history (SwiftData, local to the device).
+- No cross-device sync.
+- All the core ephemerality guarantees (private bucket, signed reads,
+  no-residue). Free is not a crippled demo — it is a real product for
+  people who share occasionally.
+
+### Pro — power users, consultants, Apple ecosystem loyalists
+- Unlimited uploads per day.
+- 2 GB max file size (per single-PUT upload in v1; multipart is post-MVP).
+- Up to 30 day retention ceiling.
+- Cross-device history sync via iCloud (CloudKit private database).
+- Priority support, one-business-day SLA.
+- Family Sharing on Lifetime (up to 6 members).
+
+### Why Opt B — iCloud metadata sync, not BYO storage
+
+The decision, already captured in session memory: Pro syncs **metadata
+only** through CloudKit's private database — never the file bytes. Files
+always live on our R2 bucket with the same ephemeral lifecycle as Free.
+
+Why not Opt A (BYO storage — let Pro users point at their own iCloud /
+Dropbox): breaks the ephemerality contract, fragments the abuse model,
+blows up the engineering surface. The core value of FastShared is "every
+link expires and the file is deleted on schedule"; we can't guarantee that
+if the file isn't in our bucket.
+
+Opt B gives the cross-device benefit (history follows you from iPhone to
+Mac) without changing where the bytes live. Apple is the sub-processor for
+the metadata. We never see it.
+
+### Pricing rationale
+
+- **$2.99 / month.** Impulse-buy ceiling. Under $3 is the threshold for
+  "yes, why not" among Apple-ecosystem subscribers; above that, churn
+  climbs hard.
+- **$19.99 / year.** Equivalent monthly price of $1.67 — a ~44% discount
+  vs monthly. Enough to convert the "I'll probably keep using this"
+  crowd into an annual commit, which drops support volume and boosts
+  retention metrics.
+- **$49.99 / Lifetime (Early Access).** PR beat — "pay once for a
+  privacy tool" is still rare enough in 2026 to get a headline. Also a
+  risk hedge: if the product survives, the average lifetime revenue per
+  Lifetime buyer exceeds Annual after ~2.5 years; if it doesn't, we got
+  the cash up-front. Family Sharing on Lifetime turns one sale into six
+  activations and amplifies word of mouth without re-billing. Early
+  Access window is 3 months from launch; after that, Lifetime returns to
+  its standard price.
+
+No introductory offers. No free trial. The Free tier is the trial — and
+it's generous enough to be honest about it.
+
 ## Non-goals (MVP)
 
 - **No permanent hosting.** Every file has a deletion deadline; there is no "keep forever" option.
