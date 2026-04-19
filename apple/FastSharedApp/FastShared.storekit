@@ -1,0 +1,130 @@
+{
+  "identifier" : "FA57574A-FA57-574A-FA57-574AFA57574A",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "69.00",
+      "familyShareable" : true,
+      "internalID" : "FA57574A-0001-0001-0001-FA57574A0001",
+      "localizations" : [
+        {
+          "description" : "All Pro features, forever. One-time payment during early access.",
+          "displayName" : "FastShared Pro Lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "dev.kindrazki.fastshared.pro.lifetime",
+      "referenceName" : "Pro Lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "0",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "FA57574A-G001-G001-G001-FA57574AG001",
+      "localizations" : [],
+      "name" : "pro_access",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "FA57574A-S001-S001-S001-FA57574AS001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited uploads, 5 GB files, 30-day retention, cross-device sync.",
+              "displayName" : "FastShared Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.kindrazki.fastshared.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "FA57574A-G001-G001-G001-FA57574AG001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "29.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "FA57574A-S002-S002-S002-FA57574AS002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited uploads, 5 GB files, 30-day retention, cross-device sync. Save 45% vs monthly.",
+              "displayName" : "FastShared Pro Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.kindrazki.fastshared.pro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Annual",
+          "subscriptionGroupID" : "FA57574A-G001-G001-G001-FA57574AG001",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

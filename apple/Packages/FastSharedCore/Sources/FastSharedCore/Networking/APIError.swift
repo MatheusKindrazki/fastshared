@@ -30,6 +30,11 @@ public enum APIError: Error, Sendable {
     case unauthorized
     case ratelimited(retryAfter: TimeInterval?)
     case validation(field: String, reason: String)
+    /// `HTTP 402 Payment Required` — the server refused because the caller is on a
+    /// tier that forbids the operation. `errorCode` mirrors `Problem.code` (e.g.
+    /// `"pro_required"`, `"file_too_large_free"`) so UI can route to a specific
+    /// paywall trigger; `problem` carries the full RFC 7807 body when present.
+    case paymentRequired(errorCode: String, problem: Problem?)
 }
 
 extension APIError: LocalizedError {
@@ -49,6 +54,9 @@ extension APIError: LocalizedError {
             return "Rate limited."
         case .validation(let field, let reason):
             return "Invalid \(field): \(reason)"
+        case .paymentRequired(let errorCode, let problem):
+            if let detail = problem?.detail { return "Upgrade required: \(detail)" }
+            return "Upgrade required (\(errorCode))."
         }
     }
 }

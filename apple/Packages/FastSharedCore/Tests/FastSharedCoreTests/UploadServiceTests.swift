@@ -286,6 +286,18 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     func shortURL(forToken token: String) -> URL {
         URL(string: "https://fastsha.red/s/\(token)")!
     }
+
+    func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse {
+        IAPVerifyResponse(isPro: false, tier: nil, expiresAt: nil, caps: TierCaps.free.toDTO())
+    }
+
+    func fetchMe() async throws -> MeResponse {
+        MeResponse(isPro: false, tier: nil, expiresAt: nil, caps: TierCaps.free.toDTO())
+    }
+
+    func fetchPricingFlags() async throws -> PricingFlags {
+        PricingFlags(earlyAccessLifetimeActive: false, earlyAccessEndsAt: nil)
+    }
 }
 
 final class InMemoryKeychain: KeychainStoring, @unchecked Sendable {

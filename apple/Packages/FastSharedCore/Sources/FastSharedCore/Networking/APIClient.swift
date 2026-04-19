@@ -10,6 +10,9 @@ public protocol APIClientProtocol: Sendable {
     func deleteAsset(_ id: UUID) async throws
     func revokeLink(token: String) async throws -> RevokeResponse
     func shortURL(forToken token: String) -> URL
+    func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse
+    func fetchMe() async throws -> MeResponse
+    func fetchPricingFlags() async throws -> PricingFlags
 }
 
 public final class APIClient: APIClientProtocol, @unchecked Sendable {
@@ -116,6 +119,27 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         shortLinkHost.appendingPathComponent("s").appendingPathComponent(token)
     }
 
+    public func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse {
+        let body = IAPVerifyRequest(signedTransaction: signedTransactionJWS)
+        return try await perform(endpoint: .iapVerify, body: body)
+    }
+
+    public func fetchMe() async throws -> MeResponse {
+        var request = URLRequest(url: baseURL.appendingPathComponent(APIEndpoint.me.path))
+        request.httpMethod = APIEndpoint.me.method.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try await attachAuth(&request)
+        return try await send(request)
+    }
+
+    public func fetchPricingFlags() async throws -> PricingFlags {
+        var request = URLRequest(url: baseURL.appendingPathComponent(APIEndpoint.pricingFlags.path))
+        request.httpMethod = APIEndpoint.pricingFlags.method.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try await attachAuth(&request)
+        return try await send(request)
+    }
+
     // MARK: - Internals
 
     private func perform<Body: Encodable, Response: Decodable>(endpoint: APIEndpoint,
@@ -171,6 +195,12 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
             return
         case 401:
             throw APIError.unauthorized
+        case 402:
+            // WHY: 402 is surfaced as a dedicated typed error so UI callers can route
+            // to the paywall coordinator instead of parsing a generic `.http` payload.
+            let problem = try? decoder.decode(Problem.self, from: data)
+            throw APIError.paymentRequired(errorCode: problem?.code ?? "payment_required",
+                                           problem: problem)
         case 429:
             let retryAfter = response.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
             throw APIError.ratelimited(retryAfter: retryAfter)

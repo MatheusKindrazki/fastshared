@@ -157,8 +157,10 @@ schemes:
         FastSharedLiveActivity: all
     run:
       config: Debug
+      storeKitConfiguration: FastSharedApp/FastShared.storekit
     test:
       config: Debug
+      storeKitConfiguration: FastSharedApp/FastShared.storekit
     profile:
       config: Release
     analyze:
