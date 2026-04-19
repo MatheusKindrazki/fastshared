@@ -1,0 +1,15 @@
+#include "Shared.xcconfig"
+
+// Debug build: points at the development backend and uses debug-only short link host.
+// The `$()` token below is a no-op build-setting substitution that prevents xcconfig from
+// treating "//" as the start of a comment when we embed URLs.
+API_BASE_URL = https:/$()/api.dev.fastshared.app
+SHORT_LINK_HOST = https:/$()/fsh.dev
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+SWIFT_COMPILATION_MODE = singlefile
+GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1 $(inherited)
+ENABLE_TESTABILITY = YES
+DEBUG_INFORMATION_FORMAT = dwarf
+ONLY_ACTIVE_ARCH = YES

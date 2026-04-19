@@ -1,0 +1,23 @@
+// Shared build settings for FastShared (app + extension + tests).
+// Replace TEAMID with your Apple Developer team identifier before generating the Xcode project.
+
+DEVELOPMENT_TEAM = TEAMID
+
+PRODUCT_BUNDLE_IDENTIFIER_PREFIX = com.yourco.fastshared
+APP_GROUP_IDENTIFIER = group.com.yourco.fastshared
+KEYCHAIN_ACCESS_GROUP = $(AppIdentifierPrefix)com.yourco.fastshared
+
+SWIFT_VERSION = 5.10
+
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+MACOSX_DEPLOYMENT_TARGET = 14.0
+
+CODE_SIGN_STYLE = Automatic
+ENABLE_HARDENED_RUNTIME = YES
+SWIFT_STRICT_CONCURRENCY = complete
+CLANG_ANALYZER_NONNULL = YES
+
+SHARED_BACKGROUND_SESSION_IDENTIFIER = com.yourco.fastshared.upload

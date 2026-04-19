@@ -1,0 +1,119 @@
+name: FastShared
+options:
+  bundleIdPrefix: com.yourco.fastshared
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  defaultConfig: Debug
+  groupSortPosition: top
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: 5.10
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    CLANG_ENABLE_MODULES: YES
+    ENABLE_MODULE_VERIFIER: NO
+    ALWAYS_SEARCH_USER_PATHS: NO
+  configs:
+    Debug:
+      xcconfig: Config/Debug.xcconfig
+    Release:
+      xcconfig: Config/Release.xcconfig
+
+packages:
+  FastSharedCore:
+    path: Packages/FastSharedCore
+
+targets:
+  FastSharedApp:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: FastSharedApp
+    dependencies:
+      - package: FastSharedCore
+        product: FastSharedCore
+    info:
+      path: FastSharedApp/Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: FastShared
+        PRODUCT_BUNDLE_IDENTIFIER: $(PRODUCT_BUNDLE_IDENTIFIER_PREFIX)
+        CODE_SIGN_ENTITLEMENTS: FastSharedApp/FastSharedApp.entitlements
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: $(MARKETING_VERSION)
+        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
+        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+    dependencies:
+      - target: FastSharedShareExt
+        embed: true
+        codeSign: true
+      - package: FastSharedCore
+        product: FastSharedCore
+
+  FastSharedShareExt:
+    type: app-extension
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: FastSharedShareExt
+    dependencies:
+      - package: FastSharedCore
+        product: FastSharedCore
+    info:
+      path: FastSharedShareExt/Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: FastSharedShareExt
+        PRODUCT_BUNDLE_IDENTIFIER: $(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).ShareExt
+        CODE_SIGN_ENTITLEMENTS: FastSharedShareExt/FastSharedShareExt.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        MARKETING_VERSION: $(MARKETING_VERSION)
+        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
+        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+        TARGETED_DEVICE_FAMILY: "1,2"
+
+schemes:
+  FastSharedApp:
+    build:
+      targets:
+        FastSharedApp: all
+        FastSharedShareExt: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  FastSharedShareExt:
+    build:
+      targets:
+        FastSharedShareExt: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
