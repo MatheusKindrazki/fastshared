@@ -21,6 +21,7 @@ public actor UploadOrchestrator {
     }
 
     public func handleTaskSuccess(clientJobId: UUID, etag: String?) async {
+        _ = etag // WHY: retained for API parity but the backend no longer consumes the S3 ETag.
         do {
             try await repository.updateStatus(clientJobId: clientJobId, status: .completing)
             guard let entity = try await repository.findByClientJobId(clientJobId),
@@ -28,9 +29,13 @@ public actor UploadOrchestrator {
                 log.error("No upload id for job \(clientJobId.uuidString, privacy: .public)")
                 return
             }
-            let sha = entity.sha256
-            let completion = try await apiClient.completeUpload(uploadId: remoteUploadId,
-                                                                request: CompleteRequest(etag: etag, sha256: sha))
+            let completion = try await apiClient.completeUpload(
+                uploadId: remoteUploadId,
+                request: CompleteRequest(contentType: entity.contentType,
+                                         sizeBytes: entity.sizeBytes,
+                                         sha256: entity.sha256,
+                                         originalFilename: entity.originalFilename)
+            )
             try await recordSuccess(clientJobId: clientJobId,
                                     completion: completion,
                                     contentType: entity.contentType,
@@ -55,12 +60,12 @@ public actor UploadOrchestrator {
         try await repository.updateStatus(clientJobId: clientJobId, status: .deduped)
         try await repository.markCompleted(clientJobId: clientJobId,
                                            assetId: dedupe.assetId,
-                                           shortURL: dedupe.shortURL,
+                                           shortURL: dedupe.shortUrl,
                                            expiresAt: dedupe.expiresAt,
                                            deleteAfter: dedupe.deleteAfter)
         try await writeShareLink(token: dedupe.token,
                                  assetId: dedupe.assetId,
-                                 shortURL: dedupe.shortURL,
+                                 shortURL: dedupe.shortUrl,
                                  contentType: contentType,
                                  sizeBytes: sizeBytes,
                                  filename: filename,
@@ -68,7 +73,7 @@ public actor UploadOrchestrator {
                                  deleteAfter: dedupe.deleteAfter,
                                  linkStatus: "active",
                                  retentionPolicy: dedupe.retentionPolicy)
-        clipboard.copy(dedupe.shortURL.absoluteString)
+        clipboard.copy(dedupe.shortUrl.absoluteString)
     }
 
     public func revoke(token: String) async throws {
@@ -100,8 +105,13 @@ public actor UploadOrchestrator {
                 log.info("reconciling job \(job.clientJobId.uuidString, privacy: .public) in state \(job.status.rawValue, privacy: .public)")
                 if job.status == .completing, let uploadId = job.remoteUploadId {
                     do {
-                        let completion = try await apiClient.completeUpload(uploadId: uploadId,
-                                                                            request: CompleteRequest(etag: nil, sha256: job.sha256))
+                        let completion = try await apiClient.completeUpload(
+                            uploadId: uploadId,
+                            request: CompleteRequest(contentType: job.contentType,
+                                                     sizeBytes: job.sizeBytes,
+                                                     sha256: job.sha256,
+                                                     originalFilename: job.originalFilename)
+                        )
                         try await recordSuccess(clientJobId: job.clientJobId,
                                                 completion: completion,
                                                 contentType: job.contentType,

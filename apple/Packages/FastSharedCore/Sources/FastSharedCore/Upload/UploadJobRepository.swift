@@ -93,12 +93,16 @@ public actor UploadJobRepository {
         return try context.fetch(descriptor).map { $0.snapshot() }
     }
 
-    public func setPresign(clientJobId: UUID, uploadId: String, assetId: UUID) throws {
+    public func setPresign(clientJobId: UUID, uploadId: String, assetId: UUID? = nil) throws {
         let context = store.backgroundContext()
         let descriptor = FetchDescriptor<UploadJobEntity>(predicate: #Predicate { $0.clientJobId == clientJobId })
         guard let entity = try context.fetch(descriptor).first else { return }
         entity.remoteUploadId = uploadId
-        entity.remoteAssetId = assetId.uuidString
+        // WHY: the backend only issues an assetId after /complete, so leave remoteAssetId
+        // untouched during presign when the caller has nothing to set.
+        if let assetId {
+            entity.remoteAssetId = assetId.uuidString
+        }
         entity.updatedAt = Date()
         try context.save()
     }

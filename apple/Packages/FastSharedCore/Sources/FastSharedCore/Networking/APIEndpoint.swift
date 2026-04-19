@@ -60,20 +60,20 @@ public struct RegisterDeviceResponse: Sendable, Codable, Equatable {
 
 public struct DedupeInfo: Sendable, Codable, Equatable {
     public let assetId: UUID
-    public let shortURL: URL
+    public let shortUrl: URL
     public let token: String
     public let expiresAt: Date
     public let deleteAfter: Date
     public let retentionPolicy: String
 
     public init(assetId: UUID,
-                shortURL: URL,
+                shortUrl: URL,
                 token: String,
                 expiresAt: Date,
                 deleteAfter: Date,
                 retentionPolicy: String) {
         self.assetId = assetId
-        self.shortURL = shortURL
+        self.shortUrl = shortUrl
         self.token = token
         self.expiresAt = expiresAt
         self.deleteAfter = deleteAfter
@@ -107,42 +107,76 @@ public struct PresignRequest: Sendable, Codable, Equatable {
     }
 }
 
-public struct PresignResponse: Sendable, Codable, Equatable {
-    public let uploadId: String
-    public let assetId: UUID
-    public let uploadUrl: URL
+public struct UploadInstruction: Sendable, Codable, Equatable {
+    public let url: URL
+    public let method: String
     public let headers: [String: String]
     public let expiresAt: Date
-    public let deleteAfter: Date
-    public let retentionPolicy: String
-    public let deduped: DedupeInfo?
 
-    public init(uploadId: String,
-                assetId: UUID,
-                uploadUrl: URL,
+    public init(url: URL,
+                method: String,
                 headers: [String: String],
-                expiresAt: Date,
-                deleteAfter: Date,
-                retentionPolicy: String,
-                deduped: DedupeInfo?) {
-        self.uploadId = uploadId
-        self.assetId = assetId
-        self.uploadUrl = uploadUrl
+                expiresAt: Date) {
+        self.url = url
+        self.method = method
         self.headers = headers
         self.expiresAt = expiresAt
-        self.deleteAfter = deleteAfter
+    }
+}
+
+// WHY: the backend returns two disjoint shapes on the same endpoint.
+// Happy path carries uploadId + upload + retention metadata; the dedup path
+// returns ONLY `deduped` with the existing share-link fields. Every field
+// outside of `deduped` is therefore optional so both responses decode cleanly.
+public struct PresignResponse: Sendable, Codable, Equatable {
+    public let uploadId: String?
+    public let bucket: String?
+    public let storageKey: String?
+    public let contentType: String?
+    public let sizeBytes: Int64?
+    public let upload: UploadInstruction?
+    public let retentionPolicy: String?
+    public let expiresAt: Date?
+    public let deleteAfter: Date?
+    public let deduped: DedupeInfo?
+
+    public init(uploadId: String?,
+                bucket: String?,
+                storageKey: String?,
+                contentType: String?,
+                sizeBytes: Int64?,
+                upload: UploadInstruction?,
+                retentionPolicy: String?,
+                expiresAt: Date?,
+                deleteAfter: Date?,
+                deduped: DedupeInfo?) {
+        self.uploadId = uploadId
+        self.bucket = bucket
+        self.storageKey = storageKey
+        self.contentType = contentType
+        self.sizeBytes = sizeBytes
+        self.upload = upload
         self.retentionPolicy = retentionPolicy
+        self.expiresAt = expiresAt
+        self.deleteAfter = deleteAfter
         self.deduped = deduped
     }
 }
 
 public struct CompleteRequest: Sendable, Codable, Equatable {
-    public let etag: String?
+    public let contentType: String
+    public let sizeBytes: Int64
     public let sha256: String?
+    public let originalFilename: String?
 
-    public init(etag: String?, sha256: String?) {
-        self.etag = etag
+    public init(contentType: String,
+                sizeBytes: Int64,
+                sha256: String?,
+                originalFilename: String?) {
+        self.contentType = contentType
+        self.sizeBytes = sizeBytes
         self.sha256 = sha256
+        self.originalFilename = originalFilename
     }
 }
 

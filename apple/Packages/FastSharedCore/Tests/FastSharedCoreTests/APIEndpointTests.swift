@@ -5,7 +5,6 @@ final class APIEndpointTests: XCTestCase {
     private let encoder: JSONEncoder = {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .iso8601
-        e.keyEncodingStrategy = .convertToSnakeCase
         e.outputFormatting = [.sortedKeys]
         return e
     }()
@@ -13,14 +12,12 @@ final class APIEndpointTests: XCTestCase {
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
-        d.keyDecodingStrategy = .convertFromSnakeCase
         return d
     }()
 
     // WHY: matches the production APIClient date strategy — accept both fractional-second and plain ISO 8601.
     private let lenientDecoder: JSONDecoder = {
         let d = JSONDecoder()
-        d.keyDecodingStrategy = .convertFromSnakeCase
         let fractional = ISO8601DateFormatter()
         fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let plain = ISO8601DateFormatter()
@@ -45,27 +42,100 @@ final class APIEndpointTests: XCTestCase {
                                       customTtlSeconds: nil)
         let data = try encoder.encode(original)
         let json = String(data: data, encoding: .utf8) ?? ""
-        XCTAssertTrue(json.contains("\"retention_policy\":\"oneHour\""))
+        XCTAssertTrue(json.contains("\"retentionPolicy\":\"oneHour\""), "encoded JSON missing retentionPolicy: \(json)")
         let decoded = try decoder.decode(PresignRequest.self, from: data)
         XCTAssertEqual(original, decoded)
     }
 
     func test_presignResponse_roundTrip() throws {
-        let original = PresignResponse(uploadId: "upl_1",
-                                       assetId: UUID(),
-                                       uploadUrl: URL(string: "https://example.com/u")!,
-                                       headers: ["x-amz-acl": "private"],
-                                       expiresAt: Date(timeIntervalSince1970: 1_700_000_000),
-                                       deleteAfter: Date(timeIntervalSince1970: 1_700_086_400),
-                                       retentionPolicy: "oneDay",
-                                       deduped: nil)
+        let original = PresignResponse(
+            uploadId: "upl_1",
+            bucket: "fastshared",
+            storageKey: "uploads/a/2026/04/19/abc.png",
+            contentType: "image/png",
+            sizeBytes: 68,
+            upload: UploadInstruction(
+                url: URL(string: "https://example.com/u")!,
+                method: "PUT",
+                headers: ["content-type": "image/png", "content-length": "68"],
+                expiresAt: Date(timeIntervalSince1970: 1_700_000_000)
+            ),
+            retentionPolicy: "oneDay",
+            expiresAt: Date(timeIntervalSince1970: 1_700_000_000),
+            deleteAfter: Date(timeIntervalSince1970: 1_700_086_400),
+            deduped: nil
+        )
         let data = try encoder.encode(original)
         let decoded = try decoder.decode(PresignResponse.self, from: data)
         XCTAssertEqual(original, decoded)
     }
 
+    func test_presignResponse_decodes_live_backend_happy_path() throws {
+        // WHY: fixture copied from the real backend response at api.shared.kindrazki.dev
+        // so a future DTO drift is caught by this test, not by a failing upload.
+        let json = #"""
+        {
+          "uploadId": "11111111-2222-3333-4444-555555555555",
+          "bucket": "fastshared",
+          "storageKey": "uploads/5d/2026/04/19/abc.png",
+          "contentType": "image/png",
+          "sizeBytes": 68,
+          "upload": {
+            "url": "https://fastshared.r2.cloudflarestorage.com/uploads/abc?X-Amz-Signature=x",
+            "method": "PUT",
+            "headers": { "content-type": "image/png", "content-length": "68" },
+            "expiresAt": "2026-04-19T13:26:42.008Z"
+          },
+          "retentionPolicy": "oneHour",
+          "expiresAt": "2026-04-19T14:11:41.731Z",
+          "deleteAfter": "2026-04-20T14:11:41.731Z"
+        }
+        """#.data(using: .utf8)!
+        let decoded = try lenientDecoder.decode(PresignResponse.self, from: json)
+        XCTAssertEqual(decoded.uploadId, "11111111-2222-3333-4444-555555555555")
+        XCTAssertEqual(decoded.bucket, "fastshared")
+        XCTAssertEqual(decoded.storageKey, "uploads/5d/2026/04/19/abc.png")
+        XCTAssertEqual(decoded.contentType, "image/png")
+        XCTAssertEqual(decoded.sizeBytes, 68)
+        XCTAssertEqual(decoded.retentionPolicy, "oneHour")
+        XCTAssertNil(decoded.deduped)
+        let upload = try XCTUnwrap(decoded.upload)
+        XCTAssertEqual(upload.method, "PUT")
+        XCTAssertEqual(upload.headers["content-type"], "image/png")
+        XCTAssertEqual(upload.headers["content-length"], "68")
+    }
+
+    func test_presignResponse_decodes_live_backend_dedup_path() throws {
+        // WHY: on sha256 dedup the backend replies with ONLY `deduped`. Every other field
+        // must therefore be optional on the Swift side.
+        let json = #"""
+        {
+          "deduped": {
+            "assetId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "token": "abcDEF0123456789ABCDEF",
+            "shortUrl": "https://shared.kindrazki.dev/s/abcDEF0123456789ABCDEF",
+            "expiresAt": "2026-04-19T14:11:41.731Z",
+            "deleteAfter": "2026-04-20T14:11:41.731Z",
+            "retentionPolicy": "oneHour"
+          }
+        }
+        """#.data(using: .utf8)!
+        let decoded = try lenientDecoder.decode(PresignResponse.self, from: json)
+        XCTAssertNil(decoded.uploadId)
+        XCTAssertNil(decoded.upload)
+        XCTAssertNil(decoded.bucket)
+        XCTAssertNil(decoded.storageKey)
+        let dedupe = try XCTUnwrap(decoded.deduped)
+        XCTAssertEqual(dedupe.token, "abcDEF0123456789ABCDEF")
+        XCTAssertEqual(dedupe.shortUrl.absoluteString, "https://shared.kindrazki.dev/s/abcDEF0123456789ABCDEF")
+        XCTAssertEqual(dedupe.retentionPolicy, "oneHour")
+    }
+
     func test_completeRoundTrip() throws {
-        let req = CompleteRequest(etag: "etag-1", sha256: "abc")
+        let req = CompleteRequest(contentType: "image/png",
+                                  sizeBytes: 68,
+                                  sha256: String(repeating: "a", count: 64),
+                                  originalFilename: "a.png")
         let reqData = try encoder.encode(req)
         let reqDecoded = try decoder.decode(CompleteRequest.self, from: reqData)
         XCTAssertEqual(req, reqDecoded)
@@ -80,6 +150,21 @@ final class APIEndpointTests: XCTestCase {
         let respData = try encoder.encode(resp)
         let respDecoded = try decoder.decode(CompleteResponse.self, from: respData)
         XCTAssertEqual(resp, respDecoded)
+    }
+
+    func test_completeRequest_encodes_required_fields() throws {
+        // WHY: backend's completeSchema requires contentType + sizeBytes (positive int).
+        // This test verifies the fields are present after encoding; the key casing is
+        // governed by the APIClient-wide JSONEncoder strategy.
+        let req = CompleteRequest(contentType: "image/png",
+                                  sizeBytes: 68,
+                                  sha256: nil,
+                                  originalFilename: nil)
+        let data = try encoder.encode(req)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(json.contains("\"contentType\":\"image\\/png\"") || json.contains("\"contentType\":\"image/png\""),
+                      "encoded JSON missing contentType: \(json)")
+        XCTAssertTrue(json.contains("\"sizeBytes\":68"), "encoded JSON missing sizeBytes: \(json)")
     }
 
     func test_historyPage_roundTrip() throws {
@@ -112,8 +197,8 @@ final class APIEndpointTests: XCTestCase {
         let json = #"""
         {
           "ok": true,
-          "link_status": "revoked",
-          "revoked_at": "2026-04-19T10:30:45.123Z"
+          "linkStatus": "revoked",
+          "revokedAt": "2026-04-19T10:30:45.123Z"
         }
         """#.data(using: .utf8)!
         let decoded = try lenientDecoder.decode(RevokeResponse.self, from: json)
@@ -124,8 +209,8 @@ final class APIEndpointTests: XCTestCase {
         let json = #"""
         {
           "ok": true,
-          "link_status": "revoked",
-          "revoked_at": "2026-04-19T10:30:45Z"
+          "linkStatus": "revoked",
+          "revokedAt": "2026-04-19T10:30:45Z"
         }
         """#.data(using: .utf8)!
         let decoded = try lenientDecoder.decode(RevokeResponse.self, from: json)

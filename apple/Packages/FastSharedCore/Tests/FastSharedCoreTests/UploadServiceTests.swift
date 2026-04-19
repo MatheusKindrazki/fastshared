@@ -39,14 +39,12 @@ final class UploadServiceTests: XCTestCase {
 
     func test_enqueue_passes_retention_policy_into_presign_body() async throws {
         let (service, mock, _, _) = try await makeService()
-        mock.presignResponse = PresignResponse(uploadId: "upl_1",
-                                               assetId: UUID(),
-                                               uploadUrl: URL(string: "https://example.com/u")!,
-                                               headers: [:],
-                                               expiresAt: Date().addingTimeInterval(3600),
-                                               deleteAfter: Date().addingTimeInterval(90_000),
-                                               retentionPolicy: "oneHour",
-                                               deduped: nil)
+        mock.presignResponse = Self.makePresignHappyPath(
+            uploadId: "upl_1",
+            expires: Date().addingTimeInterval(3600),
+            deleteAfter: Date().addingTimeInterval(90_000),
+            retentionPolicy: "oneHour"
+        )
         let fileURL = try Self.writeTempFile(bytes: 32)
         _ = try await service.enqueue(stagedURL: fileURL,
                                       contentType: "application/octet-stream",
@@ -61,19 +59,26 @@ final class UploadServiceTests: XCTestCase {
         let assetId = UUID()
         let expires = Date().addingTimeInterval(86_400)
         let deleteAfter = expires.addingTimeInterval(86_400)
-        mock.presignResponse = PresignResponse(uploadId: "upl_1",
-                                               assetId: UUID(),
-                                               uploadUrl: URL(string: "https://example.com/u")!,
-                                               headers: [:],
-                                               expiresAt: expires,
-                                               deleteAfter: deleteAfter,
-                                               retentionPolicy: "oneDay",
-                                               deduped: DedupeInfo(assetId: assetId,
-                                                                   shortURL: URL(string: "https://fsh.re/abc")!,
-                                                                   token: "abcDEF0123456789ABCDEF",
-                                                                   expiresAt: expires,
-                                                                   deleteAfter: deleteAfter,
-                                                                   retentionPolicy: "oneDay"))
+        // WHY: on dedup the backend omits uploadId / upload / retention at the top level
+        // and returns ONLY the nested `deduped` payload. Mirror that here so the test
+        // actually exercises the code path the live server triggers.
+        mock.presignResponse = PresignResponse(
+            uploadId: nil,
+            bucket: nil,
+            storageKey: nil,
+            contentType: nil,
+            sizeBytes: nil,
+            upload: nil,
+            retentionPolicy: nil,
+            expiresAt: nil,
+            deleteAfter: nil,
+            deduped: DedupeInfo(assetId: assetId,
+                                shortUrl: URL(string: "https://fsh.re/abc")!,
+                                token: "abcDEF0123456789ABCDEF",
+                                expiresAt: expires,
+                                deleteAfter: deleteAfter,
+                                retentionPolicy: "oneDay")
+        )
         let fileURL = try Self.writeTempFile(bytes: 32)
         let job = try await service.enqueue(stagedURL: fileURL,
                                             contentType: "application/octet-stream",
@@ -92,19 +97,60 @@ final class UploadServiceTests: XCTestCase {
         XCTAssertEqual(entity.retentionPolicy, "oneDay")
     }
 
+    func test_dedupe_path_does_not_schedule_background_upload() async throws {
+        // WHY: dedup means the asset is already in storage — the PUT step must be skipped
+        // and only the local share-link row written.
+        let store = SwiftDataStore.inMemoryForTests()
+        let mock = MockAPIClient()
+        let keychain = InMemoryKeychain()
+        let tokenStore = DeviceTokenStore(keychain: keychain)
+        try await tokenStore.save(DeviceToken(deviceId: UUID(), token: "t"))
+        let background = RecordingBackgroundScheduler()
+        let clipboard = RecordingClipboard()
+        let orchestrator = UploadOrchestrator(apiClient: mock, store: store, clipboard: clipboard)
+        let service = UploadService(apiClient: mock,
+                                    store: store,
+                                    tokenStore: tokenStore,
+                                    background: background,
+                                    orchestrator: orchestrator)
+
+        let expires = Date().addingTimeInterval(86_400)
+        mock.presignResponse = PresignResponse(
+            uploadId: nil,
+            bucket: nil,
+            storageKey: nil,
+            contentType: nil,
+            sizeBytes: nil,
+            upload: nil,
+            retentionPolicy: nil,
+            expiresAt: nil,
+            deleteAfter: nil,
+            deduped: DedupeInfo(assetId: UUID(),
+                                shortUrl: URL(string: "https://fsh.re/dedup")!,
+                                token: "tokDEDUPtokDEDUPtokDED",
+                                expiresAt: expires,
+                                deleteAfter: expires.addingTimeInterval(86_400),
+                                retentionPolicy: "oneDay")
+        )
+        let fileURL = try Self.writeTempFile(bytes: 16)
+        _ = try await service.enqueue(stagedURL: fileURL,
+                                      contentType: "application/octet-stream",
+                                      originalFilename: "dup.bin")
+        XCTAssertTrue(background.scheduled.isEmpty, "dedup path must not schedule a PUT")
+    }
+
     func test_happy_path_schedules_background_upload_and_persists_timestamps_on_complete() async throws {
         let (service, mock, store, clipboard, orchestrator) = try await makeServiceWithOrchestrator()
         let expires = Date().addingTimeInterval(3600)
         let deleteAfter = expires.addingTimeInterval(86_400)
         let assetId = UUID()
-        mock.presignResponse = PresignResponse(uploadId: "upl_42",
-                                               assetId: assetId,
-                                               uploadUrl: URL(string: "https://example.com/u")!,
-                                               headers: ["x-amz-acl": "private"],
-                                               expiresAt: expires,
-                                               deleteAfter: deleteAfter,
-                                               retentionPolicy: "oneHour",
-                                               deduped: nil)
+        mock.presignResponse = Self.makePresignHappyPath(
+            uploadId: "upl_42",
+            expires: expires,
+            deleteAfter: deleteAfter,
+            retentionPolicy: "oneHour",
+            headers: ["x-amz-acl": "private"]
+        )
         mock.completeResponse = CompleteResponse(assetId: assetId,
                                                  shortUrl: URL(string: "https://fsh.re/xyz")!,
                                                  token: "tok1234567890TOKENXYZ2",
@@ -121,6 +167,10 @@ final class UploadServiceTests: XCTestCase {
         XCTAssertEqual(job.status, .uploading)
 
         await orchestrator.handleTaskSuccess(clientJobId: job.clientJobId, etag: "etag-1")
+
+        XCTAssertEqual(mock.capturedCompleteRequest?.contentType, "application/octet-stream")
+        XCTAssertEqual(mock.capturedCompleteRequest?.sizeBytes, 64)
+        XCTAssertEqual(mock.capturedCompleteRequest?.originalFilename, "f.bin")
 
         let context = await store.mainContext()
         let descriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.token == "tok1234567890TOKENXYZ2" })
@@ -162,6 +212,28 @@ final class UploadServiceTests: XCTestCase {
         try data.write(to: url)
         return url
     }
+
+    static func makePresignHappyPath(uploadId: String,
+                                     expires: Date,
+                                     deleteAfter: Date,
+                                     retentionPolicy: String,
+                                     headers: [String: String] = ["content-type": "application/octet-stream"]) -> PresignResponse {
+        PresignResponse(
+            uploadId: uploadId,
+            bucket: "fastshared",
+            storageKey: "uploads/test/\(uploadId)",
+            contentType: headers["content-type"] ?? "application/octet-stream",
+            sizeBytes: 32,
+            upload: UploadInstruction(url: URL(string: "https://example.com/u")!,
+                                      method: "PUT",
+                                      headers: headers,
+                                      expiresAt: expires),
+            retentionPolicy: retentionPolicy,
+            expiresAt: expires,
+            deleteAfter: deleteAfter,
+            deduped: nil
+        )
+    }
 }
 
 // MARK: - Mocks
@@ -172,6 +244,7 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     var failUploadError: Error?
     var revokeResponse: RevokeResponse?
     private(set) var capturedPresignRequest: PresignRequest?
+    private(set) var capturedCompleteRequest: CompleteRequest?
 
     func registerDevice(platform: String, appVersion: String) async throws -> DeviceToken {
         DeviceToken(deviceId: UUID(), token: "mock")
@@ -184,6 +257,7 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     func completeUpload(uploadId: String, request: CompleteRequest) async throws -> CompleteResponse {
+        capturedCompleteRequest = request
         if let completeResponse { return completeResponse }
         return CompleteResponse(assetId: UUID(),
                                 shortUrl: URL(string: "https://fsh.re/x")!,
@@ -225,14 +299,14 @@ final class InMemoryKeychain: KeychainStoring, @unchecked Sendable {
 final class RecordingBackgroundScheduler: BackgroundSessionScheduling, @unchecked Sendable {
     struct Scheduled {
         let job: UploadJob
-        let presign: PresignResponse
+        let upload: UploadInstruction
         let fileURL: URL
     }
 
     var scheduled: [Scheduled] = []
 
-    func scheduleUpload(job: UploadJob, presign: PresignResponse, fileURL: URL) throws {
-        scheduled.append(Scheduled(job: job, presign: presign, fileURL: fileURL))
+    func scheduleUpload(job: UploadJob, upload: UploadInstruction, fileURL: URL) throws {
+        scheduled.append(Scheduled(job: job, upload: upload, fileURL: fileURL))
     }
 
     func attach(completionHandler: @escaping () -> Void, identifier: String) {}

@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 public protocol BackgroundSessionScheduling: AnyObject, Sendable {
-    func scheduleUpload(job: UploadJob, presign: PresignResponse, fileURL: URL) throws
+    func scheduleUpload(job: UploadJob, upload: UploadInstruction, fileURL: URL) throws
     func attach(completionHandler: @escaping () -> Void, identifier: String)
     func bind(orchestrator: UploadOrchestrator, store: SwiftDataStore)
 }
@@ -16,7 +16,7 @@ public final class BackgroundSessionManager: NSObject,
     public static let shared = BackgroundSessionManager()
 
     private let log = Logger(subsystem: Log.subsystem, category: "upload")
-    private let queue = DispatchQueue(label: "com.yourco.fastshared.background.session")
+    private let queue = DispatchQueue(label: "dev.kindrazki.fastshared.background.session")
     private var orchestrator: UploadOrchestrator?
     private var repository: UploadJobRepository?
     private var completionHandler: (() -> Void)?
@@ -48,10 +48,10 @@ public final class BackgroundSessionManager: NSObject,
         _ = session
     }
 
-    public func scheduleUpload(job: UploadJob, presign: PresignResponse, fileURL: URL) throws {
-        var request = URLRequest(url: presign.uploadUrl)
-        request.httpMethod = "PUT"
-        for (key, value) in presign.headers {
+    public func scheduleUpload(job: UploadJob, upload: UploadInstruction, fileURL: URL) throws {
+        var request = URLRequest(url: upload.url)
+        request.httpMethod = upload.method.uppercased()
+        for (key, value) in upload.headers {
             request.setValue(value, forHTTPHeaderField: key)
         }
         if request.value(forHTTPHeaderField: "Content-Type") == nil {

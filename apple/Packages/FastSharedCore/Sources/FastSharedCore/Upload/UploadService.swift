@@ -75,10 +75,9 @@ public actor UploadService: UploadServiceProtocol {
                                          retentionPolicy: retentionPolicy.rawValue,
                                          customTtlSeconds: nil)
             let presign = try await apiClient.requestUpload(request)
-            try await repository.setPresign(clientJobId: job.clientJobId,
-                                            uploadId: presign.uploadId,
-                                            assetId: presign.assetId)
 
+            // WHY: the dedup response is disjoint from the happy path — it carries no
+            // uploadId or upload instruction, so short-circuit before touching those.
             if let dedupe = presign.deduped {
                 try await orchestrator.recordDedupe(clientJobId: job.clientJobId,
                                                     dedupe: dedupe,
@@ -86,15 +85,21 @@ public actor UploadService: UploadServiceProtocol {
                                                     sizeBytes: size,
                                                     filename: originalFilename)
                 job.status = .deduped
-                job.shortURL = dedupe.shortURL
+                job.shortURL = dedupe.shortUrl
                 job.remoteAssetId = dedupe.assetId.uuidString
                 job.expiresAt = dedupe.expiresAt
                 job.deleteAfter = dedupe.deleteAfter
                 return job
             }
 
+            guard let uploadId = presign.uploadId, let instruction = presign.upload else {
+                throw APIError.decoding(underlying: "presign response missing uploadId or upload instruction")
+            }
+            try await repository.setPresign(clientJobId: job.clientJobId,
+                                            uploadId: uploadId)
+
             try await repository.updateStatus(clientJobId: job.clientJobId, status: .uploading)
-            try background.scheduleUpload(job: job, presign: presign, fileURL: stagedURL)
+            try background.scheduleUpload(job: job, upload: instruction, fileURL: stagedURL)
             job.status = .uploading
             job.expiresAt = presign.expiresAt
             job.deleteAfter = presign.deleteAfter
