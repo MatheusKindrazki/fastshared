@@ -38,3 +38,5 @@ if (document.readyState === 'loading') {
 } else {
   mount();
 }
+
+export {};
