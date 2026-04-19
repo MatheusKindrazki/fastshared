@@ -20,13 +20,41 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            // WHY: the brand ground is near-black, which on a device with
+            // physical dark bezels (iPhone 17 Pro Max notch + home indicator
+            // area) makes the top and bottom of the screen read as letterbox
+            // rather than as a full-bleed canvas. Two soft radial washes
+            // push life into those edges — amber glow from the sphere's
+            // origin at the top-right, violet ambient from bottom-left —
+            // while the base ground still anchors the overall darkness.
             BrandPalette.ground
                 .ignoresSafeArea()
 
-            // Ambient sphere — blurred, top-right.
+            RadialGradient(
+                colors: [BrandPalette.amberAccent.hot.opacity(0.22), .clear],
+                center: .init(x: 0.9, y: 0.08),
+                startRadius: 0,
+                endRadius: 620
+            )
+            .ignoresSafeArea()
+            .blendMode(.screen)
+            .allowsHitTesting(false)
+
+            RadialGradient(
+                colors: [Color(red: 0.23, green: 0.11, blue: 0.40).opacity(0.55), .clear],
+                center: .init(x: 0.1, y: 0.95),
+                startRadius: 0,
+                endRadius: 700
+            )
+            .ignoresSafeArea()
+            .blendMode(.screen)
+            .allowsHitTesting(false)
+
+            // Ambient sphere — blurred, top-right. Wider blur so it carries
+            // past the content box into the screen edges.
             Sphere(size: 280)
-                .opacity(0.35)
-                .blur(radius: 6)
+                .opacity(0.45)
+                .blur(radius: 48)
                 .offset(x: 200, y: -90)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
