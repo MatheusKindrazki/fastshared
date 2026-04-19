@@ -141,7 +141,7 @@ final class APIEndpointTests: XCTestCase {
         XCTAssertEqual(req, reqDecoded)
 
         let resp = CompleteResponse(assetId: UUID(),
-                                    shortUrl: URL(string: "https://fsh.re/abc")!,
+                                    shortUrl: URL(string: "https://fastsha.red/abc")!,
                                     token: "abc",
                                     expiresAt: Date(timeIntervalSince1970: 1_700_000_000),
                                     deleteAfter: Date(timeIntervalSince1970: 1_700_086_400),
@@ -170,7 +170,7 @@ final class APIEndpointTests: XCTestCase {
     func test_historyPage_roundTrip() throws {
         let item = HistoryItem(assetId: UUID(),
                                token: "abc",
-                               shortUrl: URL(string: "https://fsh.re/abc")!,
+                               shortUrl: URL(string: "https://fastsha.red/abc")!,
                                contentType: "image/png",
                                sizeBytes: 1024,
                                originalFilename: "a.png",
