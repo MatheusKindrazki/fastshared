@@ -1,0 +1,36 @@
+---
+/**
+ * BrandLockup — PlaneArc mark + wordmark.
+ * Mirrors design-v3/screens.jsx BrandLockup (lines 53–63).
+ * The amber dot after "fastshared" is the only ornament — do not add others.
+ */
+
+import PlaneArc from './PlaneArc.astro';
+
+interface Props {
+  markSize?: number;
+  textSize?: number;
+  class?: string;
+  ariaLabel?: string;
+}
+
+const {
+  markSize = 22,
+  textSize = 15,
+  class: className = '',
+  ariaLabel = 'fastshared',
+} = Astro.props;
+---
+<span
+  class={`brand-lockup inline-flex items-center ${className}`}
+  style={`gap:8px;`}
+  aria-label={ariaLabel}
+>
+  <PlaneArc size={markSize} decorative ariaLabel={ariaLabel} />
+  <span
+    class="font-display font-bold tracking-[-0.05em]"
+    style={`font-size:${textSize}px;letter-spacing:-0.02em;line-height:1;`}
+  >
+    fastshared<span class="text-amber">.</span>
+  </span>
+</span>
