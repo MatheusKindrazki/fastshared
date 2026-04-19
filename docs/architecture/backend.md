@@ -36,7 +36,7 @@ Order matters; each layer is small and testable on its own.
 1. `requestId` — generates `req_<ulid>`, attaches to `c.var.requestId`, echoes as `X-Request-Id`.
 2. `logger` — JSON log at end of request with `requestId`, route, status, durMs. Tokens truncated to `token[:8]…`.
 3. `errorShape` — catches thrown `HttpError` subclasses and formats as RFC 7807.
-4. `cors` — allow-list for `app://fastshared` and `https://fsh.re`, `https://fsh.dev`. The resolve route intentionally has no CORS.
+4. `cors` — allow-list for `app://fastshared` and `https://fastsha.red`. The resolve route intentionally has no CORS.
 5. `rateLimit` — KV-based, keyed by device id (owner API), IP (unauthed device mint), or IP + token (resolve route).
 6. `auth` — verifies bearer, loads `device` + `user`. Runs after rate limiting so hostile traffic pays less database cost. Skipped for `/s/:token` and `/v1/devices`.
 7. `idempotency` — only on `POST /v1/uploads`; looks up `(device_id, client_job_id)` and short-circuits with a prior response when present.
@@ -225,7 +225,7 @@ RFC 7807, always `application/problem+json`.
 
 ```json
 {
-  "type": "https://fsh.re/errors/link-gone",
+  "type": "https://fastsha.red/errors/link-gone",
   "title": "Link is gone",
   "status": 410,
   "code": "link_gone",

@@ -191,7 +191,7 @@ Response (dedup hit against a live asset):
   "uploadId": "9c1d5c20-...",
   "dedup": true,
   "token": "aB3dG7kP9qR2sT4uV6wX8y",
-  "shortUrl": "https://fsh.re/s/aB3dG7kP9qR2sT4uV6wX8y",
+  "shortUrl": "https://fastsha.red/s/aB3dG7kP9qR2sT4uV6wX8y",
   "expiresAt": "2026-04-20T12:40:00Z",
   "deleteAfter": "2026-04-21T12:40:00Z",
   "linkStatus": "active",
@@ -205,7 +205,7 @@ Response (dedup hit against a live asset):
 {
   "uploadId": "9c1d5c20-...",
   "token": "aB3dG7kP9qR2sT4uV6wX8y",
-  "shortUrl": "https://fsh.re/s/aB3dG7kP9qR2sT4uV6wX8y",
+  "shortUrl": "https://fastsha.red/s/aB3dG7kP9qR2sT4uV6wX8y",
   "expiresAt": "2026-04-20T12:40:00Z",
   "deleteAfter": "2026-04-21T12:40:00Z",
   "linkStatus": "active",

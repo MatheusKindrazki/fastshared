@@ -16,10 +16,16 @@ struct ShareRootView: View {
             BrandPalette.canvas.ignoresSafeArea()
             content
                 .padding(24)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(BrandPalette.line.opacity(0.85), lineWidth: 1)
+                )
+                .padding(16)
                 .frame(minWidth: 360, minHeight: 420)
         }
-        .preferredColorScheme(.dark)
-        .foregroundStyle(BrandPalette.milk)
+        .preferredColorScheme(.light)
+        .foregroundStyle(BrandPalette.ink)
         .animation(BrandMotion.transition, value: phaseKey)
     }
 
@@ -160,10 +166,10 @@ private struct IdleStage: View {
             } label: {
                 Text("Upload")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(BrandPalette.ink)
+                    .foregroundStyle(BrandPalette.lightText)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(BrandPalette.amber, in: Capsule())
+                    .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.defaultAction)
@@ -182,7 +188,7 @@ private struct StagedRow: View {
                 .font(.title3)
                 .frame(width: 34, height: 34)
                 .foregroundStyle(BrandPalette.ember)
-                .background(BrandPalette.violet.opacity(0.55), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(BrandPalette.violet.opacity(0.75), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.filename)
                     .font(.callout.weight(.medium))
@@ -197,7 +203,11 @@ private struct StagedRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(BrandPalette.nightshade.opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(BrandPalette.paper.opacity(0.82), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(BrandPalette.line.opacity(0.8), lineWidth: 1)
+        )
     }
 
     private func iconName(for contentType: String) -> String {
@@ -306,10 +316,10 @@ private struct SuccessStage: View {
             Button(action: onDone) {
                 Text("Done")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(BrandPalette.ink)
+                    .foregroundStyle(BrandPalette.lightText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(BrandPalette.amber, in: Capsule())
+                    .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.defaultAction)
@@ -332,7 +342,7 @@ private struct SuccessStage: View {
                     .foregroundStyle(BrandPalette.ember)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(BrandPalette.violet.opacity(0.6), in: Capsule())
+                    .background(BrandPalette.violet.opacity(0.85), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             Text(filename)
                 .font(.footnote)
@@ -356,10 +366,10 @@ private struct SuccessStage: View {
             .padding(.vertical, 12)
             .frame(maxWidth: 320)
             .background(
-                Capsule()
-                    .fill(BrandPalette.nightshade)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(BrandPalette.paper)
                     .overlay(
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .strokeBorder(BrandPalette.arc, lineWidth: 1)
                     )
             )
@@ -446,16 +456,16 @@ private struct FailureStage: View {
                         .foregroundStyle(BrandPalette.milk)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(BrandPalette.nightshade, in: Capsule())
+                        .background(BrandPalette.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 Button(action: onRetry) {
                     Text("Retry")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(BrandPalette.ink)
+                        .foregroundStyle(BrandPalette.lightText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(BrandPalette.amber, in: Capsule())
+                        .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.defaultAction)

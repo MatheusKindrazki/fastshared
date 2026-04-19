@@ -1,84 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="fastshared app icon">
-  <title>fastshared · temporal link</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="FastShared app icon">
+  <title>FastShared app icon</title>
   <defs>
-    <radialGradient id="bg" cx="32%" cy="22%" r="125%">
-      <stop offset="0%"  stop-color="#3b1f86"/>
-      <stop offset="28%" stop-color="#1d0d4b"/>
-      <stop offset="68%" stop-color="#0f0630"/>
-      <stop offset="100%" stop-color="#070318"/>
-    </radialGradient>
-
-    <linearGradient id="arc" x1="0%" y1="60%" x2="100%" y2="30%">
-      <stop offset="0%"   stop-color="#ffc487" stop-opacity="1"/>
-      <stop offset="18%"  stop-color="#ff9f47" stop-opacity="1"/>
-      <stop offset="55%"  stop-color="#ff6a4a" stop-opacity="0.92"/>
-      <stop offset="82%"  stop-color="#ff4e7c" stop-opacity="0.45"/>
-      <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
+    <linearGradient id="bg" x1="12%" y1="6%" x2="88%" y2="96%">
+      <stop offset="0%" stop-color="#fbfcff"/>
+      <stop offset="48%" stop-color="#eef8f6"/>
+      <stop offset="100%" stop-color="#dfeaf2"/>
     </linearGradient>
-
-    <linearGradient id="arcCore" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%"   stop-color="#fff3dc" stop-opacity="0.9"/>
-      <stop offset="45%"  stop-color="#ffe0b8" stop-opacity="0.55"/>
-      <stop offset="80%"  stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="rail" x1="12%" y1="74%" x2="88%" y2="26%">
+      <stop offset="0%" stop-color="#4ecf8f"/>
+      <stop offset="58%" stop-color="#00a69c"/>
+      <stop offset="100%" stop-color="#008fcb"/>
     </linearGradient>
-
-    <radialGradient id="sphere" cx="38%" cy="34%" r="72%">
-      <stop offset="0%"  stop-color="#fff6e0"/>
-      <stop offset="22%" stop-color="#ffd28b"/>
-      <stop offset="58%" stop-color="#ff8838"/>
-      <stop offset="100%" stop-color="#a73b14"/>
-    </radialGradient>
-
-    <radialGradient id="sphereGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"  stop-color="#ff9f47" stop-opacity="0.55"/>
-      <stop offset="65%" stop-color="#ff6a4a" stop-opacity="0.12"/>
-      <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
-    </radialGradient>
-
-    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="14" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <linearGradient id="card" x1="20%" y1="12%" x2="78%" y2="90%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#edf4f8"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#12161d" flood-opacity="0.18"/>
     </filter>
-
-    <filter id="noise" x="0" y="0" width="1024" height="1024">
-      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" stitchTiles="stitch" seed="7"/>
-      <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1   0 0 0 0.045 0"/>
+    <filter id="railGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="16" flood-color="#00a69c" flood-opacity="0.28"/>
     </filter>
   </defs>
 
   <rect width="1024" height="1024" fill="url(#bg)"/>
 
-  <g stroke="#ffffff" stroke-width="1" opacity="0.035">
-    <path d="M0 256 H1024 M0 512 H1024 M0 768 H1024 M256 0 V1024 M512 0 V1024 M768 0 V1024"/>
+  <g opacity="0.42" fill="none" stroke="#d7e1e8" stroke-width="2">
+    <path d="M164 276 H860"/>
+    <path d="M164 748 H860"/>
+    <path d="M276 164 V860"/>
+    <path d="M748 164 V860"/>
   </g>
 
-  <g opacity="0.055" fill="none" stroke="#ffffff" stroke-width="1">
-    <circle cx="512" cy="512" r="360"/>
-    <circle cx="512" cy="512" r="260"/>
+  <path d="M278 690 C390 392 552 648 746 336"
+        fill="none" stroke="url(#rail)" stroke-width="74" stroke-linecap="round" filter="url(#railGlow)"/>
+  <path d="M278 690 C390 392 552 648 746 336"
+        fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" opacity="0.68"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="174" y="510" width="312" height="242" rx="42" fill="url(#card)" stroke="#d7e1e8" stroke-width="8"/>
+    <rect x="222" y="568" width="76" height="76" rx="18" fill="#00a69c"/>
+    <path d="M243 617 l22 -22 18 18 11 -11 23 27" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M229 681 H414" stroke="#d7e1e8" stroke-width="18" stroke-linecap="round"/>
+    <path d="M229 716 H360" stroke="#d7e1e8" stroke-width="18" stroke-linecap="round" opacity="0.74"/>
   </g>
 
-  <rect width="1024" height="1024" filter="url(#noise)"/>
-
-  <circle cx="300" cy="580" r="240" fill="url(#sphereGlow)"/>
-
-  <circle cx="760" cy="420" r="52" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.26"/>
-  <circle cx="760" cy="420" r="14" fill="#ffffff" opacity="0.18"/>
-
-  <path d="M 300 580 C 420 300, 620 620, 760 420"
-        stroke="url(#arc)" stroke-width="92" stroke-linecap="round" fill="none" filter="url(#softGlow)"/>
-  <path d="M 300 580 C 420 300, 620 620, 760 420"
-        stroke="url(#arcCore)" stroke-width="22" stroke-linecap="round" fill="none"/>
-
-  <g fill="#ffe0b8">
-    <circle cx="794" cy="416" r="11" opacity="0.92"/>
-    <circle cx="828" cy="408" r="7"  opacity="0.68"/>
-    <circle cx="858" cy="428" r="5"  opacity="0.48"/>
-    <circle cx="892" cy="414" r="3.5" opacity="0.32"/>
-    <circle cx="922" cy="434" r="2.2" opacity="0.2"/>
+  <g filter="url(#softShadow)">
+    <rect x="552" y="282" width="300" height="174" rx="52" fill="#ffffff" stroke="#b9e7e3" stroke-width="8"/>
+    <circle cx="624" cy="369" r="34" fill="#00a69c"/>
+    <path d="M678 370 H785" stroke="#00a69c" stroke-width="24" stroke-linecap="round"/>
+    <path d="M676 415 H750" stroke="#d7e1e8" stroke-width="14" stroke-linecap="round"/>
   </g>
 
-  <circle cx="300" cy="580" r="124" fill="url(#sphere)" filter="url(#softGlow)"/>
-  <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
-  <ellipse cx="262" cy="532" rx="14" ry="8" fill="#ffffff" opacity="0.85"/>
+  <g fill="#00a69c">
+    <circle cx="794" cy="316" r="12" opacity="0.92"/>
+    <circle cx="832" cy="304" r="8" opacity="0.58"/>
+    <circle cx="864" cy="324" r="5" opacity="0.32"/>
+  </g>
 </svg>

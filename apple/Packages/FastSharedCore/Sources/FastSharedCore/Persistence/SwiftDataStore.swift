@@ -174,6 +174,9 @@ public actor SwiftDataStore {
 
     public init() throws {
         let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self])
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroupPaths.groupIdentifier) != nil else {
+            throw AppGroupError.missingContainer(AppGroupPaths.groupIdentifier)
+        }
         let configuration = ModelConfiguration(
             "FastShared",
             schema: schema,

@@ -46,6 +46,10 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .scrollContentBackground(.hidden)
+        .background(BrandPalette.canvas.ignoresSafeArea())
+        .tint(BrandPalette.amber)
+        .preferredColorScheme(.light)
         .task {
             await loadDeviceId()
             loadDefaultRetention()

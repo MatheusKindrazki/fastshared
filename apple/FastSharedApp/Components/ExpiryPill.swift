@@ -1,14 +1,14 @@
 import SwiftUI
 import FastSharedCore
 
-/// Mono-pill countdown readout. The technical voice of the hub.
+/// Countdown readout. The technical voice of the manifest.
 ///
 /// Color rules:
-///  > 6h       — amber
-///  ≤ 6h       — ember
+///  > 6h       — green
+///  ≤ 6h       — teal
 ///  ≤ 30m      — coral
-///  ≤ 1m       — coral, blinking cream on a 1s pulse
-///  expired    — milk-dim, no accent
+///  ≤ 1m       — coral, blinking ink on a 1s pulse
+///  expired    — dim, no accent
 struct ExpiryPill: View {
     let remaining: TimeInterval?
     let date: Date
@@ -34,11 +34,16 @@ struct ExpiryPill: View {
                 .font(font(blinking: blinkOn))
                 .monospacedDigit()
                 .tracking(size == .jumbo ? -0.5 : 0)
-                .foregroundStyle(blinkOn && !reduceMotion ? BrandPalette.dust : color)
+                .foregroundStyle(blinkOn && !reduceMotion ? BrandPalette.ink : color)
                 .padding(.horizontal, padHorizontal)
                 .padding(.vertical, padVertical)
                 .background(
-                    Capsule().stroke(color.opacity(size == .jumbo ? 0 : 0.35), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(size == .jumbo ? Color.clear : color.opacity(0.10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(color.opacity(size == .jumbo ? 0 : 0.24), lineWidth: 1)
+                        )
                 )
                 .contentTransition(.numericText(countsDown: true))
         }
@@ -56,10 +61,10 @@ struct ExpiryPill: View {
     }
 
     private func tint(for remaining: TimeInterval?) -> Color {
-        guard let remaining, remaining > 0 else { return BrandPalette.milk.opacity(0.45) }
+        guard let remaining, remaining > 0 else { return BrandPalette.dust.opacity(0.8) }
         if remaining <= 30 * 60 { return BrandPalette.coral }
-        if remaining <= 6 * 3600 { return BrandPalette.ember }
-        return BrandPalette.amber
+        if remaining <= 6 * 3600 { return BrandPalette.amber }
+        return BrandPalette.ember
     }
 
     private func font(blinking: Bool) -> Font {
@@ -87,8 +92,8 @@ struct ExpiryPill: View {
     }
 }
 
-/// Thin horizontal bar conveying how close the soonest link is to death.
-/// Full amber when > 24h, amber→coral as it approaches zero, nearly-empty coral when under 30m.
+/// Thin horizontal bar conveying how close the soonest link is to expiry.
+/// Full green when > 24h, teal as it approaches zero, nearly-empty coral when under 30m.
 struct UrgencySparkBar: View {
     let remaining: TimeInterval?
 
@@ -102,28 +107,28 @@ struct UrgencySparkBar: View {
 
     private var gradient: LinearGradient {
         guard let remaining, remaining > 0 else {
-            return LinearGradient(colors: [BrandPalette.milk.opacity(0.15), BrandPalette.milk.opacity(0.05)],
+            return LinearGradient(colors: [BrandPalette.line.opacity(0.9), BrandPalette.line.opacity(0.35)],
                                   startPoint: .leading, endPoint: .trailing)
         }
         if remaining <= 30 * 60 {
             return LinearGradient(colors: [BrandPalette.coral, BrandPalette.coral.opacity(0.4)],
                                   startPoint: .leading, endPoint: .trailing)
         }
-        return LinearGradient(colors: [BrandPalette.amber, BrandPalette.coral],
+        return LinearGradient(colors: [BrandPalette.ember, BrandPalette.amber],
                               startPoint: .leading, endPoint: .trailing)
     }
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(BrandPalette.milk.opacity(0.06))
-                Capsule()
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(BrandPalette.line.opacity(0.55))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(gradient)
                     .frame(width: geo.size.width * fraction)
             }
         }
-        .frame(height: 2)
+        .frame(height: 4)
         .animation(BrandMotion.transition, value: fraction)
     }
 }
