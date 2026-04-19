@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import FastSharedCore
 
-/// One link, close up. The countdown is the star — it occupies the optical center of the screen.
+/// One link, close up. The countdown and copyable URL are the star.
 struct DetailView: View {
     let linkID: PersistentIdentifier
 
@@ -31,12 +31,12 @@ struct DetailView: View {
                 }
             }
         }
-        .preferredColorScheme(.dark)
-        .foregroundStyle(BrandPalette.milk)
+        .preferredColorScheme(.light)
+        .foregroundStyle(BrandPalette.ink)
         .navigationTitle("")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
         .sensoryFeedback(.success, trigger: copyTick)
         .sensoryFeedback(.impact(weight: .heavy), trigger: revokeTick)
         #endif
@@ -92,7 +92,7 @@ struct DetailView: View {
             Text(link.originalFilename ?? link.token)
                 .font(.system(size: 34, weight: .bold))
                 .tracking(-1.4)
-                .foregroundStyle(BrandPalette.milk)
+                .foregroundStyle(BrandPalette.ink)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -107,7 +107,7 @@ struct DetailView: View {
             }
             .font(.system(size: 12, weight: .medium, design: .monospaced))
             .tracking(0.4)
-            .foregroundStyle(BrandPalette.milk.opacity(0.5))
+            .foregroundStyle(BrandPalette.dust)
         }
         .padding(.top, 8)
     }
@@ -118,13 +118,13 @@ struct DetailView: View {
             Text(expired ? "EXPIRED" : "EXPIRES IN")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .tracking(1.8)
-                .foregroundStyle(BrandPalette.milk.opacity(0.45))
+                .foregroundStyle(BrandPalette.dust)
 
             ExpiryPill(remaining: expired ? nil : remaining, date: now, size: .jumbo)
 
             Text(link.expiresAt.formatted(date: .abbreviated, time: .shortened))
                 .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .foregroundStyle(BrandPalette.milk.opacity(0.45))
+                .foregroundStyle(BrandPalette.dust)
 
             UrgencySparkBar(remaining: expired ? nil : remaining)
                 .padding(.top, 8)
@@ -138,11 +138,11 @@ struct DetailView: View {
             Text("SHORT URL")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .tracking(1.8)
-                .foregroundStyle(BrandPalette.milk.opacity(0.45))
+                .foregroundStyle(BrandPalette.dust)
             HStack(alignment: .center, spacing: 10) {
                 Text(urlString)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundStyle(BrandPalette.milk)
+                    .foregroundStyle(BrandPalette.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .textSelection(.enabled)
@@ -154,22 +154,22 @@ struct DetailView: View {
                     Text("COPY")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(1.6)
-                        .foregroundStyle(BrandPalette.ink)
+                        .foregroundStyle(BrandPalette.lightText)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(BrandPalette.amber, in: Capsule())
+                        .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(BrandPalette.milk.opacity(0.05))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(BrandPalette.paper.opacity(0.78))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(BrandPalette.amber.opacity(0.18), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(BrandPalette.line.opacity(0.85), lineWidth: 1)
             )
         }
     }
@@ -179,7 +179,7 @@ struct DetailView: View {
             Text("METADATA")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .tracking(1.8)
-                .foregroundStyle(BrandPalette.milk.opacity(0.45))
+                .foregroundStyle(BrandPalette.dust)
 
             VStack(spacing: 10) {
                 metaRow("created", link.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -196,11 +196,11 @@ struct DetailView: View {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .tracking(1.6)
-                .foregroundStyle(BrandPalette.milk.opacity(0.4))
+                .foregroundStyle(BrandPalette.dust)
                 .frame(width: 120, alignment: .leading)
             Text(value)
                 .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .foregroundStyle(BrandPalette.milk.opacity(0.85))
+                .foregroundStyle(BrandPalette.ink.opacity(0.86))
                 .textSelection(.enabled)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -220,9 +220,10 @@ struct DetailView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
-                Capsule().stroke(BrandPalette.milk.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(BrandPalette.line, lineWidth: 1)
             )
-            .foregroundStyle(BrandPalette.milk.opacity(0.85))
+            .foregroundStyle(BrandPalette.ink.opacity(0.85))
             .disabled(!isActive)
 
             Link(destination: link.shortURL) {
@@ -232,9 +233,10 @@ struct DetailView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
-                Capsule().stroke(BrandPalette.milk.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(BrandPalette.line, lineWidth: 1)
             )
-            .foregroundStyle(BrandPalette.milk.opacity(0.85))
+            .foregroundStyle(BrandPalette.ink.opacity(0.85))
             .disabled(!isActive)
 
             Spacer()
@@ -257,7 +259,8 @@ struct DetailView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
-                    Capsule().stroke(BrandPalette.coral.opacity(0.4), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(BrandPalette.coral.opacity(0.45), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)

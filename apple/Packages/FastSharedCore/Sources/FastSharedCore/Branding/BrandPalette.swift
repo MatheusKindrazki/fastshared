@@ -1,36 +1,41 @@
 import Foundation
 import SwiftUI
 
-/// fastshared brand palette. "Temporal link" — a warm origin sphere emits an arc that fades into particles.
-/// These colors are the entire vocabulary; no other hues ship.
+/// fastshared brand palette. "Frosted manifest" — temporary links sit on a bright glass
+/// surface with a precise transfer rail. Color is reserved for action, freshness, and risk.
 public enum BrandPalette {
     // Grounds / surfaces
-    public static let ink = Color(red: 0x07 / 255.0, green: 0x03 / 255.0, blue: 0x18 / 255.0)
-    public static let nightshade = Color(red: 0x14 / 255.0, green: 0x0a / 255.0, blue: 0x33 / 255.0)
-    public static let violet = Color(red: 0x2a / 255.0, green: 0x14 / 255.0, blue: 0x58 / 255.0)
+    public static let ink = Color(red: 0x12 / 255.0, green: 0x16 / 255.0, blue: 0x1d / 255.0)
+    public static let nightshade = Color(red: 0xf5 / 255.0, green: 0xf8 / 255.0, blue: 0xfb / 255.0)
+    public static let violet = Color(red: 0xe7 / 255.0, green: 0xf2 / 255.0, blue: 0xef / 255.0)
 
-    // Accent progression — amber is the pulse, coral is the fade.
-    public static let amber = Color(red: 0xff / 255.0, green: 0x9f / 255.0, blue: 0x47 / 255.0)
-    public static let ember = Color(red: 0xff / 255.0, green: 0xc4 / 255.0, blue: 0x87 / 255.0)
-    public static let coral = Color(red: 0xff / 255.0, green: 0x4e / 255.0, blue: 0x7c / 255.0)
+    // Accent progression — teal is the transfer, green is fresh, coral is risk.
+    public static let amber = Color(red: 0x00 / 255.0, green: 0xa6 / 255.0, blue: 0x9c / 255.0)
+    public static let ember = Color(red: 0x4e / 255.0, green: 0xcf / 255.0, blue: 0x8f / 255.0)
+    public static let coral = Color(red: 0xf0 / 255.0, green: 0x52 / 255.0, blue: 0x5f / 255.0)
 
-    // Particle / highlight
-    public static let dust = Color(red: 0xff / 255.0, green: 0xe0 / 255.0, blue: 0xb8 / 255.0)
+    // Secondary text / quiet marks
+    public static let dust = Color(red: 0x66 / 255.0, green: 0x70 / 255.0, blue: 0x85 / 255.0)
 
     // Typography
-    public static let milk = Color(red: 0xfa / 255.0, green: 0xfa / 255.0, blue: 0xff / 255.0)
+    public static let milk = ink
 
-    /// Amber → coral gradient. The signature "link fading out" motion.
+    public static let paper = Color(red: 0xfb / 255.0, green: 0xfc / 255.0, blue: 0xff / 255.0)
+    public static let frost = Color(red: 0xec / 255.0, green: 0xf8 / 255.0, blue: 0xf6 / 255.0)
+    public static let line = Color(red: 0xd7 / 255.0, green: 0xe1 / 255.0, blue: 0xe8 / 255.0)
+    public static let lightText = Color.white
+
+    /// Teal → green gradient. The signature "link transfer" motion.
     public static let arc = LinearGradient(
-        colors: [amber, coral],
+        colors: [amber, ember],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    /// Dark surface gradient used as the share extension canvas.
+    /// Bright frosted canvas used across the app and share extension.
     public static let canvas = LinearGradient(
-        colors: [ink, nightshade, violet],
-        startPoint: .top,
-        endPoint: .bottom
+        colors: [paper, frost, nightshade],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
 }

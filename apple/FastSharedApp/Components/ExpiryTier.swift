@@ -5,12 +5,12 @@ import FastSharedCore
 /// Urgency tiering for active share links. Drives section grouping + accent color choices on the hub.
 ///
 /// The tiers are ordered by proximity to death:
-/// - `.underOneMinute` blinks (imminent).
-/// - `.underOneHour` is coral (farewell).
-/// - `.underSixHours` is ember.
-/// - `.underOneDay` is amber.
-/// - `.later` is milk-dim (the calm).
-/// - `.forever` is reserved for links > 7d; currently the longest retention is 30d so this is mostly calm as well.
+/// - `.underOneMinute` blinks (immediate action).
+/// - `.underOneHour` is coral.
+/// - `.underSixHours` is teal.
+/// - `.underOneDay` is teal.
+/// - `.later` is green.
+/// - `.forever` is reserved for links > 7d; currently the longest retention is 30d.
 enum ExpiryTier: Int, CaseIterable, Hashable, Comparable {
     case underOneMinute
     case underOneHour
@@ -32,21 +32,21 @@ enum ExpiryTier: Int, CaseIterable, Hashable, Comparable {
 
     var headline: String {
         switch self {
-        case .underOneMinute: return "IMMINENT"
-        case .underOneHour:   return "EXPIRING IN — UNDER 1 H"
-        case .underSixHours:  return "EXPIRING TODAY — UNDER 6 H"
-        case .underOneDay:    return "EXPIRING SOON — UNDER 24 H"
-        case .later:          return "EXPIRING LATER"
-        case .forever:        return "FOREVER-ISH — OVER 7 D"
+        case .underOneMinute: return "ACTION NEEDED"
+        case .underOneHour:   return "UNDER 1 HOUR"
+        case .underSixHours:  return "LATER TODAY"
+        case .underOneDay:    return "NEXT 24 HOURS"
+        case .later:          return "LATER THIS WEEK"
+        case .forever:        return "LONGER WINDOW"
         }
     }
 
     var accent: Color {
         switch self {
         case .underOneMinute, .underOneHour: return BrandPalette.coral
-        case .underSixHours:                 return BrandPalette.ember
+        case .underSixHours:                 return BrandPalette.amber
         case .underOneDay:                   return BrandPalette.amber
-        case .later, .forever:               return BrandPalette.milk.opacity(0.45)
+        case .later, .forever:               return BrandPalette.ember
         }
     }
 }

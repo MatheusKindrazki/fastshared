@@ -1,7 +1,7 @@
 import SwiftUI
 import FastSharedCore
 
-/// Amber→coral arc that draws itself on appear (trim animation), ending in dust particles. Page-1 hero.
+/// Teal transfer rail that draws itself on appear. Page-1 hero.
 struct ArcMark: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var arcEnd: CGFloat = 0
@@ -12,56 +12,70 @@ struct ArcMark: View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
-            let sphereCenter = CGPoint(x: w * 0.22, y: h * 0.72)
-            let ghost = CGPoint(x: w * 0.80, y: h * 0.30)
+            let source = CGPoint(x: w * 0.23, y: h * 0.70)
+            let target = CGPoint(x: w * 0.80, y: h * 0.32)
 
             ZStack {
-                // Origin sphere glow
-                Circle()
-                    .fill(BrandPalette.amber.opacity(0.25))
-                    .frame(width: 220, height: 220)
-                    .blur(radius: 46)
-                    .scaleEffect(pulse || reduceMotion ? 1.0 : 0.85)
-                    .opacity(pulse ? 1 : 0.55)
-                    .position(sphereCenter)
-
-                // Origin sphere
-                Circle()
-                    .fill(RadialGradient(colors: [BrandPalette.ember, BrandPalette.amber],
-                                         center: .center,
-                                         startRadius: 0,
-                                         endRadius: 60))
-                    .frame(width: 96, height: 96)
-                    .shadow(color: BrandPalette.amber.opacity(0.6), radius: 28)
-                    .position(sphereCenter)
+                // Source file slip.
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(.thinMaterial)
+                    .frame(width: 118, height: 92)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(BrandPalette.line.opacity(0.9), lineWidth: 1)
+                    )
+                    .overlay(alignment: .topLeading) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(BrandPalette.amber)
+                                .frame(width: 26, height: 26)
+                                .overlay(
+                                    Image(systemName: "photo")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(BrandPalette.lightText)
+                                )
+                            Capsule().fill(BrandPalette.line).frame(width: 74, height: 5)
+                            Capsule().fill(BrandPalette.line.opacity(0.7)).frame(width: 52, height: 5)
+                        }
+                        .padding(14)
+                    }
+                    .rotationEffect(.degrees(pulse && !reduceMotion ? -2 : 0))
+                    .position(source)
 
                 // The arc
-                ArcShape(from: sphereCenter, to: ghost)
+                ArcShape(from: source, to: target)
                     .trim(from: 0, to: reduceMotion ? 1 : arcEnd)
-                    .stroke(BrandPalette.arc, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
-                    .blur(radius: 0.4)
+                    .stroke(BrandPalette.arc, style: StrokeStyle(lineWidth: 4, lineCap: .round))
 
-                // Ghost node (the terminal point the arc dissolves into)
-                Circle()
-                    .stroke(BrandPalette.dust.opacity(0.8), lineWidth: 1.4)
-                    .frame(width: 22, height: 22)
-                    .position(ghost)
+                // Destination link chip.
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(BrandPalette.paper)
+                    .frame(width: 156, height: 42)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(BrandPalette.amber.opacity(0.36), lineWidth: 1)
+                    )
+                    .overlay {
+                        HStack(spacing: 7) {
+                            Image(systemName: "link")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("fastsha.red")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        }
+                        .foregroundStyle(BrandPalette.amber)
+                    }
+                    .shadow(color: BrandPalette.ink.opacity(0.08), radius: 16, y: 10)
+                    .position(target)
                     .opacity(arcEnd > 0.8 || reduceMotion ? 1 : 0)
 
-                Circle()
-                    .fill(BrandPalette.dust)
-                    .frame(width: 6, height: 6)
-                    .position(ghost)
-                    .opacity(arcEnd > 0.8 || reduceMotion ? 1 : 0)
-
-                // Fading particles after the ghost node
+                // Fading transfer ticks after the destination.
                 ForEach(0..<5, id: \.self) { i in
                     let progress = CGFloat(i + 1) / 6
-                    let x = ghost.x + progress * (w * 0.12)
-                    let y = ghost.y - progress * 18
-                    Circle()
-                        .fill(BrandPalette.dust)
-                        .frame(width: max(2, 9 - CGFloat(i) * 1.6), height: max(2, 9 - CGFloat(i) * 1.6))
+                    let x = target.x + progress * (w * 0.12)
+                    let y = target.y - progress * 18
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(BrandPalette.ember)
+                        .frame(width: max(3, 12 - CGFloat(i) * 1.5), height: 3)
                         .opacity(particlesOn || reduceMotion ? Double(5 - i) / 6.0 : 0)
                         .position(x: x, y: y)
                 }
@@ -98,7 +112,7 @@ struct ArcShape: Shape {
     }
 }
 
-/// A vertical thin line with a single amber bead sliding top→bottom on a 3s loop. Page-3 metaphor.
+/// A vertical thin line with a single transfer bead sliding top→bottom on a 3s loop. Page-3 metaphor.
 struct HourglassBead: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: CGFloat = 0
@@ -109,18 +123,15 @@ struct HourglassBead: View {
             let x = geo.size.width / 2
             ZStack {
                 Rectangle()
-                    .fill(BrandPalette.milk.opacity(0.12))
+                    .fill(BrandPalette.line)
                     .frame(width: 1)
                     .frame(maxHeight: .infinity)
                     .position(x: x, y: h / 2)
 
-                Circle()
-                    .fill(RadialGradient(colors: [BrandPalette.ember, BrandPalette.amber],
-                                         center: .center,
-                                         startRadius: 0,
-                                         endRadius: 12))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(BrandPalette.arc)
                     .frame(width: 16, height: 16)
-                    .shadow(color: BrandPalette.amber.opacity(0.8), radius: 14)
+                    .shadow(color: BrandPalette.amber.opacity(0.22), radius: 10)
                     .position(x: x, y: progress * (h - 24) + 12)
             }
         }
@@ -147,7 +158,7 @@ struct ProgressLine: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Rectangle()
-                    .fill(BrandPalette.milk.opacity(0.08))
+                    .fill(BrandPalette.line.opacity(0.75))
                 Rectangle()
                     .fill(BrandPalette.arc)
                     .frame(width: max(0, geo.size.width * CGFloat(fraction)))

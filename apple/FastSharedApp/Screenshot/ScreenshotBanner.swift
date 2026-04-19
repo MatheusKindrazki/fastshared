@@ -43,7 +43,7 @@ struct ScreenshotBanner: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Screenshot · ready to share")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(BrandPalette.milk)
+                        .foregroundStyle(BrandPalette.ink)
                         .lineLimit(1)
                     Text("Tap to upload")
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -60,7 +60,7 @@ struct ScreenshotBanner: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(BrandPalette.amber.opacity(0.08))
+                        .fill(BrandPalette.line.opacity(0.65))
                     Rectangle()
                         .fill(BrandPalette.amber)
                         .frame(width: geo.size.width * remainingFraction)
@@ -70,14 +70,14 @@ struct ScreenshotBanner: View {
             .clipShape(Capsule())
         }
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(BrandPalette.nightshade)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(BrandPalette.amber.opacity(0.8), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(BrandPalette.line.opacity(0.9), lineWidth: 1)
                 )
         )
-        .shadow(color: BrandPalette.ink.opacity(0.45), radius: 18, y: 10)
+        .shadow(color: BrandPalette.ink.opacity(0.12), radius: 18, y: 10)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Screenshot ready to share")
         .accessibilityAddTraits(.isButton)
@@ -91,7 +91,7 @@ struct ScreenshotBanner: View {
                     .scaledToFill()
             } else {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(BrandPalette.violet.opacity(0.55))
+                    .fill(BrandPalette.violet.opacity(0.85))
                     .overlay(
                         Image(systemName: "photo")
                             .foregroundStyle(BrandPalette.ember)
@@ -112,17 +112,17 @@ struct ScreenshotBanner: View {
             Button(action: upload) {
                 Text("Upload")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(BrandPalette.ink)
+                    .foregroundStyle(BrandPalette.lightText)
                     .frame(height: 28)
                     .padding(.horizontal, 12)
-                    .background(BrandPalette.amber, in: Capsule())
+                    .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .buttonStyle(.plain)
 
             Button(action: dismiss) {
                 Text("Dismiss")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(BrandPalette.milk.opacity(0.6))
+                    .foregroundStyle(BrandPalette.ink.opacity(0.58))
                     .frame(height: 28)
                     .padding(.horizontal, 10)
             }

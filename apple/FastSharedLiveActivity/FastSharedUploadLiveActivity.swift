@@ -50,7 +50,7 @@ private struct LockScreenView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(attributes.filename)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(BrandPalette.milk)
+                        .foregroundStyle(BrandPalette.lightText)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
@@ -62,7 +62,7 @@ private struct LockScreenView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-        .background(BrandPalette.canvas)
+        .background(BrandPalette.ink)
     }
 
     @ViewBuilder
@@ -76,7 +76,7 @@ private struct LockScreenView: View {
                 HStack {
                     Text(byteCountText(sent: state.bytesSent, total: state.bytesTotal))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.milk.opacity(0.65))
+                        .foregroundStyle(BrandPalette.lightText.opacity(0.65))
                     Spacer()
                     Text("\(Int((state.progress * 100).rounded()))%")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -91,7 +91,7 @@ private struct LockScreenView: View {
                         .foregroundStyle(BrandPalette.amber)
                     Text(url.host.map { "\($0)\(url.path)" } ?? shortUrl)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.milk)
+                        .foregroundStyle(BrandPalette.lightText)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
@@ -110,7 +110,7 @@ private struct LockScreenView: View {
                     .foregroundStyle(BrandPalette.coral)
                 Text(state.errorReason ?? "Upload failed")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(BrandPalette.milk.opacity(0.85))
+                    .foregroundStyle(BrandPalette.lightText.opacity(0.85))
                     .lineLimit(2)
             }
         }
@@ -129,7 +129,7 @@ private struct ExpandedLeading: View {
                 .foregroundStyle(BrandPalette.amber)
             Text(attributes.filename)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.milk)
+                .foregroundStyle(BrandPalette.lightText)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
@@ -150,7 +150,7 @@ private struct ExpandedBottom: View {
                 HStack {
                     Text(byteCountText(sent: state.bytesSent, total: state.bytesTotal))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.milk.opacity(0.7))
+                        .foregroundStyle(BrandPalette.lightText.opacity(0.7))
                     Spacer()
                     Text("\(Int((state.progress * 100).rounded()))%")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -170,13 +170,16 @@ private struct ExpandedBottom: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
-                        .foregroundStyle(BrandPalette.milk)
+                        .foregroundStyle(BrandPalette.ink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
-                            Capsule()
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(BrandPalette.nightshade)
-                                .overlay(Capsule().strokeBorder(BrandPalette.arc, lineWidth: 1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .strokeBorder(BrandPalette.arc, lineWidth: 1)
+                                )
                         )
                     }
                 }
@@ -187,7 +190,7 @@ private struct ExpandedBottom: View {
                             .foregroundStyle(BrandPalette.coral)
                         Text("expires in ")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(BrandPalette.milk.opacity(0.6))
+                            .foregroundStyle(BrandPalette.lightText.opacity(0.6))
                         Text(expiresAt, style: .timer)
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                             .foregroundStyle(BrandPalette.dust)
@@ -199,16 +202,16 @@ private struct ExpandedBottom: View {
             HStack(spacing: 8) {
                 Text(state.errorReason ?? "Upload failed")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(BrandPalette.milk.opacity(0.85))
+                    .foregroundStyle(BrandPalette.lightText.opacity(0.85))
                     .lineLimit(2)
                 Spacer()
                 Link(destination: URL(string: "fastshared://jobs/\(attributes.clientJobId.uuidString)")!) {
                     Text("Retry")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(BrandPalette.ink)
+                        .foregroundStyle(BrandPalette.lightText)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(BrandPalette.amber, in: Capsule())
+                        .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
             .padding(.top, 2)
@@ -327,10 +330,10 @@ private struct RetentionBadge: View {
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold, design: .monospaced))
-            .foregroundStyle(BrandPalette.ink)
+            .foregroundStyle(BrandPalette.lightText)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(BrandPalette.amber, in: Capsule())
+            .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
