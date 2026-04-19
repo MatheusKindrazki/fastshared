@@ -7,17 +7,17 @@ import UniformTypeIdentifiers
 import UIKit
 #endif
 
-/// The Hub. A live manifest of every temporary link still available.
+/// The Hub — `design/screens.jsx` → `Hub()`.
 ///
 /// Composition (top → bottom):
-///  - frosted manifest header (active count + nearest expiry + transfer rail)
-///  - calm status chips
-///  - grouped list, bucketed by urgency
-///  - floating upload control on iOS
+///  - small brand chip (sphere + wordmark) + gear icon
+///  - "next to expire" hero: Ring + filename + short URL
+///  - summary strip: 3-up (ACTIVE / SENDING / DEFAULT)
+///  - manifest section header + list of amber file cards
+///  - FAB bottom-right for upload
 ///
-/// The whole page is driven by a single `TimelineView` tick (once per second) so countdowns stay live
-/// and rows reshuffle between urgency sections as they decay. That's intentional — the Hub is the
-/// product's answer to *"what can still be opened?"* and that answer is always changing.
+/// Driven by a `TimelineView` tick (once per second) so countdowns stay live
+/// and rows reshuffle between urgency sections as they decay.
 struct HistoryView: View {
     @Environment(\.apiClient) private var apiClient
     @Environment(\.uploadService) private var uploadService
@@ -42,7 +42,7 @@ struct HistoryView: View {
 
     var body: some View {
         ZStack {
-            BrandPalette.canvas
+            BrandPalette.ground
                 .ignoresSafeArea(.all)
 
             TimelineView(.periodic(from: .now, by: 1)) { timeline in
@@ -55,16 +55,16 @@ struct HistoryView: View {
         .overlay(alignment: .bottomTrailing) {
             floatingAddButton
                 .padding(.trailing, 20)
-                .padding(.bottom, 24)
+                .padding(.bottom, 94)
         }
         #endif
-        .preferredColorScheme(.light)
-        .foregroundStyle(BrandPalette.ink)
+        .preferredColorScheme(.dark)
+        .foregroundStyle(BrandPalette.text)
         .navigationTitle("")
         #if os(iOS)
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         #endif
         #if os(iOS)
         .refreshable {
@@ -95,139 +95,220 @@ struct HistoryView: View {
 
     @ViewBuilder
     private func content(now: Date, snapshot: ExpirySnapshot) -> some View {
-        if snapshot.activeCount == 0 && searchText.isEmpty {
-            HubEmptyState()
-                .transition(.opacity.combined(with: .offset(y: 12)))
-        } else {
-            ScrollView {
-                VStack(spacing: 18) {
-                    HeroCountMetric(count: snapshot.activeCount,
-                                    nearestRemaining: snapshot.nearestRemaining,
-                                    referenceDate: now)
-                    ManifestSearchField(text: $searchText)
+        ScrollView {
+            VStack(spacing: 0) {
+                brandHeader
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+
+                if let next = snapshot.grouped.first?.links.first {
+                    heroBlock(next: next, now: now)
                         .padding(.horizontal, 20)
-
-                    HubAssuranceStrip()
+                        .padding(.top, 28)
+                } else if searchText.isEmpty {
+                    emptyHero
                         .padding(.horizontal, 20)
-
-                    if snapshot.activeCount == 0 && !searchText.isEmpty {
-                        searchEmpty
-                    } else {
-                        ledger(snapshot: snapshot, now: now)
-                    }
-
-                    Color.clear.frame(height: 112)
+                        .padding(.top, 28)
                 }
-                .padding(.top, 8)
+
+                summaryStrip(snapshot: snapshot)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 22)
+
+                manifestSection(snapshot: snapshot, now: now)
+                    .padding(.top, 22)
+
+                Color.clear.frame(height: 160)
             }
-            .scrollContentBackground(.hidden)
-            .scrollIndicators(.hidden)
+            .padding(.top, 8)
+        }
+        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
+    }
+
+    // MARK: - Brand header
+
+    private var brandHeader: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(red: 1.0, green: 0.965, blue: 0.878), BrandPalette.amberAccent.hot],
+                        center: UnitPoint(x: 0.35, y: 0.30),
+                        startRadius: 0,
+                        endRadius: 14
+                    )
+                )
+                .frame(width: 22, height: 22)
+
+            (
+                Text("fastshared")
+                    .foregroundStyle(BrandPalette.text)
+                + Text(".")
+                    .foregroundStyle(BrandPalette.amberAccent.hot)
+            )
+            .font(.system(size: 15, weight: .bold))
+            .tracking(-0.3)
+
+            Spacer()
+
+            Button {
+                // navigation handled elsewhere — placeholder IconBtn
+            } label: {
+                iconTile("gearshape")
+            }
+            .buttonStyle(.plain)
         }
     }
 
-    private var searchEmpty: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("NO MATCH")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.8)
-                .foregroundStyle(BrandPalette.dust)
-            Text("Nothing in the manifest matches ")
-                .font(.system(size: 17, weight: .regular))
-                .foregroundStyle(BrandPalette.ink.opacity(0.78))
-            + Text("\"\(searchText)\"")
-                .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                .foregroundStyle(BrandPalette.amber)
-            + Text(".")
-                .font(.system(size: 17, weight: .regular))
-                .foregroundStyle(BrandPalette.ink.opacity(0.78))
+    private func iconTile(_ systemName: String) -> some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(BrandPalette.paper)
+            .frame(width: 36, height: 36)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(BrandPalette.line, lineWidth: 1)
+            )
+            .overlay(
+                Image(systemName: systemName)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(BrandPalette.textDim)
+            )
+    }
+
+    // MARK: - Hero (next-to-expire)
+
+    private func heroBlock(next: ShareLinkEntity, now: Date) -> some View {
+        let accent = BrandPalette.amberAccent
+        let remaining = max(0, next.expiresAt.timeIntervalSince(now))
+        let retention = max(0, next.expiresAt.timeIntervalSince(next.createdAt))
+        let progress = retention > 0 ? max(0, min(1, remaining / retention)) : 0
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Mono("next to expire", color: BrandPalette.textFaint)
+
+            NavigationLink(value: next.persistentModelID) {
+                HStack(alignment: .bottom, spacing: 14) {
+                    Ring(progress: progress,
+                         size: 78,
+                         stroke: 5,
+                         label: compactRemaining(remaining),
+                         sub: "LEFT")
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(next.originalFilename ?? next.token)
+                            .font(.system(size: 17, weight: .semibold))
+                            .tracking(-0.3)
+                            .foregroundStyle(BrandPalette.text)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text("fastsha.red/s/\(next.token)")
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                            .foregroundStyle(accent.hot)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .padding(.bottom, 2)
+
+                    Spacer(minLength: 0)
+                }
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 40)
+    }
+
+    private var emptyHero: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Mono("ready when you are", color: BrandPalette.textFaint)
+            Text("Share a file")
+                .font(.system(size: 34, weight: .bold))
+                .tracking(-1.2)
+                .foregroundStyle(BrandPalette.text)
+            Text("Your first temporary link will land here, already copied.")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(BrandPalette.textDim)
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private struct HubAssuranceStrip: View {
-        private var items: [(String, String)] {
-            [
-                ("doc.on.doc", "Paste-ready"),
-                ("lock.shield", "Signed reads"),
-                ("timer", "Auto-delete")
-            ]
-        }
+    // MARK: - Summary strip
 
-        var body: some View {
-            HStack(spacing: 8) {
-                ForEach(items, id: \.0) { item in
-                    Label(item.1, systemImage: item.0)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(BrandPalette.ink.opacity(0.72))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(BrandPalette.line.opacity(0.75), lineWidth: 1)
-                        )
-                }
-            }
-        }
-    }
+    private func summaryStrip(snapshot: ExpirySnapshot) -> some View {
+        let totalSending = totalBytesInFlight(snapshot: snapshot)
+        let defaultRetention = RetentionPolicy.defaultFromAppGroup().displayName.uppercased()
 
-    private struct ManifestSearchField: View {
-        @Binding var text: String
+        let cells: [(String, String)] = [
+            (String(format: "%02d", snapshot.activeCount), "ACTIVE"),
+            (totalSending, "SENDING"),
+            (defaultRetention, "DEFAULT"),
+        ]
 
-        var body: some View {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(BrandPalette.dust)
-                TextField("file name or token", text: $text)
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(BrandPalette.ink)
-                if !text.isEmpty {
-                    Button {
-                        text = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(BrandPalette.dust.opacity(0.72))
+        return HStack(spacing: 0) {
+            ForEach(Array(cells.enumerated()), id: \.offset) { idx, cell in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(cell.0)
+                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                            .tracking(-0.3)
+                            .foregroundStyle(BrandPalette.text)
+                        Mono(cell.1, size: 9, track: 1.2, color: BrandPalette.textFaint)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear search")
+                    Spacer()
                 }
+                .padding(.leading, idx == 0 ? 0 : 12)
+                .overlay(alignment: .leading) {
+                    if idx > 0 {
+                        Rectangle()
+                            .fill(BrandPalette.line)
+                            .frame(width: 1)
+                            .padding(.vertical, 2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 14)
-            .frame(height: 46)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(BrandPalette.line.opacity(0.8), lineWidth: 1)
-            )
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(BrandPalette.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(BrandPalette.line, lineWidth: 1)
+                )
+        )
     }
+
+    private func totalBytesInFlight(snapshot: ExpirySnapshot) -> String {
+        let total = snapshot.grouped.flatMap(\.links).reduce(Int64(0)) { $0 + $1.sizeBytes }
+        return ByteCountFormatter.string(fromByteCount: total, countStyle: .file).uppercased()
+    }
+
+    // MARK: - Manifest list
 
     @ViewBuilder
-    private func ledger(snapshot: ExpirySnapshot, now: Date) -> some View {
-        VStack(spacing: 18) {
-            ForEach(Array(snapshot.grouped.enumerated()), id: \.element.tier) { sectionIndex, group in
-                VStack(spacing: 8) {
-                    SectionHeaderStylized(title: group.tier.headline,
-                                          accent: group.tier.accent,
-                                          count: group.links.count)
-                        .padding(.horizontal, 20)
-                        .padding(.top, sectionIndex == 0 ? 4 : 2)
+    private func manifestSection(snapshot: ExpirySnapshot, now: Date) -> some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Mono("manifest · \(String(format: "%02d", snapshot.activeCount))",
+                     color: BrandPalette.amberAccent.hot)
+                Rectangle().fill(BrandPalette.line).frame(height: 1)
+                Mono("sorted: urgency", size: 10, color: BrandPalette.textFaint)
+            }
+            .padding(.horizontal, 20)
 
-                    ForEach(Array(group.links.enumerated()), id: \.element.token) { rowIndex, link in
-                        let absoluteIndex = min(11, sectionIndex * 8 + rowIndex)
+            if snapshot.activeCount == 0 && !searchText.isEmpty {
+                searchEmpty
+            } else if snapshot.activeCount == 0 {
+                Text("No active links.")
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .foregroundStyle(BrandPalette.textFaint)
+                    .padding(.vertical, 40)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(snapshot.grouped.flatMap(\.links), id: \.token) { link in
                         NavigationLink(value: link.persistentModelID) {
-                            LinkRow(link: link,
-                                    now: now,
-                                    onCopy: { copyLink(link) },
-                                    onRevoke: { Task { await revoke(link) } })
+                            HubLinkCard(link: link, now: now)
                                 .padding(.horizontal, 20)
                         }
                         .buttonStyle(.plain)
@@ -255,27 +336,32 @@ struct HistoryView: View {
                             } label: {
                                 Label("Revoke", systemImage: "xmark.circle")
                             }
-                            .tint(BrandPalette.coral)
+                            .tint(BrandPalette.amberAccent.fade)
 
                             Button {
                                 copyLink(link)
                             } label: {
                                 Label("Copy", systemImage: "doc.on.doc")
                             }
-                            .tint(BrandPalette.amber)
+                            .tint(BrandPalette.amberAccent.hot)
                         }
                         #endif
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .offset(y: 8)),
-                            removal: .opacity
-                        ))
-                        .animation(BrandMotion.transition.delay(Double(absoluteIndex) * 0.06),
-                                   value: snapshot.activeCount)
-
                     }
                 }
             }
         }
+    }
+
+    private var searchEmpty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Mono("no match", color: BrandPalette.textFaint)
+            Text("Nothing matches \"\(searchText)\".")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(BrandPalette.textDim)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Actions
@@ -290,19 +376,34 @@ struct HistoryView: View {
         await viewModel?.revoke(link)
     }
 
+    private func compactRemaining(_ s: TimeInterval) -> String {
+        let seconds = Int(max(0, s))
+        if seconds < 60 { return "<1m" }
+        if seconds < 3600 { return "\(seconds/60)m" }
+        if seconds < 86_400 {
+            let h = seconds / 3600
+            let m = (seconds % 3600) / 60
+            return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+        }
+        let d = seconds / 86_400
+        let h = (seconds % 86_400) / 3600
+        return h == 0 ? "\(d)d" : "\(d)d \(h)h"
+    }
+
     #if os(iOS)
     private var floatingAddButton: some View {
-        Button {
+        let accent = BrandPalette.amberAccent
+        return Button {
             showImporter = true
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(BrandPalette.lightText)
-                .frame(width: 58, height: 58)
+                .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                .frame(width: 56, height: 56)
                 .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(BrandPalette.amber)
-                        .shadow(color: BrandPalette.amber.opacity(0.28), radius: 18, y: 8)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(accent.hot)
+                        .shadow(color: accent.hot.opacity(0.33), radius: 18, y: 10)
                 )
         }
         .buttonStyle(.plain)
@@ -319,96 +420,92 @@ struct HistoryView: View {
     #endif
 }
 
-// MARK: - Empty state (inline)
+// MARK: - HubLinkCard
 
-/// When there are no active links. A calm workbench, ready for the next share.
-struct HubEmptyState: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
+/// One row in the manifest — per `design/screens.jsx` → `LinkCard()`.
+///
+/// A 4pt tier-colored left rail, a 38pt FileGlyph, filename + meta, trailing
+/// compact Ring + mono remaining time.
+struct HubLinkCard: View {
+    let link: ShareLinkEntity
+    let now: Date
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 28) {
-                Spacer(minLength: geo.size.height * 0.12)
+        let remaining = max(0, link.expiresAt.timeIntervalSince(now))
+        let retention = max(0, link.expiresAt.timeIntervalSince(link.createdAt))
+        let progress = retention > 0 ? max(0, min(1, remaining / retention)) : 0
+        let tierColor = tier(for: remaining)
 
-                manifestStack
-                    .padding(.horizontal, 24)
+        HStack(spacing: 0) {
+            // Left tier rail.
+            Rectangle()
+                .fill(tierColor.opacity(0.85))
+                .frame(width: 4)
 
-                VStack(alignment: .leading, spacing: 18) {
-                    Text("Ready")
-                        .font(.system(size: 56, weight: .bold))
-                        .tracking(-2.0)
-                    + Text("\nwhen you are.")
-                        .font(.system(size: 56, weight: .bold))
-                        .tracking(-2.0)
-                        .foregroundStyle(BrandPalette.amber)
+            HStack(spacing: 12) {
+                FileGlyph(contentType: link.contentType)
 
-                    Text("Send a file to FastShared and the temporary link lands here, already copied.")
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundStyle(BrandPalette.ink.opacity(0.62))
-                        .frame(maxWidth: 360, alignment: .leading)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(link.originalFilename ?? link.token)
+                        .font(.system(size: 14, weight: .semibold))
+                        .tracking(-0.2)
+                        .foregroundStyle(BrandPalette.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    HStack(spacing: 8) {
+                        Text(ByteCountFormatter.string(fromByteCount: link.sizeBytes, countStyle: .file))
+                        Text("·")
+                        Text("s/\(link.token.prefix(8))")
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(BrandPalette.textFaint)
                 }
-                .foregroundStyle(BrandPalette.ink)
-                .padding(.horizontal, 24)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
 
-                HStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("TRY THE SHARE SHEET FROM PHOTOS")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .tracking(1.6)
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 10, weight: .semibold))
+                VStack(alignment: .trailing, spacing: 4) {
+                    Ring(progress: progress, size: 30, stroke: 2.5, tint: tierColor)
+                    Text(compactRemaining(remaining))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .tracking(1.0)
+                        .foregroundStyle(tierColor)
                 }
-                .foregroundStyle(BrandPalette.amber.opacity(0.8))
-                .padding(.horizontal, 24)
-                .padding(.bottom, 36)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .opacity(appeared || reduceMotion ? 1 : 0)
-            .offset(y: appeared || reduceMotion ? 0 : 16)
-            .onAppear {
-                withAnimation(BrandMotion.transition) { appeared = true }
-            }
+            .padding(14)
         }
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(BrandPalette.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(BrandPalette.line, lineWidth: 1)
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private var manifestStack: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.thinMaterial)
-                .frame(width: 148, height: 112)
-                .rotationEffect(.degrees(-4))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(BrandPalette.line.opacity(0.85), lineWidth: 1)
-                )
+    private func tier(for remaining: TimeInterval) -> Color {
+        let accent = BrandPalette.amberAccent
+        if remaining <= 3600 { return accent.fade }
+        if remaining <= 86_400 { return accent.hot }
+        return accent.soft
+    }
 
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(BrandPalette.paper)
-                .frame(width: 148, height: 112)
-                .shadow(color: BrandPalette.ink.opacity(0.08), radius: 18, y: 10)
-                .overlay(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 7) {
-                            Image(systemName: "link")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(BrandPalette.amber)
-                            Text("fastsha.red")
-                                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                .foregroundStyle(BrandPalette.ink)
-                        }
-                        VStack(alignment: .leading, spacing: 6) {
-                            Capsule().fill(BrandPalette.line).frame(width: 92, height: 5)
-                            Capsule().fill(BrandPalette.line.opacity(0.7)).frame(width: 68, height: 5)
-                        }
-                        UrgencySparkBar(remaining: 18 * 3600)
-                    }
-                    .padding(16)
-                }
+    private func compactRemaining(_ s: TimeInterval) -> String {
+        let seconds = Int(max(0, s))
+        if seconds < 60 { return "<1m" }
+        if seconds < 3600 { return "\(seconds/60)m" }
+        if seconds < 86_400 {
+            let h = seconds / 3600
+            let m = (seconds % 3600) / 60
+            return m == 0 ? "\(h)h" : "\(h)h \(m)m"
         }
-        .accessibilityHidden(true)
+        let d = seconds / 86_400
+        let h = (seconds % 86_400) / 3600
+        return h == 0 ? "\(d)d" : "\(d)d \(h)h"
     }
 }
+

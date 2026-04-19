@@ -2,7 +2,17 @@ import SwiftUI
 import SwiftData
 import FastSharedCore
 
-/// One link, close up. The countdown and copyable URL are the star.
+/// Link detail — `design/screens.jsx` → `Detail()`.
+///
+/// Composition (top → bottom):
+///  - crumb ("‹ MANIFEST") + gear
+///  - "24-hour link · active" mono kicker
+///  - 30pt filename
+///  - meta line (MIME · size · opens)
+///  - big Ring (118pt) + expires / media-deleted sidecar
+///  - URL card (tap-to-copy)
+///  - metadata list with dashed dividers
+///  - action dock (SHARE / OPEN / REVOKE)
 struct DetailView: View {
     let linkID: PersistentIdentifier
 
@@ -20,23 +30,23 @@ struct DetailView: View {
 
     var body: some View {
         ZStack {
-            BrandPalette.canvas.ignoresSafeArea()
+            BrandPalette.ground.ignoresSafeArea()
 
             Group {
                 if let link {
                     content(for: link)
                 } else {
                     ProgressView()
-                        .tint(BrandPalette.amber)
+                        .tint(BrandPalette.amberAccent.hot)
                 }
             }
         }
-        .preferredColorScheme(.light)
-        .foregroundStyle(BrandPalette.ink)
+        .preferredColorScheme(.dark)
+        .foregroundStyle(BrandPalette.text)
         .navigationTitle("")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .sensoryFeedback(.success, trigger: copyTick)
         .sensoryFeedback(.impact(weight: .heavy), trigger: revokeTick)
         #endif
@@ -48,24 +58,43 @@ struct DetailView: View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             let now = timeline.date
             let remaining = max(0, link.expiresAt.timeIntervalSince(now))
+            let retention = max(0, link.expiresAt.timeIntervalSince(link.createdAt))
+            let progress = retention > 0 ? max(0, min(1, remaining / retention)) : 0
+
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    header(for: link, remaining: remaining)
-                    countdown(for: link, remaining: remaining, now: now)
-                    urlCard(for: link)
-                    metaList(for: link)
-                    actionRow(for: link, remaining: remaining)
+                VStack(alignment: .leading, spacing: 0) {
+                    chromeBar
+
+                    statusHeader(link: link)
+                        .padding(.top, 28)
+
+                    countdown(link: link, remaining: remaining, progress: progress)
+                        .padding(.top, 30)
+
+                    urlCard(link: link)
+                        .padding(.top, 24)
+
+                    metadataSection(link: link)
+                        .padding(.top, 22)
+
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
-                            .foregroundStyle(BrandPalette.coral)
+                            .foregroundStyle(BrandPalette.amberAccent.fade)
+                            .padding(.top, 10)
                     }
-                    Color.clear.frame(height: 40)
+
+                    Color.clear.frame(height: 120)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 12)
             }
             .scrollIndicators(.hidden)
+        }
+        .overlay(alignment: .bottom) {
+            actionDock(link: link)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 36)
         }
         .confirmationDialog("Revoke this link?",
                             isPresented: $showRevokeConfirm,
@@ -82,197 +111,205 @@ struct DetailView: View {
 
     // MARK: - Sections
 
-    private func header(for link: ShareLinkEntity, remaining: TimeInterval) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(retentionLabel(for: link).uppercased())
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.8)
-                .foregroundStyle(BrandPalette.amber)
+    private var chromeBar: some View {
+        HStack {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("MANIFEST")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(1.6)
+            }
+            .foregroundStyle(BrandPalette.textDim)
+            Spacer()
+        }
+    }
+
+    private func statusHeader(link: ShareLinkEntity) -> some View {
+        let accent = BrandPalette.amberAccent
+        return VStack(alignment: .leading, spacing: 10) {
+            Mono("\(link.retention.displayName) link · \(statusLabel(for: link))",
+                 color: accent.hot)
 
             Text(link.originalFilename ?? link.token)
-                .font(.system(size: 34, weight: .bold))
-                .tracking(-1.4)
-                .foregroundStyle(BrandPalette.ink)
+                .font(.system(size: 30, weight: .bold))
+                .tracking(-1.0)
+                .lineSpacing(-2)
+                .foregroundStyle(BrandPalette.text)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
-                Image(systemName: iconName(for: link.contentType))
-                    .font(.system(size: 11, weight: .medium))
                 Text(link.contentType)
                 Text("·")
                 Text(ByteCountFormatter.string(fromByteCount: link.sizeBytes, countStyle: .file))
                 Text("·")
                 Text("\(link.accessCount) opens")
             }
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
-            .tracking(0.4)
-            .foregroundStyle(BrandPalette.dust)
+            .font(.system(size: 11, weight: .regular, design: .monospaced))
+            .tracking(0.5)
+            .foregroundStyle(BrandPalette.textFaint)
         }
-        .padding(.top, 8)
     }
 
-    private func countdown(for link: ShareLinkEntity, remaining: TimeInterval, now: Date) -> some View {
-        let expired = remaining <= 0 || link.linkStatus != LinkStatus.active.rawValue
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(expired ? "EXPIRED" : "EXPIRES IN")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.8)
-                .foregroundStyle(BrandPalette.dust)
+    private func countdown(link: ShareLinkEntity, remaining: TimeInterval, progress: Double) -> some View {
+        HStack(alignment: .center, spacing: 22) {
+            Ring(progress: progress,
+                 size: 118,
+                 stroke: 7,
+                 label: compactRemaining(remaining),
+                 sub: "REMAINING")
 
-            ExpiryPill(remaining: expired ? nil : remaining, date: now, size: .jumbo)
+            VStack(alignment: .leading, spacing: 10) {
+                Mono("expires", size: 10, color: BrandPalette.textFaint)
+                Text(link.expiresAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .foregroundStyle(BrandPalette.text)
 
-            Text(link.expiresAt.formatted(date: .abbreviated, time: .shortened))
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .foregroundStyle(BrandPalette.dust)
+                Mono("media deleted", size: 10, color: BrandPalette.textFaint)
+                    .padding(.top, 10)
+                Text("24h after expiry")
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(BrandPalette.textDim)
+            }
 
-            UrgencySparkBar(remaining: expired ? nil : remaining)
-                .padding(.top, 8)
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 16)
     }
 
-    private func urlCard(for link: ShareLinkEntity) -> some View {
+    private func urlCard(link: ShareLinkEntity) -> some View {
+        let accent = BrandPalette.amberAccent
         let urlString = link.shortURL.absoluteString
         return VStack(alignment: .leading, spacing: 8) {
-            Text("SHORT URL")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.8)
-                .foregroundStyle(BrandPalette.dust)
+            Mono("short url", color: BrandPalette.textFaint)
+
             HStack(alignment: .center, spacing: 10) {
-                Text(urlString)
-                    .font(.system(size: 15, weight: .medium, design: .monospaced))
-                    .foregroundStyle(BrandPalette.ink)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
+                HStack(spacing: 0) {
+                    Text("fastsha.red/s/")
+                        .foregroundStyle(BrandPalette.text)
+                    Text(link.token)
+                        .foregroundStyle(accent.hot)
+                }
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+
                 Spacer(minLength: 12)
+
                 Button {
                     clipboard.copy(urlString)
                     copyTick &+= 1
                 } label: {
                     Text("COPY")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .tracking(1.6)
-                        .foregroundStyle(BrandPalette.lightText)
+                        .tracking(1.4)
+                        .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(accent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(BrandPalette.paper.opacity(0.78))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(BrandPalette.line.opacity(0.85), lineWidth: 1)
-            )
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(BrandPalette.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(BrandPalette.lineStrong, lineWidth: 1)
+                )
+        )
     }
 
-    private func metaList(for link: ShareLinkEntity) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("METADATA")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.8)
-                .foregroundStyle(BrandPalette.dust)
+    private func metadataSection(link: ShareLinkEntity) -> some View {
+        let accent = BrandPalette.amberAccent
+        let rows: [(String, String)] = [
+            ("created",   link.createdAt.formatted(date: .abbreviated, time: .shortened)),
+            ("retention", link.retention.displayName),
+            ("status",    statusLabel(for: link)),
+            ("token",     link.token.lowercased()),
+        ]
 
-            VStack(spacing: 10) {
-                metaRow("created", link.createdAt.formatted(date: .abbreviated, time: .shortened))
-                metaRow("retention", link.retention.displayName)
-                metaRow("status", statusLabel(for: link))
-                metaRow("media deleted", link.deleteAfter.formatted(date: .abbreviated, time: .shortened))
-                metaRow("token", link.token)
+        return VStack(alignment: .leading, spacing: 10) {
+            Mono("metadata", color: accent.hot)
+            VStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack {
+                        Mono(row.0, size: 10, track: 1.2, color: BrandPalette.textFaint)
+                            .frame(width: 110, alignment: .leading)
+                        Text(row.1)
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                            .foregroundStyle(BrandPalette.textDim)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 10)
+                    .overlay(alignment: .top) {
+                        DashedDivider()
+                    }
+                }
             }
         }
     }
 
-    private func metaRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .tracking(1.6)
-                .foregroundStyle(BrandPalette.dust)
-                .frame(width: 120, alignment: .leading)
-            Text(value)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .foregroundStyle(BrandPalette.ink.opacity(0.86))
-                .textSelection(.enabled)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 0)
-        }
-    }
-
-    @ViewBuilder
-    private func actionRow(for link: ShareLinkEntity, remaining: TimeInterval) -> some View {
-        let isActive = link.status == .active && remaining > 0
-        HStack(spacing: 10) {
+    private func actionDock(link: ShareLinkEntity) -> some View {
+        let isActive = link.status == .active && link.expiresAt > .now
+        return HStack(spacing: 8) {
+            #if os(iOS)
             ShareLink(item: link.shortURL) {
-                Label("Share", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 13, weight: .semibold))
+                dockButtonLabel(title: "SHARE", destructive: false)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(BrandPalette.line, lineWidth: 1)
-            )
-            .foregroundStyle(BrandPalette.ink.opacity(0.85))
             .disabled(!isActive)
+            .opacity(isActive ? 1 : 0.4)
+            #else
+            Button { } label: { dockButtonLabel(title: "SHARE", destructive: false) }
+                .buttonStyle(.plain)
+                .disabled(!isActive)
+            #endif
 
             Link(destination: link.shortURL) {
-                Label("Open", systemImage: "safari")
-                    .font(.system(size: 13, weight: .semibold))
+                dockButtonLabel(title: "OPEN", destructive: false)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(BrandPalette.line, lineWidth: 1)
-            )
-            .foregroundStyle(BrandPalette.ink.opacity(0.85))
             .disabled(!isActive)
+            .opacity(isActive ? 1 : 0.4)
 
-            Spacer()
-
-            Button(role: .destructive) {
+            Button {
                 showRevokeConfirm = true
             } label: {
-                HStack(spacing: 6) {
-                    if revoking {
-                        ProgressView().controlSize(.small).tint(BrandPalette.coral)
-                    } else {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    Text("REVOKE")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .tracking(1.6)
-                }
-                .foregroundStyle(BrandPalette.coral)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(BrandPalette.coral.opacity(0.45), lineWidth: 1)
-                )
+                dockButtonLabel(title: "REVOKE", destructive: true)
             }
             .buttonStyle(.plain)
             .disabled(!isActive || revoking)
+            .opacity(isActive && !revoking ? 1 : 0.4)
         }
     }
 
-    // MARK: - Helpers
-
-    private func retentionLabel(for link: ShareLinkEntity) -> String {
-        link.retention.displayName + " link"
+    private func dockButtonLabel(title: String, destructive: Bool) -> some View {
+        let accent = BrandPalette.amberAccent
+        let color = destructive ? accent.fade : BrandPalette.text
+        let stroke = destructive ? accent.fade.opacity(0.33) : BrandPalette.lineStrong
+        return Text(title)
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .tracking(1.6)
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(BrandPalette.paper)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(stroke, lineWidth: 1)
+                    )
+            )
     }
+
+    // MARK: - Helpers
 
     private func statusLabel(for link: ShareLinkEntity) -> String {
         switch link.status {
@@ -282,13 +319,18 @@ struct DetailView: View {
         }
     }
 
-    private func iconName(for contentType: String) -> String {
-        if contentType.hasPrefix("image/") { return "photo" }
-        if contentType.hasPrefix("video/") { return "film" }
-        if contentType.hasPrefix("audio/") { return "waveform" }
-        if contentType == "application/pdf" { return "doc.richtext" }
-        if contentType.hasPrefix("text/") { return "doc.text" }
-        return "doc"
+    private func compactRemaining(_ s: TimeInterval) -> String {
+        let seconds = Int(max(0, s))
+        if seconds < 60 { return "<1m" }
+        if seconds < 3600 { return "\(seconds/60)m" }
+        if seconds < 86_400 {
+            let h = seconds / 3600
+            let m = (seconds % 3600) / 60
+            return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+        }
+        let d = seconds / 86_400
+        let h = (seconds % 86_400) / 3600
+        return h == 0 ? "\(d)d" : "\(d)d \(h)h"
     }
 
     private func load() async {
@@ -311,5 +353,15 @@ struct DetailView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+/// A 1-pixel horizontal dashed divider with a minimal footprint.
+private struct DashedDivider: View {
+    var body: some View {
+        Rectangle()
+            .stroke(style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            .foregroundStyle(BrandPalette.line)
+            .frame(height: 1)
     }
 }

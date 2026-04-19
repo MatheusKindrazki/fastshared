@@ -34,12 +34,12 @@ struct RootView: View {
                             SettingsView()
                         } label: {
                             Image(systemName: "gearshape")
-                                .foregroundStyle(BrandPalette.ink.opacity(0.72))
+                                .foregroundStyle(BrandPalette.textDim)
                         }
                     }
                 }
         }
-        .tint(BrandPalette.amber)
+        .tint(BrandPalette.amberAccent.hot)
         .overlay(alignment: .top) {
             if let pending = screenshotDetector.pending {
                 ScreenshotBanner(
@@ -60,7 +60,7 @@ struct RootView: View {
         } detail: {
             HistoryView()
         }
-        .tint(BrandPalette.amber)
+        .tint(BrandPalette.amberAccent.hot)
         #endif
     }
 
