@@ -73,7 +73,7 @@ final class UploadServiceTests: XCTestCase {
             expiresAt: nil,
             deleteAfter: nil,
             deduped: DedupeInfo(assetId: assetId,
-                                shortUrl: URL(string: "https://fsh.re/abc")!,
+                                shortUrl: URL(string: "https://fastsha.red/abc")!,
                                 token: "abcDEF0123456789ABCDEF",
                                 expiresAt: expires,
                                 deleteAfter: deleteAfter,
@@ -84,8 +84,8 @@ final class UploadServiceTests: XCTestCase {
                                             contentType: "application/octet-stream",
                                             originalFilename: "f.bin")
         XCTAssertEqual(job.status, .deduped)
-        XCTAssertEqual(job.shortURL?.absoluteString, "https://fsh.re/abc")
-        XCTAssertEqual(clipboard.last, "https://fsh.re/abc")
+        XCTAssertEqual(job.shortURL?.absoluteString, "https://fastsha.red/abc")
+        XCTAssertEqual(clipboard.last, "https://fastsha.red/abc")
 
         let context = await store.mainContext()
         let entities = try context.fetch(FetchDescriptor<ShareLinkEntity>())
@@ -126,7 +126,7 @@ final class UploadServiceTests: XCTestCase {
             expiresAt: nil,
             deleteAfter: nil,
             deduped: DedupeInfo(assetId: UUID(),
-                                shortUrl: URL(string: "https://fsh.re/dedup")!,
+                                shortUrl: URL(string: "https://fastsha.red/dedup")!,
                                 token: "tokDEDUPtokDEDUPtokDED",
                                 expiresAt: expires,
                                 deleteAfter: expires.addingTimeInterval(86_400),
@@ -152,7 +152,7 @@ final class UploadServiceTests: XCTestCase {
             headers: ["x-amz-acl": "private"]
         )
         mock.completeResponse = CompleteResponse(assetId: assetId,
-                                                 shortUrl: URL(string: "https://fsh.re/xyz")!,
+                                                 shortUrl: URL(string: "https://fastsha.red/xyz")!,
                                                  token: "tok1234567890TOKENXYZ2",
                                                  expiresAt: expires,
                                                  deleteAfter: deleteAfter,
@@ -179,7 +179,7 @@ final class UploadServiceTests: XCTestCase {
         XCTAssertEqual(entity.expiresAt, expires)
         XCTAssertEqual(entity.deleteAfter, deleteAfter)
         XCTAssertEqual(entity.retentionPolicy, "oneHour")
-        XCTAssertEqual(clipboard.last, "https://fsh.re/xyz")
+        XCTAssertEqual(clipboard.last, "https://fastsha.red/xyz")
     }
 
     // MARK: - helpers
@@ -260,7 +260,7 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         capturedCompleteRequest = request
         if let completeResponse { return completeResponse }
         return CompleteResponse(assetId: UUID(),
-                                shortUrl: URL(string: "https://fsh.re/x")!,
+                                shortUrl: URL(string: "https://fastsha.red/x")!,
                                 token: "x",
                                 expiresAt: Date().addingTimeInterval(3600),
                                 deleteAfter: Date().addingTimeInterval(90_000),
@@ -284,7 +284,7 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     }
 
     func shortURL(forToken token: String) -> URL {
-        URL(string: "https://fsh.re/s/\(token)")!
+        URL(string: "https://fastsha.red/s/\(token)")!
     }
 }
 

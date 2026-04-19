@@ -161,7 +161,7 @@ private struct ExpandedBottom: View {
         case .completed:
             VStack(alignment: .leading, spacing: 6) {
                 if let shortUrl = state.shortUrl {
-                    Link(destination: URL(string: shortUrl) ?? URL(string: "https://fsh.re")!) {
+                    Link(destination: URL(string: shortUrl) ?? URL(string: "https://fastsha.red")!) {
                         HStack(spacing: 6) {
                             Image(systemName: "link")
                                 .font(.system(size: 11, weight: .semibold))
