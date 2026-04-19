@@ -12,9 +12,18 @@ installDrizzleFake();
 
 import worker from '~/index';
 
+// Default user-agent mimics Safari so content negotiation flows through
+// Accept header as tests expect. Tests that want to simulate curl / bots
+// override by passing `'user-agent': 'curl/8.0'` (etc.).
+const BROWSER_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+
 async function get(path: string, headers: Record<string, string> = {}): Promise<Response> {
   return worker.fetch(
-    new Request(`https://fastsha.red${path}`, { headers, redirect: 'manual' }),
+    new Request(`https://fastsha.red${path}`, {
+      headers: { 'user-agent': BROWSER_UA, ...headers },
+      redirect: 'manual',
+    }),
     TEST_ENV,
     ctx,
   );
@@ -22,7 +31,11 @@ async function get(path: string, headers: Record<string, string> = {}): Promise<
 
 async function head(path: string, headers: Record<string, string> = {}): Promise<Response> {
   return worker.fetch(
-    new Request(`https://fastsha.red${path}`, { method: 'HEAD', headers, redirect: 'manual' }),
+    new Request(`https://fastsha.red${path}`, {
+      method: 'HEAD',
+      headers: { 'user-agent': BROWSER_UA, ...headers },
+      redirect: 'manual',
+    }),
     TEST_ENV,
     ctx,
   );

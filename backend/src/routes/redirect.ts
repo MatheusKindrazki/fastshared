@@ -103,7 +103,10 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
     );
   }
 
-  const wantsDownload = c.req.query('dl') === '1' || !acceptsHtml(c.req.header('accept'));
+  const wantsDownload =
+    c.req.query('dl') === '1' ||
+    !acceptsHtml(c.req.header('accept')) ||
+    isAutomatedClient(c.req.header('user-agent'));
   if (wantsDownload) {
     return binaryHandler(c);
   }
@@ -232,6 +235,36 @@ function acceptsHtml(accept: string | undefined | null): boolean {
   // `application/octet-stream` → no preview, give them the bytes.
   const lower = accept.toLowerCase();
   return lower.includes('text/html') || lower.includes('application/xhtml+xml');
+}
+
+// Serve the raw file (not the HTML preview) to automated clients even when
+// they advertise `Accept: text/html`. Browsers get the preview; everything
+// programmatic (curl, wget, HTTP libraries, MCP servers, LLM fetchers,
+// scrapers, AI agents) gets the file directly. Link-unfurl bots from social
+// apps keep getting HTML so OG previews still render in WhatsApp/Slack/etc.
+function isAutomatedClient(ua: string | undefined | null): boolean {
+  if (!ua) return true;
+  const lower = ua.toLowerCase();
+
+  // Known link-unfurl bots that need HTML (OG tags).
+  const unfurlers = [
+    'slackbot', 'discordbot', 'telegrambot', 'whatsapp', 'linkedinbot',
+    'facebookexternalhit', 'twitterbot', 'skypeuripreview', 'redditbot',
+    'embedly', 'iframely', 'pinterest',
+  ];
+  if (unfurlers.some((b) => lower.includes(b))) return false;
+
+  // Real browsers. `mozilla/` prefix covers Chrome, Safari, Firefox, Edge.
+  // Filter OUT "headless" which is usually a scraper pretending to be Chrome.
+  if (lower.includes('mozilla/') && !lower.includes('headlesschrome')) {
+    return false;
+  }
+
+  // Everything else → treat as automation (curl, wget, python-requests,
+  // go-http-client, node-fetch, axios, undici, okhttp, java, libwww,
+  // ruby, perl, postmanruntime, insomnia, mcp, claude, gpt, openai,
+  // anthropic, bot, crawler, spider, scraper).
+  return true;
 }
 
 interface TokenRateLimitOpts {

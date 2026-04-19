@@ -461,10 +461,16 @@ async function post(path: string, body: unknown, headers: Record<string, string>
   );
 }
 
+// Default UA is a browser — automation detection would otherwise force
+// `Accept: text/html` requests into the binary download path. Tests that want
+// to exercise curl/bot behavior pass `user-agent` explicitly.
+const BROWSER_UA_FOR_TESTS =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+
 async function get(path: string, headers: Record<string, string> = {}) {
   return worker.fetch(
     new Request(`https://api.test/${path.replace(/^\//, '')}`, {
-      headers,
+      headers: { 'user-agent': BROWSER_UA_FOR_TESTS, ...headers },
       redirect: 'manual',
     }),
     TEST_ENV,
