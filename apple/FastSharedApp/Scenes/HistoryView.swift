@@ -63,7 +63,14 @@ struct HistoryView: View {
         .foregroundStyle(BrandPalette.text)
         .navigationTitle("")
         #if os(iOS)
-        .toolbarBackground(.hidden, for: .navigationBar)
+        // WHY: ground the nav-bar chrome in brand ink and mark it .visible so
+        // the area behind the dynamic island / status bar matches the scroll
+        // background instead of falling back to the system's default chrome
+        // (which on iOS 17 reads as a pale translucent band against our dark
+        // canvas). The scene still uses a transparent nav-bar look because the
+        // fill matches the page background edge-to-edge.
+        .toolbarBackground(BrandPalette.ground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         #endif

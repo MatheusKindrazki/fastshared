@@ -46,6 +46,8 @@ struct DetailView: View {
         .navigationTitle("")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(BrandPalette.ground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .sensoryFeedback(.success, trigger: copyTick)
         .sensoryFeedback(.impact(weight: .heavy), trigger: revokeTick)

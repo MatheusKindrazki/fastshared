@@ -68,6 +68,8 @@ struct SettingsView: View {
         .navigationTitle("")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(BrandPalette.ground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         #endif
         .task {
