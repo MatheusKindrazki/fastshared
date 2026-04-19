@@ -12,6 +12,13 @@ export interface Env {
   PUBLIC_API_HOST: string;
   DEVICE_TOKEN_PEPPER: string;
   APP_ENV: string;
+  // App Store Server API credentials. The three APP_STORE_CONNECT_* values
+  // come from an ASC API Key (In-App Purchase access). APPLE_BUNDLE_ID is a
+  // public var in wrangler.toml — the others are Wrangler secrets.
+  APP_STORE_CONNECT_KEY_ID: string;
+  APP_STORE_CONNECT_ISSUER_ID: string;
+  APP_STORE_CONNECT_P8_KEY_BASE64: string;
+  APPLE_BUNDLE_ID: string;
 }
 
 export interface AppVars {
@@ -32,6 +39,12 @@ export const envSchema = z.object({
   PUBLIC_API_HOST: z.string().url(),
   DEVICE_TOKEN_PEPPER: z.string().min(16, 'DEVICE_TOKEN_PEPPER must be at least 16 chars'),
   APP_ENV: z.string().min(1),
+  APP_STORE_CONNECT_KEY_ID: z.string().min(1),
+  APP_STORE_CONNECT_ISSUER_ID: z.string().min(1),
+  APP_STORE_CONNECT_P8_KEY_BASE64: z
+    .string()
+    .min(20, 'APP_STORE_CONNECT_P8_KEY_BASE64 must be a base64 PKCS8 private key'),
+  APPLE_BUNDLE_ID: z.string().min(1),
 });
 
 export type ValidatedEnv = z.infer<typeof envSchema>;

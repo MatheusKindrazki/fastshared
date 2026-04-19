@@ -413,6 +413,11 @@ const TEST_ENV: Env = {
   PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',
   APP_ENV: 'test',
+  APP_STORE_CONNECT_KEY_ID: 'TESTKEYID0',
+  APP_STORE_CONNECT_ISSUER_ID: '00000000-0000-0000-0000-000000000000',
+  APP_STORE_CONNECT_P8_KEY_BASE64:
+    'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
+  APPLE_BUNDLE_ID: 'red.fastsha.FastShared',
 };
 
 function makeKv(): KVNamespace {
