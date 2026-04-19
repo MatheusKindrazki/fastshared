@@ -1,0 +1,152 @@
+# Security
+
+Threats, mitigations, and the reasoning behind each. Paired with [Backend](./backend.md) and [Upload flow](./upload-flow.md).
+
+## Anonymous bearer model
+
+FastShared issues temporary anonymous links. The security posture follows from that choice:
+
+- **The token IS the credential.** 22 characters of base62 (~131 bits entropy). Anyone with the token can fetch the file until it expires or is revoked. There is no recipient auth.
+- **DB-backed revocation.** Unlike a bare signed-R2 URL (which is self-verifying and cannot be revoked mid-life), our resolve route hits the DB on every `/s/:token` call. This gives us:
+  - Instant revoke via `POST /v1/links/:token/revoke`.
+  - Mid-life expiry at `expires_at` (410 Gone once past it).
+  - A hook for future per-link policy (password, max-downloads, geo gates).
+- **Short-lived signed GETs.** `/s/:token` redirects to an R2 presigned GET with **60 s TTL**. Even if the `Location` header leaks (browser history, messaging app preview, debug proxy), the blast radius is bounded by the TTL.
+- **No permanent public URLs.** The R2 bucket is private; there is no public hostname, no public bucket ACL, no direct-access path at all.
+- **Every upload has a `delete_after`.** Storage is always bounded. An abandoned incident therefore has a worst-case lifetime of 90 days (R2 lifecycle safety net).
+
+Rejected alternatives (so we do not revisit them):
+
+- Direct public R2 URL — permanent exposure, no revoke, no per-link policy hooks.
+- Signed R2 URL returned directly to the client — leak-while-valid for the full TTL with no way to invalidate.
+- Workers proxy/streaming — richer per-link policy, but CPU/memory limits make it unsafe for large videos in MVP.
+
+## Threat model summary
+
+We care about three adversaries:
+
+- **Abusers.** People who try to use FastShared as free CDN for disallowed content, exhaust rate limits, or drain R2 budget.
+- **Snoopers.** People who try to enumerate tokens, scrape buckets, or obtain tokens belonging to someone else.
+- **Lost devices.** An unlocked device that ends up with someone other than its owner.
+
+We do not currently threat-model a fully compromised Apple device or a malicious Cloudflare account owner.
+
+## Authentication
+
+Two distinct trust surfaces.
+
+### Owner API (authenticated)
+
+`/v1/*` except `/v1/devices` and `/v1/report/:token`. This surface owns upload, history, and revoke.
+
+- **Device tokens.** 32 bytes of CSPRNG, base64url. Minted by `POST /v1/devices` on first launch; no email, no user interaction.
+- **Token storage.** Client stores the token in Keychain with access group `TEAMID.com.yourco.fastshared` and `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
+- **Server storage.** Only `HMAC-SHA256(DEVICE_TOKEN_PEPPER, token)` is persisted on the `device` row. Raw tokens are never logged.
+- **Rotation.** Supported API-side via `POST /v1/devices/:id/rotate` (post-MVP). On rotation, old hash is invalidated atomically; the new token is returned once and immediately persisted.
+- **Lifecycle.** Tokens live as long as the device row exists. A user "signing out" (post-MVP) deletes the device row and the token is rejected on next request.
+
+### Resolve route (unauthenticated)
+
+`/s/:token` is anonymous. The route uses the URL token as a bearer secret and does not accept any `Authorization` header. Protections live entirely in rate limiting, short signed-URL TTL, and response headers; see below.
+
+## Resolve-route hardening
+
+Every `/s/:token` response — 302, 410, or 404 — carries:
+
+- `Cache-Control: no-store` — no intermediary caching of redirects or error bodies.
+- `X-Robots-Tag: noindex, nofollow` — keep tokens out of search indices even if someone leaks them into the public web.
+- `Referrer-Policy: no-referrer` — so the destination R2 host never learns the token that led to it.
+
+Additional levers:
+
+- **Signed URL TTL.** 60 seconds. The `Location` header is considered ephemeral; a leaked URL is valid for no more than 60 s from its issue time.
+- **Per-IP rate limit.** 60 requests/min. Catches a single-source enumeration.
+- **Per-token rate limit.** 300 requests/min. Catches bulk fan-out (one token bounced through many IPs) while tolerating legitimate link-preview fan-out from messaging apps.
+- **DB-gated.** The handler loads the row, checks `link_status`, `expires_at`, and `asset.deleted_at`. Any mismatch returns `410 Gone` with a `reason` of `expired`, `revoked`, or `deleted`. Unknown tokens return `404` (indistinguishable from random-guess lookups to an attacker).
+
+## Token hygiene
+
+- **Entropy.** 22 characters of base62 = 62^22 ≈ 2^131 values. At the 300 req/min/token ceiling, brute-forcing a specific token requires ~10^30 years. Enumeration is likewise infeasible at 60 req/min/IP.
+- **Generation.** `crypto.getRandomValues(new Uint8Array(32))` → base62 → truncate to 22 chars.
+- **Collision policy.** Reserve in `TOKEN_RESERVATIONS` KV for 60 s; insert with a `UNIQUE` index; on conflict regenerate. Realistic collision probability at our expected volume is effectively zero; the policy is defensive.
+- **Logging.** Tokens are **never logged in cleartext**. Logs and error bodies truncate to `token[:8]…` when they need to reference a token at all. The full token lives only in the DB `share_link.token` column, in the client's SwiftData store, and briefly in URL handlers.
+- **Storage on device.** The token is not a secret in the traditional Keychain sense; it lives in SwiftData alongside the rest of the share metadata and is displayed/copied as part of normal UI. The device token (owner API) is the true secret and lives in Keychain.
+
+## Transport security
+
+- TLS 1.3 everywhere, enforced by Cloudflare.
+- HSTS with `max-age=31536000; includeSubDomains; preload` on `fsh.re` and `api.fsh.re`.
+- No `http://` fallbacks anywhere in the client.
+- The Apple client pins the Cloudflare certificate roots by default (system trust); pinning specific leaf certs is not needed because we use Cloudflare-managed certs that rotate.
+
+## Input validation
+
+- **Server.** Every route's body, query, and params are validated with `zod`. Invalid requests get `400` with an RFC 7807 body — never a stack trace.
+- **Client.** Before enqueueing, the extension checks the `UTType` against an allowlist and rejects anything unknown. It also clamps `customTtlSeconds` to `[300, 2592000]` before hitting the network; the server re-clamps authoritatively.
+
+## MIME / content-type allowlist
+
+Accepted top-level types in MVP:
+
+- `image/*`
+- `video/*`
+- `application/pdf`
+- `application/zip`
+- `text/plain`, `text/markdown`
+
+Anything else is rejected with `415 unsupported-media-type` at `POST /v1/uploads`. The list is held in `backend/src/policy/mime.ts` and mirrored in `FastSharedCore/Policy/MIME.swift`.
+
+## Size caps
+
+| Type    | Cap    | Why                                                                               |
+| ------- | ------ | --------------------------------------------------------------------------------- |
+| Image   | 50 MB  | Far above any reasonable camera JPEG / HEIC / PNG; catches accidental videos      |
+| Video   | 2 GB   | Covers 4K short-form; above this we push users to native sharing                  |
+| Doc     | 100 MB | Covers almost any PDF / zip; keeps single-PUT inside Workers memory               |
+
+Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipart at M8. Server rejects `size > cap` for the declared type at presign time.
+
+## Rate limiting
+
+- **Per device (owner API).** `60 uploads/hour`, `600 history reads/hour`, `10 devices/day` (last measured at the IP of the issuing call).
+- **Per IP, unauthenticated routes.** `120/hour` on `POST /v1/devices`; `60/min` on `/s/:token`.
+- **Per token, resolve route.** `300/min`. Whichever of the two resolve buckets trips first returns `429`.
+- **Response.** `429` with `Retry-After` and RFC 7807 body, `type = https://fsh.re/errors/rate-limited`.
+- Implementation: KV now, Durable Object per-token upgrade once measured latency requires it.
+
+## Abuse prevention
+
+- **sha256 blocklist hook.** `POST /v1/uploads` consults a blocklist keyed by sha256; lookups are in KV so they are free in the hot path. The dedup lookup restricts to live assets, so a tombstoned hash will not be silently re-shared.
+- **`/v1/report/:token`.** Unauthenticated endpoint, heavily rate-limited. In MVP it stores a report row and returns 202; review is manual. The reported token stays live until an operator acts; reviewers can call revoke.
+- **Takedowns.** Operator calls `POST /v1/links/:token/revoke` with an ops-only `X-Ops-Key` header (auth middleware accepts this as an authorization path). Revoke schedules immediate deletion and the object is reaped within a minute.
+
+## Secrets management
+
+- **Server.** All secrets injected via `wrangler secret put`. Never in `wrangler.toml`, never in repo. CI deploy is gated behind a GitHub environment with required reviewers.
+- **Client.** Device token only in Keychain. Share tokens in SwiftData. Build-time configuration (API host, short link host) is in `xcconfig` files in `apple/Config/`; these are public and hold no secrets.
+- **Logging.** The logger allowlists fields; there is no "dump request" mode in production. Tokens (share and device) are redacted at the logger layer, not at call sites.
+
+## App Group and extension data safety
+
+- The staging directory and SwiftData store are in the App Group container, which is sandboxed to the team and gated by device lock state.
+- Staging files are `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` equivalent at the filesystem level: after first unlock, until reboot, they are readable only by app and extension.
+- Files older than 72 h in staging are reaped on every app launch and on extension start to minimize the footprint.
+
+## Signed URL strategy
+
+- **All reads are signed.** TTL is 60 seconds (was 5 minutes pre-ephemeral; tightened because the resolve is behind our own 302 so there is no legitimate reason to issue a longer URL).
+- **Why not a public bucket?** A public bucket removes all per-link policy options (expiry, revoke, abuse-takedown, future password-protection). A private bucket with always-signed GETs is the same UX for users but gives us real levers. The cost is one extra presign call on every redirect; at edge latency that is sub-millisecond compared to the R2 GET itself.
+- **Referrer / origin constraints** are not used because presigned URLs expire quickly and we would rather not break cross-app previews.
+
+## Future hardening
+
+- **Password-protected links.** The `share_link` schema already carries enough metadata to gate a redirect on a form; a post-MVP deploy wires up a password column + a minimal HTML challenge page.
+- **Max-download count.** `share_link.max_access_count` is already present (null in MVP); the resolve handler will 410 once `access_count >= max_access_count`. Hook exists; UI does not.
+- **sha256 blocklist.** KV lookup already present on upload; operator tooling to populate it comes post-MVP.
+- **`/report/:token`.** MVP stores rows, review is manual. Post-MVP adds an ops dashboard.
+- **Geographic gates.** Cloudflare edge carries country/region data. Post-MVP adds an allow/deny list per link.
+- **Proxy-mode per link.** Opt-in per link: instead of 302 to a signed R2 GET, the Worker streams the body through itself. Enables password prompts, download-count enforcement on each chunk, and watermarking. Held back in MVP because of Workers CPU limits on large videos.
+- **CSAM scanning.** Integrate a scanner (e.g. PhotoDNA via a partner) at complete-time against `image/*`. Requires KYC with the vendor; out of scope for MVP.
+- **Account binding.** Let a user bind their current device token to an email + passkey. Enables cross-device history and loss-of-device recovery.
+- **2FA** for the account path above.
+- **Bucket-level encryption keys** managed by us rather than Cloudflare-managed — increases key hygiene burden; revisit once we have compliance customers.
