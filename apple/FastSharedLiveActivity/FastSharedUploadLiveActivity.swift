@@ -31,7 +31,7 @@ struct FastSharedUploadLiveActivity: Widget {
                 MinimalView(state: context.state)
             }
             .widgetURL(URL(string: "fastshared://jobs/\(context.attributes.clientJobId.uuidString)"))
-            .keylineTint(BrandPalette.amber)
+            .keylineTint(BrandPalette.amberAccent.hot)
         }
     }
 }
@@ -50,7 +50,7 @@ private struct LockScreenView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(attributes.filename)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(BrandPalette.lightText)
+                        .foregroundStyle(BrandPalette.text)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
@@ -62,7 +62,7 @@ private struct LockScreenView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-        .background(BrandPalette.ink)
+        .background(BrandPalette.ground)
     }
 
     @ViewBuilder
@@ -72,15 +72,15 @@ private struct LockScreenView: View {
             VStack(alignment: .leading, spacing: 4) {
                 ProgressView(value: max(0, min(1, state.progress)))
                     .progressViewStyle(.linear)
-                    .tint(BrandPalette.amber)
+                    .tint(BrandPalette.amberAccent.hot)
                 HStack {
                     Text(byteCountText(sent: state.bytesSent, total: state.bytesTotal))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.lightText.opacity(0.65))
+                        .foregroundStyle(BrandPalette.text.opacity(0.65))
                     Spacer()
                     Text("\(Int((state.progress * 100).rounded()))%")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(BrandPalette.amber)
+                        .foregroundStyle(BrandPalette.amberAccent.hot)
                 }
             }
         case .completed:
@@ -88,17 +88,17 @@ private struct LockScreenView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "link")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(BrandPalette.amber)
+                        .foregroundStyle(BrandPalette.amberAccent.hot)
                     Text(url.host.map { "\($0)\(url.path)" } ?? shortUrl)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.lightText)
+                        .foregroundStyle(BrandPalette.text)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
                     if let expiresAt = state.expiresAt {
                         Text(expiresAt, style: .timer)
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundStyle(BrandPalette.dust)
+                            .foregroundStyle(BrandPalette.amberAccent.dust)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -107,10 +107,10 @@ private struct LockScreenView: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(BrandPalette.coral)
+                    .foregroundStyle(BrandPalette.amberAccent.fade)
                 Text(state.errorReason ?? "Upload failed")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(BrandPalette.lightText.opacity(0.85))
+                    .foregroundStyle(BrandPalette.text.opacity(0.85))
                     .lineLimit(2)
             }
         }
@@ -126,10 +126,10 @@ private struct ExpandedLeading: View {
         HStack(spacing: 8) {
             Image(systemName: "paperplane.fill")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.amber)
+                .foregroundStyle(BrandPalette.amberAccent.hot)
             Text(attributes.filename)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.lightText)
+                .foregroundStyle(BrandPalette.text)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
@@ -146,15 +146,15 @@ private struct ExpandedBottom: View {
             VStack(alignment: .leading, spacing: 4) {
                 ProgressView(value: max(0, min(1, state.progress)))
                     .progressViewStyle(.linear)
-                    .tint(BrandPalette.amber)
+                    .tint(BrandPalette.amberAccent.hot)
                 HStack {
                     Text(byteCountText(sent: state.bytesSent, total: state.bytesTotal))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.lightText.opacity(0.7))
+                        .foregroundStyle(BrandPalette.text.opacity(0.7))
                     Spacer()
                     Text("\(Int((state.progress * 100).rounded()))%")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(BrandPalette.amber)
+                        .foregroundStyle(BrandPalette.amberAccent.hot)
                 }
             }
             .padding(.top, 2)
@@ -170,12 +170,12 @@ private struct ExpandedBottom: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
-                        .foregroundStyle(BrandPalette.ink)
+                        .foregroundStyle(BrandPalette.ground)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(BrandPalette.nightshade)
+                                .fill(BrandPalette.surface0)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                                         .strokeBorder(BrandPalette.arc, lineWidth: 1)
@@ -187,13 +187,13 @@ private struct ExpandedBottom: View {
                     HStack(spacing: 4) {
                         Image(systemName: "timer")
                             .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(BrandPalette.coral)
+                            .foregroundStyle(BrandPalette.amberAccent.fade)
                         Text("expires in ")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(BrandPalette.lightText.opacity(0.6))
+                            .foregroundStyle(BrandPalette.text.opacity(0.6))
                         Text(expiresAt, style: .timer)
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(BrandPalette.dust)
+                            .foregroundStyle(BrandPalette.amberAccent.dust)
                     }
                 }
             }
@@ -202,16 +202,16 @@ private struct ExpandedBottom: View {
             HStack(spacing: 8) {
                 Text(state.errorReason ?? "Upload failed")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(BrandPalette.lightText.opacity(0.85))
+                    .foregroundStyle(BrandPalette.text.opacity(0.85))
                     .lineLimit(2)
                 Spacer()
                 Link(destination: URL(string: "fastshared://jobs/\(attributes.clientJobId.uuidString)")!) {
                     Text("Retry")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(BrandPalette.lightText)
+                        .foregroundStyle(BrandPalette.text)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(BrandPalette.amberAccent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
             .padding(.top, 2)
@@ -229,10 +229,10 @@ private struct CompactLeadingView: View {
                 .frame(width: 18, height: 18)
         case .completed:
             Image(systemName: "checkmark.seal.fill")
-                .foregroundStyle(BrandPalette.amber)
+                .foregroundStyle(BrandPalette.amberAccent.hot)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(BrandPalette.coral)
+                .foregroundStyle(BrandPalette.amberAccent.fade)
         }
     }
 }
@@ -245,17 +245,17 @@ private struct CompactTrailingView: View {
         case .uploading:
             Text("\(Int((state.progress * 100).rounded()))%")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(BrandPalette.amber)
+                .foregroundStyle(BrandPalette.amberAccent.hot)
                 .contentTransition(.numericText())
         case .completed:
             Text(slug(from: state.shortUrl))
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(BrandPalette.dust)
+                .foregroundStyle(BrandPalette.amberAccent.dust)
                 .lineLimit(1)
         case .failed:
             Text("Failed")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.coral)
+                .foregroundStyle(BrandPalette.amberAccent.fade)
         }
     }
 
@@ -277,10 +277,10 @@ private struct MinimalView: View {
                 .frame(width: 16, height: 16)
         case .completed:
             Image(systemName: "checkmark.seal.fill")
-                .foregroundStyle(BrandPalette.amber)
+                .foregroundStyle(BrandPalette.amberAccent.hot)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(BrandPalette.coral)
+                .foregroundStyle(BrandPalette.amberAccent.fade)
         }
     }
 }
@@ -297,28 +297,28 @@ private struct HeroGlyph: View {
             switch state.phase {
             case .uploading:
                 Circle()
-                    .fill(BrandPalette.amber.opacity(0.18))
+                    .fill(BrandPalette.amberAccent.hot.opacity(0.18))
                 Circle()
                     .trim(from: 0, to: max(0.02, min(1, state.progress)))
                     .stroke(BrandPalette.arc, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .padding(3)
                 Circle()
-                    .fill(RadialGradient(colors: [BrandPalette.ember, BrandPalette.amber],
+                    .fill(RadialGradient(colors: [BrandPalette.amberAccent.soft, BrandPalette.amberAccent.hot],
                                          center: .center,
                                          startRadius: 0,
                                          endRadius: 18))
                     .padding(10)
             case .completed:
-                Circle().fill(BrandPalette.amber.opacity(0.22))
+                Circle().fill(BrandPalette.amberAccent.hot.opacity(0.22))
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 24, weight: .regular))
-                    .foregroundStyle(BrandPalette.amber)
+                    .foregroundStyle(BrandPalette.amberAccent.hot)
             case .failed:
-                Circle().fill(BrandPalette.coral.opacity(0.2))
+                Circle().fill(BrandPalette.amberAccent.fade.opacity(0.2))
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 22, weight: .regular))
-                    .foregroundStyle(BrandPalette.coral)
+                    .foregroundStyle(BrandPalette.amberAccent.fade)
             }
         }
     }
@@ -330,10 +330,10 @@ private struct RetentionBadge: View {
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .semibold, design: .monospaced))
-            .foregroundStyle(BrandPalette.lightText)
+            .foregroundStyle(BrandPalette.text)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(BrandPalette.amberAccent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -344,7 +344,7 @@ private struct AmberRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(BrandPalette.amber.opacity(0.25), lineWidth: 2.5)
+                .stroke(BrandPalette.amberAccent.hot.opacity(0.25), lineWidth: 2.5)
             Circle()
                 .trim(from: 0, to: max(0.04, min(1, progress)))
                 .stroke(BrandPalette.arc, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
