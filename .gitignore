@@ -24,6 +24,16 @@ apple/Packages/**/.swiftpm/
 *.xcarchive
 Pods/
 
+# fastlane + TestFlight
+apple/.env.testflight
+apple/fastlane/report.xml
+apple/fastlane/Preview.html
+apple/fastlane/test_output
+apple/fastlane/README.md
+apple/vendor/bundle/
+apple/.bundle/
+apple/build/
+
 # XcodeGen output (regenerated; keep project.yml, ignore the generated project)
 apple/FastShared.xcodeproj/
 apple/FastShared.xcworkspace/

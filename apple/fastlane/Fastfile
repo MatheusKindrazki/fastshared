@@ -1,0 +1,82 @@
+# Fastfile — FastShared iOS build + TestFlight upload.
+#
+# Primary lane: `bundle exec fastlane ios beta`
+# What it does: regenerates the Xcode project via XcodeGen, increments the
+# build number, archives the iOS scheme, and uploads the IPA to TestFlight
+# via the App Store Connect API (no Apple ID 2FA prompts).
+#
+# Required env (see docs/ops/testflight-setup.md):
+#   APPSTORE_CONNECT_API_KEY_ID          — e.g. "A1B2C3D4E5"
+#   APPSTORE_CONNECT_API_KEY_ISSUER_ID   — UUID from App Store Connect
+#   APPSTORE_CONNECT_API_KEY_PATH        — absolute path to the .p8 private key
+# Optional:
+#   FASTSHARED_CHANGELOG                 — release notes surfaced in TestFlight
+#
+# Local shortcut: `make testflight` at the repo root wraps this.
+
+default_platform(:ios)
+
+APP_SCHEME     = "FastSharedApp"
+XCODE_PROJECT  = "FastShared.xcodeproj"
+IPA_OUTPUT_DIR = "build"
+EXPORT_OPTIONS = "ExportOptions.plist"
+
+platform :ios do
+  desc "Generate the Xcode project from project.yml so CI builds never drift from source."
+  lane :regen do
+    sh("cd .. && xcodegen generate")
+  end
+
+  desc "Build + upload the iOS app to TestFlight. Internal testing only; external needs review."
+  lane :beta do
+    regen
+
+    api_key = app_store_connect_api_key(
+      key_id:      ENV.fetch("APPSTORE_CONNECT_API_KEY_ID"),
+      issuer_id:   ENV.fetch("APPSTORE_CONNECT_API_KEY_ISSUER_ID"),
+      key_filepath: ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH"),
+      is_key_content_base64: false,
+      in_house: false
+    )
+
+    # WHY: monotonic build numbers per MARKETING_VERSION are required by App
+    # Store Connect. Epoch-seconds-since-the-year-2020 is fast, stable across
+    # machines, and never collides; we don't need cute counters.
+    new_build = (Time.now.to_i - 1_577_836_800).to_s
+    increment_build_number(xcodeproj: XCODE_PROJECT, build_number: new_build)
+
+    build_app(
+      scheme:          APP_SCHEME,
+      project:         XCODE_PROJECT,
+      configuration:   "Release",
+      export_method:   "app-store",
+      export_options:  EXPORT_OPTIONS,
+      output_directory: IPA_OUTPUT_DIR,
+      output_name:     "FastShared.ipa",
+      clean:           true,
+      silent:          false,
+      export_team_id:  "YFYB6NKC73",
+    )
+
+    upload_to_testflight(
+      api_key:               api_key,
+      ipa:                   "#{IPA_OUTPUT_DIR}/FastShared.ipa",
+      skip_waiting_for_build_processing: false,
+      skip_submission:       true,  # internal testing only; flip to false + set groups later for external
+      changelog:             ENV["FASTSHARED_CHANGELOG"] || "Ephemeral share flow polished. Tap the Action Button or share from Photos.",
+      distribute_external:   false,
+    )
+  end
+
+  desc "Verify signing identities + API key without uploading. Run this before your first `beta`."
+  lane :doctor do
+    regen
+    api_key = app_store_connect_api_key(
+      key_id:       ENV.fetch("APPSTORE_CONNECT_API_KEY_ID"),
+      issuer_id:    ENV.fetch("APPSTORE_CONNECT_API_KEY_ISSUER_ID"),
+      key_filepath: ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH"),
+    )
+    UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
+    UI.message("Project regenerated; run `bundle exec fastlane ios beta` to ship.")
+  end
+end

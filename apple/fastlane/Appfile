@@ -1,0 +1,9 @@
+app_identifier("dev.kindrazki.fastshared")
+team_id("YFYB6NKC73")
+
+# Apple ID of the owner of the App Store Connect account / Developer team.
+# Used only for local `fastlane pilot` runs that prompt for 2FA — CI uses the
+# App Store Connect API key (see fastlane/Fastfile). Override locally by
+# exporting FASTLANE_USER / FASTLANE_PASSWORD if you maintain multiple Apple IDs.
+apple_id(ENV["FASTLANE_APPLE_ID"] || "matheus.kindrazki@moklabs.com.br")
+itc_team_id(ENV["FASTLANE_ITC_TEAM_ID"]) if ENV["FASTLANE_ITC_TEAM_ID"]

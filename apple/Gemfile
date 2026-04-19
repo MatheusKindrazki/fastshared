@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+# WHY: pinned to the 2.x major so CI + local devs stay on the same Ruby API
+# surface that the Fastfile is written against.
+gem "fastlane", "~> 2.226"

@@ -1,4 +1,4 @@
-.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy
+.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy testflight testflight-doctor testflight-bootstrap
 
 bootstrap:
 	@command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -42,3 +42,18 @@ web-build:
 
 web-deploy:
 	cd web && pnpm build && pnpm dlx wrangler pages deploy dist --project-name fastshared-web
+
+# --- TestFlight ---------------------------------------------------------------
+# First-time setup: `make testflight-bootstrap` (installs fastlane via bundler).
+# Before uploading: put your App Store Connect API key details in
+# apple/.env.testflight (see docs/ops/testflight-setup.md).
+
+testflight-bootstrap:
+	@command -v bundle >/dev/null 2>&1 || gem install bundler --user-install
+	cd apple && bundle config set --local path "vendor/bundle" && bundle install
+
+testflight-doctor:
+	cd apple && set -a && . ./.env.testflight && set +a && bundle exec fastlane ios doctor
+
+testflight:
+	cd apple && set -a && . ./.env.testflight && set +a && bundle exec fastlane ios beta
