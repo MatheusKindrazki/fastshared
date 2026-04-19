@@ -21,6 +21,29 @@ final class HistoryViewModel {
         self.store = store
     }
 
+    // MARK: - Hub derivations
+    //
+    // These helpers are the single source of truth for the "still out there" ledger. The view
+    // passes its @Query result in + a reference `now` (typically from a TimelineView tick) and gets
+    // back the filtered + bucketed data the hub renders.
+
+    /// Links that should show on the hub — active per server AND not yet past their expiry date.
+    func activeLinks(_ all: [ShareLinkEntity], now: Date = Date()) -> [ShareLinkEntity] {
+        all.filter { link in
+            link.linkStatus == LinkStatus.active.rawValue && link.expiresAt > now
+        }
+    }
+
+    /// Links grouped by `ExpiryTier`, urgent first, each bucket sorted by who dies next.
+    func groupedByExpiryTier(_ all: [ShareLinkEntity], now: Date = Date()) -> [(tier: ExpiryTier, links: [ShareLinkEntity])] {
+        ExpirySnapshot.build(from: all, now: now).grouped
+    }
+
+    /// The soonest expiry among active links, or nil if the hub is empty.
+    func nearestExpiry(_ all: [ShareLinkEntity], now: Date = Date()) -> Date? {
+        ExpirySnapshot.build(from: all, now: now).nearestExpiry
+    }
+
     func refresh(visibleLinks: [ShareLinkEntity] = []) async {
         isRefreshing = true
         defer { isRefreshing = false }
