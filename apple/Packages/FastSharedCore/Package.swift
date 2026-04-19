@@ -21,7 +21,8 @@ let package = Package(
         .testTarget(
             name: "FastSharedCoreTests",
             dependencies: ["FastSharedCore"],
-            path: "Tests/FastSharedCoreTests"
+            path: "Tests/FastSharedCoreTests",
+            resources: [.process("Resources")]
         )
     ]
 )

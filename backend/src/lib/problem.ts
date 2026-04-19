@@ -19,14 +19,16 @@ export function problem(
   code: string,
   title: string,
   detail?: string,
+  extras?: Record<string, unknown>,
 ): Response {
-  const body: ProblemDetails = {
+  const body: ProblemDetails & Record<string, unknown> = {
     type: `${BASE_TYPE}/${code}`,
     title,
     status,
     code,
     requestId: c.get('requestId') ?? 'unknown',
     ...(detail ? { detail } : {}),
+    ...(extras ?? {}),
   };
   return c.json(body, status, { 'content-type': 'application/problem+json' });
 }

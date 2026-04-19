@@ -16,6 +16,9 @@ public enum APIEndpoint: Sendable {
     case fetchHistory
     case deleteAsset(id: UUID)
     case revokeLink(token: String)
+    case iapVerify
+    case me
+    case pricingFlags
 
     public var path: String {
         switch self {
@@ -26,13 +29,16 @@ public enum APIEndpoint: Sendable {
         case .fetchHistory: return "/v1/history"
         case .deleteAsset(let id): return "/v1/assets/\(id.uuidString)"
         case .revokeLink(let token): return "/v1/links/\(token)/revoke"
+        case .iapVerify: return "/v1/iap/verify"
+        case .me: return "/v1/me"
+        case .pricingFlags: return "/v1/pricing-flags"
         }
     }
 
     public var method: HTTPMethod {
         switch self {
-        case .registerDevice, .requestUpload, .completeUpload, .failUpload, .revokeLink: return .post
-        case .fetchHistory: return .get
+        case .registerDevice, .requestUpload, .completeUpload, .failUpload, .revokeLink, .iapVerify: return .post
+        case .fetchHistory, .me, .pricingFlags: return .get
         case .deleteAsset: return .delete
         }
     }
@@ -280,5 +286,102 @@ public struct HistoryPage: Sendable, Codable, Equatable {
     public init(items: [HistoryItem], nextCursor: String?) {
         self.items = items
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - IAP + pricing types (Plan A backend contract)
+
+/// Body for `POST /v1/iap/verify`. Sends a single signed StoreKit 2 transaction JWS
+/// representation — the backend decodes + validates against Apple's App Store Server API.
+public struct IAPVerifyRequest: Sendable, Codable, Equatable {
+    public let signedTransaction: String
+
+    public init(signedTransaction: String) {
+        self.signedTransaction = signedTransaction
+    }
+}
+
+/// Server DTO for tier caps, mirroring `TierCaps` but decoupled so the backend can tune
+/// values without requiring a client rebuild.
+public struct TierCapsDTO: Sendable, Codable, Equatable {
+    public let dailyUploadLimit: Int?
+    public let maxFileSizeBytes: Int64
+    public let maxRetentionSeconds: TimeInterval
+    public let allowsCloudSync: Bool
+
+    public init(dailyUploadLimit: Int?,
+                maxFileSizeBytes: Int64,
+                maxRetentionSeconds: TimeInterval,
+                allowsCloudSync: Bool) {
+        self.dailyUploadLimit = dailyUploadLimit
+        self.maxFileSizeBytes = maxFileSizeBytes
+        self.maxRetentionSeconds = maxRetentionSeconds
+        self.allowsCloudSync = allowsCloudSync
+    }
+
+    public func toCaps() -> TierCaps {
+        TierCaps(dailyUploadLimit: dailyUploadLimit,
+                 maxFileSizeBytes: maxFileSizeBytes,
+                 maxRetentionSeconds: maxRetentionSeconds,
+                 allowsCloudSync: allowsCloudSync)
+    }
+}
+
+public extension TierCaps {
+    /// Projects the in-memory caps back to a wire DTO (used in tests + cache write).
+    func toDTO() -> TierCapsDTO {
+        TierCapsDTO(dailyUploadLimit: dailyUploadLimit,
+                    maxFileSizeBytes: maxFileSizeBytes,
+                    maxRetentionSeconds: maxRetentionSeconds,
+                    allowsCloudSync: allowsCloudSync)
+    }
+}
+
+/// Response for `POST /v1/iap/verify` and `GET /v1/me`. `tier` is the ASC product stem
+/// (`"monthly"`, `"annual"`, `"lifetime"`) or nil for Free; backend is authoritative.
+public struct IAPVerifyResponse: Sendable, Codable, Equatable {
+    public let isPro: Bool
+    public let tier: String?
+    public let expiresAt: Date?
+    public let caps: TierCapsDTO
+
+    public init(isPro: Bool,
+                tier: String?,
+                expiresAt: Date?,
+                caps: TierCapsDTO) {
+        self.isPro = isPro
+        self.tier = tier
+        self.expiresAt = expiresAt
+        self.caps = caps
+    }
+}
+
+/// Response for `GET /v1/me`. Same shape as `IAPVerifyResponse` — aliased for intent.
+public struct MeResponse: Sendable, Codable, Equatable {
+    public let isPro: Bool
+    public let tier: String?
+    public let expiresAt: Date?
+    public let caps: TierCapsDTO
+
+    public init(isPro: Bool,
+                tier: String?,
+                expiresAt: Date?,
+                caps: TierCapsDTO) {
+        self.isPro = isPro
+        self.tier = tier
+        self.expiresAt = expiresAt
+        self.caps = caps
+    }
+}
+
+/// Response for `GET /v1/pricing-flags`. Drives the client-side "Early Access" lifetime badge.
+public struct PricingFlags: Sendable, Codable, Equatable {
+    public let earlyAccessLifetimeActive: Bool
+    public let earlyAccessEndsAt: Date?
+
+    public init(earlyAccessLifetimeActive: Bool,
+                earlyAccessEndsAt: Date?) {
+        self.earlyAccessLifetimeActive = earlyAccessLifetimeActive
+        self.earlyAccessEndsAt = earlyAccessEndsAt
     }
 }

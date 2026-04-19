@@ -11,7 +11,10 @@ compatibility_flags = ["nodejs_compat"]
 account_id = "aad020260082c48f6370fa7954b72f81"
 
 # Secrets (set with: wrangler secret put <NAME>):
-#   DATABASE_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, DEVICE_TOKEN_PEPPER
+#   DATABASE_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, DEVICE_TOKEN_PEPPER,
+#   APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
+#   APP_STORE_CONNECT_P8_KEY_BASE64
+# (APPLE_BUNDLE_ID is a public var — see [vars] below.)
 
 # Production custom domains. Apex serves short-link redirects at /s/:token
 # AND /.well-known/apple-app-site-association for universal links; api serves
@@ -41,3 +44,5 @@ SHORT_LINK_HOST = "https://fastsha.red"
 PUBLIC_API_HOST = "https://api.fastsha.red"
 R2_BUCKET_NAME = "fastshared"
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
+# Public — matches apple/Config/Shared.xcconfig PRODUCT_BUNDLE_IDENTIFIER.
+APPLE_BUNDLE_ID = "red.fastsha.FastShared"

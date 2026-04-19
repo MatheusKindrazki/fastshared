@@ -12,6 +12,9 @@ import UIKit
 /// Island via LiveActivity elsewhere.
 struct ShareRootView: View {
     @Bindable var viewModel: ShareViewModel
+    /// Process-scoped coordinator owned by ShareViewController; shared here
+    /// so a gated-retention tap triggers the paywall sheet below.
+    @Bindable var paywallCoordinator: PaywallCoordinator
     let onUpload: () async -> Void
     let onCancel: () -> Void
     let onDismiss: () -> Void
@@ -41,6 +44,15 @@ struct ShareRootView: View {
         .preferredColorScheme(.dark)
         .foregroundStyle(BrandPalette.text)
         .animation(BrandMotion.transition, value: phaseKey)
+        .sheet(item: $paywallCoordinator.pending) { trigger in
+            // WHY: the share ext sheet host is this root; PaywallView lives in
+            // the main-app target so we project a lightweight inline paywall
+            // surface here. The upgrade flow itself (actual StoreKit call) is
+            // delegated through `SubscriptionStoreLocator`.
+            SharePaywallSheet(trigger: trigger) {
+                paywallCoordinator.dismiss()
+            }
+        }
     }
 
     // WHY: a discriminant key lets SwiftUI animate view identity across phases.
@@ -58,7 +70,10 @@ struct ShareRootView: View {
     private var content: some View {
         switch viewModel.phase {
         case .idle:
-            IdleStage(viewModel: viewModel, onUpload: onUpload, onCancel: onCancel)
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel)
         case .preparing:
             PreparingStage()
         case .uploading(let progress, let sent, let total):
@@ -154,8 +169,11 @@ private struct SheetGlyph: View {
 
 private struct IdleStage: View {
     @Bindable var viewModel: ShareViewModel
+    @Bindable var paywallCoordinator: PaywallCoordinator
     let onUpload: () async -> Void
     let onCancel: () -> Void
+
+    @State private var tier: Tier = .free
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -172,6 +190,15 @@ private struct IdleStage: View {
             Spacer(minLength: 6)
 
             ctaRow
+        }
+        .task {
+            if let store = try? await SubscriptionStoreLocator.shared.current() {
+                let snap = await store.currentSnapshot()
+                tier = snap.isPro ? .pro(snap.tier ?? .monthly) : .free
+                for await next in store.snapshotStream {
+                    tier = next.isPro ? .pro(next.tier ?? .monthly) : .free
+                }
+            }
         }
     }
 
@@ -265,38 +292,15 @@ private struct IdleStage: View {
     }
 
     private var retentionPicker: some View {
-        let accent = BrandPalette.amberAccent
-
-        return VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
             SheetMono(text: "link valid for", color: BrandPalette.textFaint)
 
-            HStack(spacing: 6) {
-                ForEach(RetentionPolicy.shareable, id: \.self) { policy in
-                    let selected = viewModel.retentionPolicy == policy
-                    Button {
-                        viewModel.retentionPolicy = policy
-                    } label: {
-                        Text(shortLabel(for: policy))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .foregroundStyle(selected ? Color(red: 0.07, green: 0.02, blue: 0.04) : BrandPalette.textDim)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(selected ? accent.hot : .clear)
-                            )
-                    }
-                    .buttonStyle(.plain)
+            GatedRetentionPicker(
+                selection: $viewModel.retentionPolicy,
+                tier: tier,
+                onPaywall: { trigger in
+                    paywallCoordinator.present(trigger)
                 }
-            }
-            .padding(4)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(BrandPalette.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(BrandPalette.line, lineWidth: 1)
-                    )
             )
 
             Text(retentionFootnote)
@@ -307,16 +311,6 @@ private struct IdleStage: View {
 
     private var retentionFootnote: String {
         "Link expires in \(viewModel.retentionPolicy.displayName). Media deleted 24h later."
-    }
-
-    private func shortLabel(for policy: RetentionPolicy) -> String {
-        switch policy {
-        case .oneHour: return "1h"
-        case .oneDay:  return "24h"
-        case .oneWeek: return "1w"
-        case .oneMonth: return "1mo"
-        default: return policy.displayName
-        }
     }
 
     private var ctaRow: some View {
@@ -554,6 +548,96 @@ private struct SuccessStage: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_400_000_000)
             copied = false
+        }
+    }
+}
+
+// MARK: - Share-ext paywall sheet (lightweight)
+
+/// Inline paywall surface for the share extension.
+///
+/// The main app's `PaywallView` lives in the FastSharedApp target and can't be
+/// reached from here; we present a stripped-down summary that nudges the user
+/// back to the main app to complete the purchase. A future iteration can host
+/// the full paywall here by moving PaywallView into FastSharedCore.
+struct SharePaywallSheet: View {
+    let trigger: PaywallTriggerContext
+    let onDismiss: () -> Void
+
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let accent = BrandPalette.amberAccent
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(accent.hot)
+            // TODO(i18n)
+            Text(headline)
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.6)
+                .foregroundStyle(BrandPalette.text)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Text(subhead)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(BrandPalette.textDim)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Spacer()
+            Button {
+                if let url = URL(string: "fastsharedapp://paywall") {
+                    openURL(url)
+                }
+                onDismiss()
+            } label: {
+                // TODO(i18n)
+                Text("OPEN FASTSHARED PRO")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .tracking(1.6)
+                    .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(accent.hot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 24)
+
+            Button {
+                onDismiss()
+            } label: {
+                // TODO(i18n)
+                Text("NOT NOW")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .tracking(1.4)
+                    .foregroundStyle(BrandPalette.textDim)
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 12)
+        }
+        .background(BrandPalette.ground.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+    }
+
+    private var headline: String {
+        // TODO(i18n)
+        switch trigger {
+        case .dailyCapReached: return "Free limit reached"
+        case .cloudSyncRequested: return "Cross-device sync is Pro"
+        case .longRetentionRequested: return "Extended retention is Pro"
+        case .largeFileRequested: return "Larger files are Pro"
+        case .serverForced: return "Upgrade to continue"
+        }
+    }
+
+    private var subhead: String {
+        // TODO(i18n)
+        switch trigger {
+        case .dailyCapReached:
+            return "Open FastShared to upgrade — your next link drops in instantly."
+        case .cloudSyncRequested, .longRetentionRequested, .largeFileRequested, .serverForced:
+            return "Open FastShared to see Pro plans and unlock."
         }
     }
 }

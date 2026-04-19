@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   customType,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -165,6 +167,52 @@ export const deletionJob = pgTable(
   }),
 );
 
+// Apple IAP product IDs map to these tiers. `lifetime` skips renewal — its
+// `expiresAt` stays NULL forever.
+export const SUBSCRIPTION_TIERS = ['monthly', 'annual', 'lifetime'] as const;
+export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
+
+// Status vocabulary covers the canonical Apple App Store Server Notifications v2
+// outcomes we care about. CHECK constraints live in the SQL migration.
+export const SUBSCRIPTION_STATUSES = [
+  'active',
+  'expired',
+  'in_grace',
+  'in_billing_retry',
+  'revoked',
+  'refunded',
+] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export const subscription = pgTable(
+  'subscription',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => device.id),
+    // Apple's `originalTransactionId` is stable across renewals — this is the
+    // single row we upsert on. `latestTransactionId` below moves forward.
+    appleOriginalTransactionId: text('apple_original_transaction_id').notNull().unique(),
+    tier: text('tier').notNull(),
+    status: text('status').notNull(),
+    // NULL only for lifetime; for monthly/annual this tracks the Apple
+    // `expiresDate`, not the lexical "expired" status.
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    autoRenewStatus: boolean('auto_renew_status').notNull().default(true),
+    latestTransactionId: text('latest_transaction_id').notNull(),
+    rawNotificationPayload: jsonb('raw_notification_payload'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    deviceIdx: index('subscription_device_idx').on(t.deviceId),
+    // Drizzle can't model the `WHERE status = 'active'` predicate; the SQL
+    // migration carries the partial unique index.
+    activeDeviceIdx: uniqueIndex('subscription_active_per_device').on(t.deviceId),
+  }),
+);
+
 export type User = InferSelectModel<typeof user>;
 export type NewUser = InferInsertModel<typeof user>;
 export type Device = InferSelectModel<typeof device>;
@@ -177,3 +225,5 @@ export type UploadJob = InferSelectModel<typeof uploadJob>;
 export type NewUploadJob = InferInsertModel<typeof uploadJob>;
 export type DeletionJob = InferSelectModel<typeof deletionJob>;
 export type NewDeletionJob = InferInsertModel<typeof deletionJob>;
+export type Subscription = InferSelectModel<typeof subscription>;
+export type NewSubscription = InferInsertModel<typeof subscription>;

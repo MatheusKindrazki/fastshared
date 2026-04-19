@@ -139,6 +139,150 @@ final class UploadServiceTests: XCTestCase {
         XCTAssertTrue(background.scheduled.isEmpty, "dedup path must not schedule a PUT")
     }
 
+    // MARK: - B4.3 / B4.5 / B3.2 — usage tracking + SubscriptionGate preflight
+
+    func test_successfulUpload_incrementsUsage() async throws {
+        let (service, mock, _, _, orchestrator, tracker) = try await makeServiceWithUsageTracker()
+        let expires = Date().addingTimeInterval(3600)
+        mock.presignResponse = Self.makePresignHappyPath(
+            uploadId: "upl_u1",
+            expires: expires,
+            deleteAfter: expires.addingTimeInterval(86_400),
+            retentionPolicy: "oneHour"
+        )
+        mock.completeResponse = CompleteResponse(assetId: UUID(),
+                                                 shortUrl: URL(string: "https://fastsha.red/abc")!,
+                                                 token: "tokUSAGE-INC-0000000001",
+                                                 expiresAt: expires,
+                                                 deleteAfter: expires.addingTimeInterval(86_400),
+                                                 linkStatus: "active",
+                                                 retentionPolicy: "oneHour")
+
+        let fileURL = try Self.writeTempFile(bytes: 64)
+        let job = try await service.enqueue(stagedURL: fileURL,
+                                            contentType: "application/octet-stream",
+                                            originalFilename: "f.bin",
+                                            retentionPolicy: .oneHour)
+        await orchestrator.handleTaskSuccess(clientJobId: job.clientJobId, etag: nil)
+        let count = await tracker.currentCount()
+        XCTAssertEqual(count, 1, "successful upload must bump the usage counter")
+    }
+
+    func test_dedupedResponse_doesNotIncrement() async throws {
+        let (service, mock, _, _, _, tracker) = try await makeServiceWithUsageTracker()
+        let expires = Date().addingTimeInterval(86_400)
+        mock.presignResponse = PresignResponse(
+            uploadId: nil,
+            bucket: nil,
+            storageKey: nil,
+            contentType: nil,
+            sizeBytes: nil,
+            upload: nil,
+            retentionPolicy: nil,
+            expiresAt: nil,
+            deleteAfter: nil,
+            deduped: DedupeInfo(assetId: UUID(),
+                                shortUrl: URL(string: "https://fastsha.red/dup")!,
+                                token: "tokDEDUPnoIncrement000",
+                                expiresAt: expires,
+                                deleteAfter: expires.addingTimeInterval(86_400),
+                                retentionPolicy: "oneDay")
+        )
+        let fileURL = try Self.writeTempFile(bytes: 16)
+        _ = try await service.enqueue(stagedURL: fileURL,
+                                      contentType: "application/octet-stream",
+                                      originalFilename: "dup.bin")
+        let count = await tracker.currentCount()
+        XCTAssertEqual(count, 0, "server-side dedupe responses must not burn quota")
+    }
+
+    func test_enqueue_onFreeAtCap_throwsSubscriptionGate() async throws {
+        let tracker = UsageTracker(clock: UsageTrackerTests.FakeClock("2026-04-19"),
+                                   defaults: isolatedDefaults())
+        _ = await tracker.increment()
+        _ = await tracker.increment()
+        _ = await tracker.increment()
+
+        let store = SwiftDataStore.inMemoryForTests()
+        let mock = MockAPIClient()
+        let keychain = InMemoryKeychain()
+        let tokenStore = DeviceTokenStore(keychain: keychain)
+        try await tokenStore.save(DeviceToken(deviceId: UUID(), token: "t"))
+        let background = RecordingBackgroundScheduler()
+        let clipboard = RecordingClipboard()
+        let orchestrator = UploadOrchestrator(apiClient: mock,
+                                              store: store,
+                                              clipboard: clipboard,
+                                              usageTracker: tracker)
+        let service = UploadService(apiClient: mock,
+                                    store: store,
+                                    tokenStore: tokenStore,
+                                    background: background,
+                                    orchestrator: orchestrator,
+                                    usageTracker: tracker,
+                                    subscriptionStore: nil) // nil → Free fallback
+
+        let fileURL = try Self.writeTempFile(bytes: 32)
+        do {
+            _ = try await service.enqueue(stagedURL: fileURL,
+                                          contentType: "application/octet-stream",
+                                          originalFilename: "blocked.bin",
+                                          retentionPolicy: .oneHour)
+            XCTFail("expected SubscriptionGate.dailyCapReached")
+        } catch SubscriptionGate.dailyCapReached(let used, let cap) {
+            XCTAssertEqual(used, 3)
+            XCTAssertEqual(cap, 3)
+        } catch {
+            XCTFail("expected SubscriptionGate, got \(error)")
+        }
+    }
+
+    func test_enqueue_onFileTooLargeForFree_throwsSubscriptionGate() async throws {
+        // 100 MB cap + 1-byte file > cap (using small file + lowered cap via
+        // a custom FreeCapsSubscriptionStore).
+        let tracker = UsageTracker(clock: UsageTrackerTests.FakeClock("2026-04-19"),
+                                   defaults: isolatedDefaults())
+        let store = SwiftDataStore.inMemoryForTests()
+        let mock = MockAPIClient()
+        let keychain = InMemoryKeychain()
+        let tokenStore = DeviceTokenStore(keychain: keychain)
+        try await tokenStore.save(DeviceToken(deviceId: UUID(), token: "t"))
+        let background = RecordingBackgroundScheduler()
+        let clipboard = RecordingClipboard()
+        let orchestrator = UploadOrchestrator(apiClient: mock,
+                                              store: store,
+                                              clipboard: clipboard,
+                                              usageTracker: tracker)
+
+        // Pretend the caller is Free via a tiny cap so a 64-byte file blows it.
+        let tinyCapStore = CustomCapSubscriptionStore(caps: TierCaps(
+            dailyUploadLimit: nil, // don't trigger quota gate
+            maxFileSizeBytes: 16,
+            maxRetentionSeconds: 30 * 86_400,
+            allowsCloudSync: false
+        ))
+        let service = UploadService(apiClient: mock,
+                                    store: store,
+                                    tokenStore: tokenStore,
+                                    background: background,
+                                    orchestrator: orchestrator,
+                                    usageTracker: tracker,
+                                    subscriptionStore: tinyCapStore)
+
+        let fileURL = try Self.writeTempFile(bytes: 64)
+        do {
+            _ = try await service.enqueue(stagedURL: fileURL,
+                                          contentType: "application/octet-stream",
+                                          originalFilename: "huge.bin",
+                                          retentionPolicy: .oneHour)
+            XCTFail("expected SubscriptionGate.fileTooLarge")
+        } catch SubscriptionGate.fileTooLarge {
+            // expected
+        } catch {
+            XCTFail("expected SubscriptionGate, got \(error)")
+        }
+    }
+
     func test_happy_path_schedules_background_upload_and_persists_timestamps_on_complete() async throws {
         let (service, mock, store, clipboard, orchestrator) = try await makeServiceWithOrchestrator()
         let expires = Date().addingTimeInterval(3600)
@@ -190,6 +334,8 @@ final class UploadServiceTests: XCTestCase {
     }
 
     private func makeServiceWithOrchestrator() async throws -> (UploadService, MockAPIClient, SwiftDataStore, RecordingClipboard, UploadOrchestrator) {
+        let tracker = UsageTracker(clock: UsageTrackerTests.FakeClock("2026-04-19"),
+                                   defaults: isolatedDefaults())
         let store = SwiftDataStore.inMemoryForTests()
         let mock = MockAPIClient()
         let keychain = InMemoryKeychain()
@@ -197,13 +343,51 @@ final class UploadServiceTests: XCTestCase {
         try await tokenStore.save(DeviceToken(deviceId: UUID(), token: "t"))
         let background = RecordingBackgroundScheduler()
         let clipboard = RecordingClipboard()
-        let orchestrator = UploadOrchestrator(apiClient: mock, store: store, clipboard: clipboard)
+        let orchestrator = UploadOrchestrator(apiClient: mock,
+                                              store: store,
+                                              clipboard: clipboard,
+                                              usageTracker: tracker)
         let service = UploadService(apiClient: mock,
                                     store: store,
                                     tokenStore: tokenStore,
                                     background: background,
-                                    orchestrator: orchestrator)
+                                    orchestrator: orchestrator,
+                                    usageTracker: tracker,
+                                    // nil subscriptionStore → falls back to .free caps but uses
+                                    // the injected tracker so each test starts with a clean counter.
+                                    subscriptionStore: AlwaysProSubscriptionStore())
         return (service, mock, store, clipboard, orchestrator)
+    }
+
+    private func makeServiceWithUsageTracker() async throws -> (UploadService, MockAPIClient, SwiftDataStore, RecordingClipboard, UploadOrchestrator, UsageTracker) {
+        let tracker = UsageTracker(clock: UsageTrackerTests.FakeClock("2026-04-19"),
+                                   defaults: isolatedDefaults())
+        let store = SwiftDataStore.inMemoryForTests()
+        let mock = MockAPIClient()
+        let keychain = InMemoryKeychain()
+        let tokenStore = DeviceTokenStore(keychain: keychain)
+        try await tokenStore.save(DeviceToken(deviceId: UUID(), token: "t"))
+        let background = RecordingBackgroundScheduler()
+        let clipboard = RecordingClipboard()
+        let orchestrator = UploadOrchestrator(apiClient: mock,
+                                              store: store,
+                                              clipboard: clipboard,
+                                              usageTracker: tracker)
+        let service = UploadService(apiClient: mock,
+                                    store: store,
+                                    tokenStore: tokenStore,
+                                    background: background,
+                                    orchestrator: orchestrator,
+                                    usageTracker: tracker,
+                                    subscriptionStore: AlwaysProSubscriptionStore())
+        return (service, mock, store, clipboard, orchestrator, tracker)
+    }
+
+    private func isolatedDefaults() -> UserDefaults {
+        let name = "dev.kindrazki.fastshared.upload-tests.\(UUID().uuidString)"
+        guard let d = UserDefaults(suiteName: name) else { return .standard }
+        d.removePersistentDomain(forName: name)
+        return d
     }
 
     static func writeTempFile(bytes: Int) throws -> URL {
@@ -286,6 +470,18 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     func shortURL(forToken token: String) -> URL {
         URL(string: "https://fastsha.red/s/\(token)")!
     }
+
+    func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse {
+        IAPVerifyResponse(isPro: false, tier: nil, expiresAt: nil, caps: TierCaps.free.toDTO())
+    }
+
+    func fetchMe() async throws -> MeResponse {
+        MeResponse(isPro: false, tier: nil, expiresAt: nil, caps: TierCaps.free.toDTO())
+    }
+
+    func fetchPricingFlags() async throws -> PricingFlags {
+        PricingFlags(earlyAccessLifetimeActive: false, earlyAccessEndsAt: nil)
+    }
 }
 
 final class InMemoryKeychain: KeychainStoring, @unchecked Sendable {
@@ -323,5 +519,52 @@ extension SwiftDataStore {
         // WHY: tests must not touch the real app group container; use a dedicated in-memory store.
         SwiftDataStore(inMemory: true)
     }
+}
+
+/// Test double exposing arbitrary caps so preflight negatives can be isolated.
+final actor CustomCapSubscriptionStore: SubscriptionStoreProtocol {
+    private let caps: TierCaps
+    init(caps: TierCaps) { self.caps = caps }
+    nonisolated var snapshotStream: AsyncStream<SubscriptionSnapshot> {
+        let snap = SubscriptionSnapshot(isPro: false, tier: nil, expiresAt: nil,
+                                        caps: caps, products: [], pricingFlags: nil)
+        return AsyncStream { c in c.yield(snap); c.finish() }
+    }
+    func currentSnapshot() async -> SubscriptionSnapshot {
+        SubscriptionSnapshot(isPro: false, tier: nil, expiresAt: nil,
+                             caps: caps, products: [], pricingFlags: nil)
+    }
+    func refreshProducts() async throws {}
+    func purchase(_ productID: String) async throws -> PurchaseOutcome { .userCancelled }
+    func restore() async throws {}
+    func syncCurrentEntitlements() async {}
+}
+
+/// Test double that reports Pro so the file-size/retention caps don't reject
+/// the 32-byte fixtures used in every existing UploadService test.
+final actor AlwaysProSubscriptionStore: SubscriptionStoreProtocol {
+    nonisolated var snapshotStream: AsyncStream<SubscriptionSnapshot> {
+        AsyncStream { continuation in
+            continuation.yield(SubscriptionSnapshot(isPro: true,
+                                                    tier: .monthly,
+                                                    expiresAt: Date().addingTimeInterval(30 * 86_400),
+                                                    caps: .pro,
+                                                    products: [],
+                                                    pricingFlags: nil))
+            continuation.finish()
+        }
+    }
+    func currentSnapshot() async -> SubscriptionSnapshot {
+        SubscriptionSnapshot(isPro: true,
+                             tier: .monthly,
+                             expiresAt: Date().addingTimeInterval(30 * 86_400),
+                             caps: .pro,
+                             products: [],
+                             pricingFlags: nil)
+    }
+    func refreshProducts() async throws {}
+    func purchase(_ productID: String) async throws -> PurchaseOutcome { .success }
+    func restore() async throws {}
+    func syncCurrentEntitlements() async {}
 }
 

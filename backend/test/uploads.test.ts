@@ -413,6 +413,11 @@ const TEST_ENV: Env = {
   PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',
   APP_ENV: 'test',
+  APP_STORE_CONNECT_KEY_ID: 'TESTKEYID0',
+  APP_STORE_CONNECT_ISSUER_ID: '00000000-0000-0000-0000-000000000000',
+  APP_STORE_CONNECT_P8_KEY_BASE64:
+    'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
+  APPLE_BUNDLE_ID: 'red.fastsha.FastShared',
 };
 
 function makeKv(): KVNamespace {
@@ -793,26 +798,24 @@ describe('redirect', () => {
     return { token: tokenStr, assetId };
   }
 
-  it('active link → 302 with signed URL and hardened headers', async () => {
+  it('active link with HTML Accept → 200 HTML preview (hardened headers)', async () => {
     const { token } = seedLiveLink();
-    const res = await get(`/s/${token}`);
-    expect(res.status).toBe(302);
-    const loc = res.headers.get('Location');
-    expect(loc).toBeTruthy();
-    expect(loc?.startsWith('https://r2.test/')).toBe(true);
-    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    const res = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toMatch(/text\/html/);
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
     expect(res.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
   });
 
-  it('expired link → 410 and lazy-flips link_status to expired', async () => {
+  it('expired link (HTML Accept) → 410 HTML gone page and lazy-flips link_status', async () => {
     const { token } = seedLiveLink({
       token: 'expiredTokenAAAAAAAAAA',
       expiresAt: new Date(Date.now() - 60_000),
     });
-    const res = await get(`/s/${token}`);
+    const res = await get(`/s/${token}`, { accept: 'text/html' });
     expect(res.status).toBe(410);
-    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
     // Lazy-expire runs via ctx.waitUntil in production; in the fake ExecutionContext
     // it runs synchronously as a promise. Await a tick so the update settles.
     await Promise.resolve();

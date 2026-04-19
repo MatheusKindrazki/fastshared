@@ -12,10 +12,13 @@ import AppKit
 typealias PlatformViewController = NSViewController
 #endif
 
+@MainActor
 final class ShareViewController: PlatformViewController {
     private let log = Logger(subsystem: Log.subsystem, category: "share")
     private let viewModel = ShareViewModel()
+    private let paywallCoordinator = PaywallCoordinator()
     private var autoDismissTask: Task<Void, Never>?
+    private var subscriptionStore: SubscriptionStore?
 
     #if canImport(UIKit)
     override func viewDidLoad() {
@@ -66,16 +69,38 @@ final class ShareViewController: PlatformViewController {
     #endif
 
     private func makeRootView() -> ShareRootView {
-        ShareRootView(viewModel: viewModel,
-                      onUpload: { [weak self] in
-                          await self?.performUpload()
-                      },
-                      onCancel: { [weak self] in
-                          self?.cancel()
-                      },
-                      onDismiss: { [weak self] in
-                          self?.completeAndDismiss()
-                      })
+        bootstrapSubscriptionStore()
+        return ShareRootView(viewModel: viewModel,
+                             paywallCoordinator: paywallCoordinator,
+                             onUpload: { [weak self] in
+                                 await self?.performUpload()
+                             },
+                             onCancel: { [weak self] in
+                                 self?.cancel()
+                             },
+                             onDismiss: { [weak self] in
+                                 self?.completeAndDismiss()
+                             })
+    }
+
+    /// Stand up a share-ext-local SubscriptionStore so the tier cap lookup in
+    /// UploadService.preflight has data without having to re-enter StoreKit.
+    /// Reads cached snapshot from App Group — main app seeds it on every
+    /// successful verify.
+    private func bootstrapSubscriptionStore() {
+        guard subscriptionStore == nil else { return }
+        let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
+        let tokenStore = DeviceTokenStore(keychain: keychain)
+        let apiClient = APIClient(tokenStore: tokenStore)
+        let store = SubscriptionStore(apiClient: apiClient)
+        subscriptionStore = store
+        Task {
+            await SubscriptionStoreLocator.shared.install(store)
+            await store.start()
+            // WHY: share ext is short-lived — don't block on a network refresh.
+            // The cached snapshot (isPro/caps) is enough for preflight decisions.
+            await store.replayEntitlementsVerification()
+        }
     }
 
     /// Observes the ViewModel for explicit dismissal / cancel signals coming from SwiftUI.
@@ -244,7 +269,8 @@ final class ShareViewController: PlatformViewController {
                                     store: store,
                                     tokenStore: tokenStore,
                                     background: BackgroundSessionManager.shared,
-                                    orchestrator: orchestrator)
+                                    orchestrator: orchestrator,
+                                    subscriptionStore: subscriptionStore)
 
         let policy = await viewModel.retentionPolicy
         do {
@@ -281,6 +307,35 @@ final class ShareViewController: PlatformViewController {
                                                                   bytesTotal: item.sizeBytes)
                     }
                 }
+            }
+        } catch let gate as SubscriptionGate {
+            log.info("preflight blocked: \(String(describing: gate), privacy: .public)")
+            await MainActor.run {
+                // Reset viewModel back to idle so the user can close + retry
+                // after upgrading.
+                viewModel.phase = .idle
+                switch gate {
+                case .dailyCapReached(let used, let cap):
+                    paywallCoordinator.present(.dailyCapReached(used: used, cap: cap))
+                case .fileTooLarge(let size, _):
+                    paywallCoordinator.present(.largeFileRequested(sizeBytes: size))
+                case .retentionTooLong:
+                    paywallCoordinator.present(.longRetentionRequested(policy: policy))
+                case .cloudSyncRequiresPro:
+                    paywallCoordinator.present(.cloudSyncRequested)
+                }
+            }
+        } catch let apiError as APIError {
+            if case .paymentRequired(let code, _) = apiError {
+                await MainActor.run {
+                    viewModel.phase = .idle
+                    paywallCoordinator.present(.serverForced(errorCode: code))
+                }
+                return
+            }
+            log.error("enqueue failed retentionPolicy=\(policy.rawValue, privacy: .public): \(apiError.localizedDescription, privacy: .public)")
+            await MainActor.run {
+                viewModel.reportEnqueueFailure(error: apiError, requestId: UUID())
             }
         } catch {
             log.error("enqueue failed retentionPolicy=\(policy.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
