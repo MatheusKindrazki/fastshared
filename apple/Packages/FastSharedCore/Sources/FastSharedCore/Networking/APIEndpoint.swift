@@ -49,12 +49,14 @@ public struct RegisterDeviceRequest: Sendable, Codable, Equatable {
 }
 
 public struct RegisterDeviceResponse: Sendable, Codable, Equatable {
+    // WHY: backend emits "deviceToken" (not "token") in POST /v1/devices to make the
+    // registration payload self-documenting when it sits alongside a deviceId.
     public let deviceId: UUID
-    public let token: String
+    public let deviceToken: String
 
-    public init(deviceId: UUID, token: String) {
+    public init(deviceId: UUID, deviceToken: String) {
         self.deviceId = deviceId
-        self.token = token
+        self.deviceToken = deviceToken
     }
 }
 

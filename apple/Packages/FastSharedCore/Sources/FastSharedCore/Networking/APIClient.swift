@@ -66,7 +66,7 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
     public func registerDevice(platform: String, appVersion: String) async throws -> DeviceToken {
         let body = RegisterDeviceRequest(platform: platform, appVersion: appVersion)
         let response: RegisterDeviceResponse = try await perform(endpoint: .registerDevice, body: body, requiresAuth: false)
-        return DeviceToken(deviceId: response.deviceId, token: response.token)
+        return DeviceToken(deviceId: response.deviceId, token: response.deviceToken)
     }
 
     public func requestUpload(_ request: PresignRequest) async throws -> PresignResponse {
