@@ -131,25 +131,8 @@ struct HistoryView: View {
 
     private var brandHeader: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color(red: 1.0, green: 0.965, blue: 0.878), BrandPalette.amberAccent.hot],
-                        center: UnitPoint(x: 0.35, y: 0.30),
-                        startRadius: 0,
-                        endRadius: 14
-                    )
-                )
-                .frame(width: 22, height: 22)
-
-            (
-                Text("fastshared")
-                    .foregroundStyle(BrandPalette.text)
-                + Text(".")
-                    .foregroundStyle(BrandPalette.amberAccent.hot)
-            )
-            .font(.system(size: 15, weight: .bold))
-            .tracking(-0.3)
+            // v3 Hub header — BrandLockup replaces the hand-rolled sphere+wordmark chip.
+            BrandLockup(markSize: 26, textSize: 15)
 
             Spacer()
 

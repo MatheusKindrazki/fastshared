@@ -135,6 +135,131 @@ private struct SheetMono: View {
     }
 }
 
+/// Inline plane-arc brand mark for the share extension.
+///
+/// Mirrors `apple/FastSharedApp/Components/PlaneArcMark.swift` — but this
+/// target can't import Components, so we re-declare the v3 `PlaneArc` render
+/// inline. Same viewBox-140 coordinates, same dart path, same gradient stops.
+private struct SheetPlaneArc: View {
+    var size: CGFloat = 80
+    var framed: Bool = false
+    var ambient: Bool = false
+
+    var body: some View {
+        let accent = BrandPalette.amberAccent
+        let corner = size * (32.0 / 140.0)
+        let arcStrokeWidth = size * (9.0 / 140.0)
+
+        ZStack {
+            if ambient {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [accent.hot.opacity(0.21), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: size * 0.82
+                        )
+                    )
+                    .frame(width: size * 1.7, height: size * 1.7)
+                    .blur(radius: 6)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+
+            if framed {
+                RoundedRectangle(cornerRadius: corner, style: .continuous)
+                    .fill(BrandPalette.surface0)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: corner, style: .continuous)
+                            .stroke(BrandPalette.lineStrong, lineWidth: 1)
+                    )
+                    .frame(width: size, height: size)
+            }
+
+            SheetArcPath()
+                .stroke(
+                    LinearGradient(
+                        stops: [
+                            .init(color: accent.fade.opacity(0), location: 0),
+                            .init(color: accent.hot.opacity(0.95), location: 0.5),
+                            .init(color: accent.soft, location: 1),
+                        ],
+                        startPoint: .bottomLeading,
+                        endPoint: .topTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .round)
+                )
+                .frame(width: size, height: size)
+
+            GeometryReader { geo in
+                let s = geo.size.width / 140.0
+                let transform = CGAffineTransform(translationX: 84 * s, y: 64 * s)
+                    .scaledBy(x: 1.1 * s, y: 1.1 * s)
+                ZStack {
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: 0).applying(transform))
+                        p.addLine(to: CGPoint(x: 22, y: -26).applying(transform))
+                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
+                        p.addLine(to: CGPoint(x: 4, y: 4).applying(transform))
+                        p.addLine(to: CGPoint(x: 0, y: 18).applying(transform))
+                        p.addLine(to: CGPoint(x: -4, y: 4).applying(transform))
+                        p.closeSubpath()
+                    }
+                    .fill(BrandPalette.text)
+                    Path { p in
+                        p.move(to: CGPoint(x: 4, y: 4).applying(transform))
+                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
+                    }
+                    .stroke(BrandPalette.text.opacity(0.35), lineWidth: 1)
+                }
+            }
+            .frame(width: size, height: size)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct SheetArcPath: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = rect.width / 140.0
+        var p = Path()
+        p.move(to: CGPoint(x: 26 * s, y: 110 * s))
+        p.addQuadCurve(
+            to: CGPoint(x: 82 * s, y: 68 * s),
+            control: CGPoint(x: 60 * s, y: 98 * s)
+        )
+        return p
+    }
+}
+
+/// Inline brand lockup for the share extension.
+///
+/// Mirrors `apple/FastSharedApp/Components/BrandLockup.swift` — the canonical
+/// mark+wordmark pair (amber period as the only accent). Kept in sync by hand.
+private struct SheetBrandLockup: View {
+    var markSize: CGFloat = 20
+    var textSize: CGFloat = 13
+
+    var body: some View {
+        let accent = BrandPalette.amberAccent
+        HStack(spacing: 8) {
+            SheetPlaneArc(size: markSize)
+                .accessibilityHidden(true)
+            (
+                Text("fastshared")
+                    .foregroundStyle(BrandPalette.text)
+                + Text(".")
+                    .foregroundStyle(accent.hot)
+            )
+            .font(.system(size: textSize, weight: .bold))
+            .tracking(-textSize * 0.02)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("fastshared")
+    }
+}
+
 /// Inline file glyph for the share extension.
 private struct SheetGlyph: View {
     let contentType: String
@@ -203,26 +328,9 @@ private struct IdleStage: View {
     }
 
     private var header: some View {
-        let accent = BrandPalette.amberAccent
-        return HStack(alignment: .top) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color(red: 1.0, green: 0.965, blue: 0.878), accent.hot],
-                            center: UnitPoint(x: 0.35, y: 0.30),
-                            startRadius: 0, endRadius: 10
-                        )
-                    )
-                    .frame(width: 16, height: 16)
-                (
-                    Text("fastshared")
-                        .foregroundStyle(BrandPalette.text)
-                    + Text(".")
-                        .foregroundStyle(accent.hot)
-                )
-                .font(.system(size: 13, weight: .bold))
-            }
+        HStack(alignment: .top) {
+            // v3 share-ext header — BrandLockup at 20/13 per screens.jsx `ShareSheet()`.
+            SheetBrandLockup(markSize: 20, textSize: 13)
             Spacer()
             Button(action: onCancel) {
                 Text("CANCEL")
@@ -420,36 +528,9 @@ private struct SuccessStage: View {
         VStack(spacing: 18) {
             Spacer(minLength: 0)
 
-            // Warm sphere — success hero.
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [accent.hot.opacity(0.35), .clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 90
-                        )
-                    )
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 6)
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 1.0, green: 0.965, blue: 0.878),
-                                accent.soft,
-                                accent.hot,
-                                Color(red: 0.655, green: 0.231, blue: 0.078),
-                            ],
-                            center: UnitPoint(x: 0.35, y: 0.30),
-                            startRadius: 0,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 110, height: 110)
-                    .shadow(color: accent.hot.opacity(0.55), radius: 24)
-            }
+            // v3 success hero — PlaneArc framed + ambient, per screens.jsx
+            // `ShareSuccess()` (`<PlaneArc size={160} framed ambient/>`).
+            SheetPlaneArc(size: 160, framed: true, ambient: true)
 
             SheetMono(text: "link copied · handoff ready", color: accent.hot)
 
