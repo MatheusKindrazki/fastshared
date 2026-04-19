@@ -25,6 +25,10 @@ export interface AppVars {
   requestId: string;
   deviceId?: string;
   startedAt: number;
+  // Set by rateLimitFreeTier when retention policy exceeded the Free cap and
+  // was silently clamped to `oneDay`. Route handlers read this to echo a
+  // `{ retentionClamped: true, clampedTo: 'oneDay' }` flag.
+  freeTierClampedRetention?: boolean;
 }
 
 export type AppBindings = { Bindings: Env; Variables: AppVars };
