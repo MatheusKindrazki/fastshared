@@ -3,41 +3,293 @@ import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 ---
-<Base title="Privacy — FastShared" description="How FastShared handles your files, tokens, and absence of accounts.">
+<Base
+  title="Privacy — FastShared"
+  description="How FastShared handles your files, tokens, and absence of accounts. No tracking, no analytics, no advertising IDs."
+>
   <Nav />
   <main class="frame pt-16 pb-24 max-w-[760px]">
     <h1
-      class="font-display font-bold text-milk mb-12"
+      class="font-display font-bold text-milk mb-8"
       style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
     >
       Privacy.
     </h1>
 
-    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-8">
-      Placeholder · v0.1 · final copy before public beta
+    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-10">
+      Effective 19 April 2026 · v1.0
     </p>
 
-    <div class="space-y-6 text-milk/75 text-[17px] leading-[1.7]">
+    <div class="space-y-7 text-milk/75 text-[17px] leading-[1.7]">
       <p>
-        FastShared has no accounts. There is nothing to sign up for and nothing
-        to log into. Your files live in a private Cloudflare R2 bucket under a
-        bearer token with 131 bits of entropy, accessed only through a
-        short-lived signed redirect.
+        FastShared is a utility for making temporary, shareable links to files.
+        This policy describes, in plain English, what data we process, why, for
+        how long, and who we share it with. The short version: there are no
+        accounts, no tracking, and nothing to leak.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Who is the controller
+      </h2>
+      <p>
+        The controller for any personal data processed by FastShared is
+        Matheus Kindrazki, acting as an individual developer, reachable at
+        <a href="mailto:privacy@fastsha.red" class="text-amber hover:underline">privacy@fastsha.red</a>.
+        When a legal entity takes over the service, this page will be updated
+        with its details.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        What we process
+      </h2>
+      <p>
+        We process the following, and nothing else:
+      </p>
+      <ul class="space-y-3 pl-1">
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">The bytes of files you upload.</strong>
+            Stored in a private Cloudflare R2 bucket, accessed only via
+            short-lived signed URLs. The bucket has no public hostname, no
+            public ACL, and no direct read path.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Retention metadata.</strong> For each
+            upload we store its filename, MIME type, size, sha256 hash,
+            creation time, expiry time, and a delete-after timestamp. Stored
+            in Neon Postgres.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">A per-device token.</strong> When the
+            app first launches, it mints a random token and registers it with
+            our API. We store a salted HMAC of that token on the server to
+            authorise upload, history, and revoke calls. Your device holds
+            the raw token in the Keychain; we never see it again after the
+            first request.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Operational request logs.</strong>
+            Cloudflare records HTTP method, path, response code, latency,
+            and the client IP address for every request, for rate-limiting
+            and abuse response. These logs are retained for up to 30 days.
+          </span>
+        </li>
+      </ul>
+      <p>
+        We do <em>not</em> process your name, your email, an account
+        identifier, a cross-site advertising ID, or any browsing history.
+        There are no accounts to create. We do not ask for contacts,
+        location, or notifications beyond what iOS requires for Live
+        Activities.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Legal basis
+      </h2>
+      <p>
+        Under the GDPR and equivalent laws, our legal bases are:
+      </p>
+      <ul class="space-y-3 pl-1">
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Your action of sharing a file</strong>
+            (Art. 6(1)(b) GDPR — performance of the contract you ask us to
+            perform). Uploading a file through FastShared is a request to
+            store it and publish a temporary link to it.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Legitimate interest</strong>
+            (Art. 6(1)(f)) in operating a safe, rate-limited, abuse-resistant
+            service. This covers the operational request logs described
+            above.
+          </span>
+        </li>
+      </ul>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        How long we keep your data
+      </h2>
+      <p>
+        Every upload has a deletion deadline. By default the link expires 24
+        hours after upload, and the file is hard-deleted from R2 24 hours
+        after that. You can choose any retention window between 5 minutes
+        and 30 days; the deletion schedule follows. The absolute ceiling is
+        90 days, enforced by an R2 lifecycle rule as a safety net in case the
+        scheduler fails.
       </p>
       <p>
-        Every upload has an expiry date. When that expiry is reached, the link
-        returns 410 Gone and the underlying file is hard-deleted by an
-        app-level scheduler within minutes. No soft delete, no recovery.
+        Retention metadata about a deleted file (filename, size, timestamps —
+        not the bytes) survives as a tombstone for 30 days, so that the
+        history view in your app can show "this link was here, it has been
+        deleted" without us having to keep the file itself. After 30 days the
+        tombstone is pruned.
       </p>
       <p>
-        Resolving a link emits <code class="font-mono text-[14px] text-amber">X-Robots-Tag: noindex</code>,
+        Operational request logs are retained for up to 30 days, rolling.
+        Per-device tokens live for as long as the device is registered; when
+        you uninstall the app or rotate the token, the old hash is deleted.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Sub-processors
+      </h2>
+      <p>
+        We use the following sub-processors to run the service. Each is a
+        commercial data-processing agreement consistent with GDPR Art. 28.
+      </p>
+      <ul class="space-y-3 pl-1">
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Cloudflare, Inc.</strong> — Workers
+            (API compute), R2 (object storage), KV (rate limits and
+            short-lived reservations). Acts on our instructions; data is
+            stored in Cloudflare's global edge network.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Neon, Inc.</strong> — Postgres
+            database for retention metadata and device records.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Apple Inc.</strong> — App Store
+            distribution, TestFlight, push notifications for Live Activities.
+            Apple handles this data under its own published policies.
+          </span>
+        </li>
+      </ul>
+      <p>
+        We do not use third-party analytics SDKs, advertising networks, crash
+        reporters, or CRM tools. We will update this page and bump its
+        version number if that ever changes.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        International transfers
+      </h2>
+      <p>
+        Cloudflare is a United States company with a global edge network. Your
+        file may be cached or stored briefly on an edge node close to you,
+        and will ultimately rest on the primary R2 region we configure. For
+        EU and UK users, transfers are covered by Cloudflare's Standard
+        Contractual Clauses and its UK International Data Transfer
+        Addendum.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Your rights
+      </h2>
+      <p>
+        You can:
+      </p>
+      <ul class="space-y-3 pl-1">
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Delete an upload at any time.</strong>
+            From the history view, open the link and tap Revoke. The file is
+            queued for immediate deletion and the link returns 410 Gone on
+            the next access.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Request deletion of all your data</strong>
+            by emailing
+            <a href="mailto:privacy@fastsha.red" class="text-amber hover:underline">privacy@fastsha.red</a>
+            with your device's token identifier (shown in the app's About
+            screen). We delete the associated device row, token hash, and any
+            live uploads within 30 days.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Request access to the data we hold</strong>
+            about you. Because we do not hold accounts, we can only return
+            what is attached to the device token you identify. We cannot
+            identify you across devices.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Complain</strong> to your local data
+            protection authority if you believe we mishandle your data. In
+            Brazil that is the
+            <abbr title="Autoridade Nacional de Proteção de Dados">ANPD</abbr>;
+            in the EU it is your national DPA.
+          </span>
+        </li>
+      </ul>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        No tracking
+      </h2>
+      <p>
+        We do not track you across the web. The app embeds no analytics SDK,
+        no advertising ID, no fingerprinting heuristic, no crash reporter
+        other than Apple's built-in one. Links that FastShared generates
+        respond with
+        <code class="font-mono text-[14px] text-amber">X-Robots-Tag: noindex, nofollow</code>,
         <code class="font-mono text-[14px] text-amber">Referrer-Policy: no-referrer</code>, and
-        <code class="font-mono text-[14px] text-amber">Cache-Control: no-store</code>.
-        We don't track you. We don't set cookies on shared links. We collect
-        operational request metrics (latency, error rates) and nothing else.
+        <code class="font-mono text-[14px] text-amber">Cache-Control: no-store</code>
+        so tokens stay out of search indices, referrer chains, and caches.
       </p>
-      <p class="text-milk/40 italic">
-        Final privacy copy will be published before the public beta ships.
+      <p>
+        The landing page at <code class="font-mono text-[14px] text-amber">www.fastsha.red</code>
+        is static HTML served from Cloudflare Pages and does not set any
+        cookies or load any third-party scripts beyond the Google Fonts CDN
+        for the Bricolage Grotesque and JetBrains Mono typefaces.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Children
+      </h2>
+      <p>
+        FastShared is not intended for children under 13 (or under 16 in
+        jurisdictions where that threshold applies under the GDPR). We do
+        not knowingly collect data from children. If you believe a child has
+        uploaded a file through FastShared, contact us and we will delete
+        it promptly.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Changes to this policy
+      </h2>
+      <p>
+        We will update this page when the product changes in a way that
+        affects data handling. Changes are versioned at the top of the
+        page. Material changes will be announced inside the app before they
+        take effect.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Contact
+      </h2>
+      <p>
+        Questions, deletion requests, or disputes:
+        <a href="mailto:privacy@fastsha.red" class="text-amber hover:underline">privacy@fastsha.red</a>.
       </p>
     </div>
   </main>

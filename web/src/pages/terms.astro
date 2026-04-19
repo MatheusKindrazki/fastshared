@@ -3,37 +3,255 @@ import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 ---
-<Base title="Terms — FastShared" description="The rules for using FastShared during the TestFlight and beyond.">
+<Base
+  title="Terms — FastShared"
+  description="The rules for using FastShared. Ephemeral by design, no accounts, and what you can and cannot upload."
+>
   <Nav />
   <main class="frame pt-16 pb-24 max-w-[760px]">
     <h1
-      class="font-display font-bold text-milk mb-12"
+      class="font-display font-bold text-milk mb-8"
       style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
     >
       Terms.
     </h1>
 
-    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-8">
-      Placeholder · v0.1 · final copy before public beta
+    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-10">
+      Effective 19 April 2026 · v1.0
     </p>
 
-    <div class="space-y-6 text-milk/75 text-[17px] leading-[1.7]">
+    <div class="space-y-7 text-milk/75 text-[17px] leading-[1.7]">
       <p>
-        FastShared is provided as-is during the TestFlight. By using it you
-        agree not to upload content that is illegal in your jurisdiction or
-        in the jurisdiction where the service is hosted.
+        These are the terms for using FastShared — the iOS, iPadOS, and
+        macOS app, the <code class="font-mono text-[14px] text-amber">fastsha.red</code>
+        website (including the short-link resolver at
+        <code class="font-mono text-[14px] text-amber">fastsha.red/s/&lt;token&gt;</code>),
+        and any related APIs (collectively, "the
+        Service"). The Service is operated by Matheus Kindrazki, an
+        individual developer based in Brazil. In this document, "we", "us",
+        and "our" refer to that operator, and "you" refers to the person
+        using the Service.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Acceptance
+      </h2>
+      <p>
+        By installing, opening, or using the Service you agree to these
+        terms. If you do not agree, do not use the Service. These terms apply
+        alongside our
+        <a href="/privacy" class="text-amber hover:underline">Privacy policy</a>
+        and any platform-specific rules (App Store, TestFlight) that govern
+        how Apple distributes the app to you.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        What the Service does
+      </h2>
+      <p>
+        FastShared is an ephemeral file-sharing utility. You pick a file. You
+        pick how long the link should live, within a configurable window
+        between 5 minutes and 30 days. The Service stores the file in a
+        private bucket and returns a short URL you can paste anywhere. At
+        the end of the window the URL stops working; shortly after, the
+        file is deleted.
       </p>
       <p>
-        Because uploads are ephemeral by design, you alone are responsible
-        for keeping your own copy of any file you wish to retain. Recovery
-        after expiry is not possible.
+        The Service does not offer permanent hosting. There is no "keep
+        forever" option. If you need a copy of a file, keep your own copy.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Your account — there isn't one
+      </h2>
+      <p>
+        FastShared does not use accounts. Instead, your device mints a
+        private token on first launch and uses it to authenticate with our
+        API. The token lives in your device's Keychain. Anyone with access
+        to your unlocked device can use FastShared as you. You can revoke
+        the token by deleting the app (from the perspective of the client)
+        or by emailing
+        <a href="mailto:support@fastsha.red" class="text-amber hover:underline">support@fastsha.red</a>
+        and asking us to invalidate the associated device row.
       </p>
       <p>
-        The service may be rate-limited, throttled, or interrupted at any
-        time during the TestFlight without notice.
+        The recipient of a FastShared link also does not sign in. The link
+        is the credential. Treat it accordingly — do not post it somewhere
+        you would not want the file to be downloaded from.
       </p>
-      <p class="text-milk/40 italic">
-        Final terms copy will be published before the public beta ships.
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        What you can upload
+      </h2>
+      <p>
+        You can upload any file you have the right to share. You keep
+        ownership of everything you upload. By uploading, you grant us the
+        narrow, time-bounded permission to store the file, generate a link
+        to it, and serve downloads until the link expires, and to delete it
+        when the window closes. That's it.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        What you cannot upload
+      </h2>
+      <p>
+        You may not use the Service to upload, share, or distribute:
+      </p>
+      <ul class="space-y-3 pl-1">
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>Child sexual abuse material (CSAM). We report it to
+          authorities and delete the file immediately.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>Malware, viruses, ransomware, or anything designed to harm
+          a recipient's device.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>Content that infringes someone else's copyright, trademark,
+          or other intellectual property rights.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>Non-consensual intimate imagery, doxxing material,
+          harassment, or content intended to threaten or intimidate a
+          specific person.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>Content that is illegal in Brazil (where the Service is
+          operated) or in your jurisdiction.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>Content used to phish, defraud, or impersonate another
+          person or organisation.</span>
+        </li>
+      </ul>
+      <p>
+        If we become aware that your upload falls into any of these
+        categories — through a report at
+        <code class="font-mono text-[14px] text-amber">/report/:token</code>,
+        through a law-enforcement request, or through our own review — we
+        will revoke the link immediately and delete the file. We may also
+        delete your device's token so the same installation cannot continue
+        to use the Service.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Rate limits and abuse
+      </h2>
+      <p>
+        The Service applies rate limits per device, per IP, and per token,
+        to keep it responsive for everyone. Current limits are published in
+        our
+        <a href="https://github.com/MatheusKindrazki/fastshared/blob/main/docs/architecture/security.md" class="text-amber hover:underline">architecture documentation</a>
+        and may change without notice. When you hit a limit, the API
+        responds with HTTP 429 and a
+        <code class="font-mono text-[14px] text-amber">Retry-After</code>
+        header. Attempting to circumvent rate limits, or using multiple
+        devices to amplify a single actor's usage, is a breach of these
+        terms.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        No permanent storage
+      </h2>
+      <p>
+        Every upload is ephemeral. When the link expires it returns
+        <code class="font-mono text-[14px] text-amber">410 Gone</code>, and
+        the underlying object is deleted automatically within hours. There
+        is no soft-delete, no grace period you can appeal to, and no way to
+        recover a file after deletion. If a file matters to you, you must
+        keep your own copy.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Service availability
+      </h2>
+      <p>
+        We operate the Service with reasonable care but do not guarantee
+        uninterrupted availability. The Service may be slow, rate-limited,
+        or temporarily unavailable for maintenance, outages at our
+        sub-processors (principally Cloudflare and Neon), or other reasons
+        outside our control. We may discontinue the Service, temporarily or
+        permanently, on reasonable notice — typically 30 days — or without
+        notice in an emergency.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        "As is" — no warranty
+      </h2>
+      <p>
+        The Service is provided on an "as is" and "as available" basis,
+        without warranties of any kind, whether express, implied, statutory,
+        or otherwise, including without limitation warranties of
+        merchantability, fitness for a particular purpose, non-infringement,
+        or that the Service will be uninterrupted or error-free. You use
+        the Service at your own risk.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Limitation of liability
+      </h2>
+      <p>
+        To the maximum extent permitted by applicable law, we shall not be
+        liable for any indirect, incidental, special, consequential,
+        exemplary, or punitive damages arising from your use of the Service,
+        including loss of profits, goodwill, data, or other intangible
+        losses. Our total cumulative liability for any direct damages shall
+        not exceed the greater of (a) the amount you have paid us in the 12
+        months preceding the event giving rise to the claim, or (b) fifty
+        Brazilian reais (BRL 50,00). Some jurisdictions do not allow these
+        limitations; in such jurisdictions our liability is limited to the
+        smallest extent permitted by law.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Indemnity
+      </h2>
+      <p>
+        You agree to indemnify and hold us harmless against any claim or
+        damages arising from content you upload or from your breach of
+        these terms. This is a standard provision; we do not invoke it for
+        ordinary use.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Changes to these terms
+      </h2>
+      <p>
+        We may update these terms. Material changes will be announced inside
+        the app and dated at the top of this page. Continued use of the
+        Service after a change takes effect means you accept the revised
+        terms. If you disagree with a change, stop using the Service; your
+        uploaded files will continue to expire and delete on their original
+        schedule.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Governing law
+      </h2>
+      <p>
+        These terms are governed by the laws of the Federative Republic of
+        Brazil. Any dispute that cannot be resolved informally will be
+        submitted to the courts of the City of Curitiba, State of Paraná,
+        Brazil, unless mandatory consumer-protection law in your
+        jurisdiction grants you the right to sue in your local courts.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Contact
+      </h2>
+      <p>
+        Questions about these terms:
+        <a href="mailto:support@fastsha.red" class="text-amber hover:underline">support@fastsha.red</a>.
+        Abuse reports for a specific link: use the in-app Report action, or
+        the unauthenticated
+        <code class="font-mono text-[14px] text-amber">POST /v1/report/:token</code>
+        endpoint.
       </p>
     </div>
   </main>
