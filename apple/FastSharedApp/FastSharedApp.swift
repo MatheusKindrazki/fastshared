@@ -45,6 +45,10 @@ struct FastSharedApp: App {
         self.orchestrator = orchestrator
         self.clipboard = clipboard
 
+        // WHY: App Intents (FastShareScreenshotIntent) need access to the same UploadService the
+        // views use, but they run outside the SwiftUI environment. Install once on launch so the
+        // Action Button / Siri / Back Tap paths can resolve it synchronously via the locator.
+        Task { await UploadServiceLocator.shared.install(uploadService) }
         Task { await orchestrator.resumeUnfinishedJobs() }
     }
 
