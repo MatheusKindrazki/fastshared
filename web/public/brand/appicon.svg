@@ -1,84 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="fastshared app icon">
-  <title>fastshared · temporal link</title>
+<!--
+  FastShared · App Store icon · Plane + Arc (Refined) · 1024 × 1024
+  Identical geometry to logo-mark, painted onto a dark surface tile so the
+  mark reads on any home-screen wallpaper. Scaled from the 140-unit design
+  canvas by 7.3143× so every hair-line matches the reference file.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="FastShared app icon">
+  <title>FastShared — Plane + Arc</title>
   <defs>
-    <radialGradient id="bg" cx="32%" cy="22%" r="125%">
-      <stop offset="0%"  stop-color="#3b1f86"/>
-      <stop offset="28%" stop-color="#1d0d4b"/>
-      <stop offset="68%" stop-color="#0f0630"/>
+    <linearGradient id="fs-arc" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"  stop-color="#ff7ad1" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#9d7aff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#c1a9ff"/>
+    </linearGradient>
+    <linearGradient id="fs-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#140a33"/>
       <stop offset="100%" stop-color="#070318"/>
-    </radialGradient>
-
-    <linearGradient id="arc" x1="0%" y1="60%" x2="100%" y2="30%">
-      <stop offset="0%"   stop-color="#ffc487" stop-opacity="1"/>
-      <stop offset="18%"  stop-color="#ff9f47" stop-opacity="1"/>
-      <stop offset="55%"  stop-color="#ff6a4a" stop-opacity="0.92"/>
-      <stop offset="82%"  stop-color="#ff4e7c" stop-opacity="0.45"/>
-      <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
     </linearGradient>
-
-    <linearGradient id="arcCore" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%"   stop-color="#fff3dc" stop-opacity="0.9"/>
-      <stop offset="45%"  stop-color="#ffe0b8" stop-opacity="0.55"/>
-      <stop offset="80%"  stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-
-    <radialGradient id="sphere" cx="38%" cy="34%" r="72%">
-      <stop offset="0%"  stop-color="#fff6e0"/>
-      <stop offset="22%" stop-color="#ffd28b"/>
-      <stop offset="58%" stop-color="#ff8838"/>
-      <stop offset="100%" stop-color="#a73b14"/>
-    </radialGradient>
-
-    <radialGradient id="sphereGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"  stop-color="#ff9f47" stop-opacity="0.55"/>
-      <stop offset="65%" stop-color="#ff6a4a" stop-opacity="0.12"/>
-      <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
-    </radialGradient>
-
-    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="14" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <filter id="noise" x="0" y="0" width="1024" height="1024">
-      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" stitchTiles="stitch" seed="7"/>
-      <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1   0 0 0 0.045 0"/>
-    </filter>
   </defs>
 
-  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- Surface tile (iOS rounds the corners further; radius matches 32/140 · 1024 ≈ 234) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="234" ry="234" fill="url(#fs-canvas)"/>
 
-  <g stroke="#ffffff" stroke-width="1" opacity="0.035">
-    <path d="M0 256 H1024 M0 512 H1024 M0 768 H1024 M256 0 V1024 M512 0 V1024 M768 0 V1024"/>
+  <!-- Arc — 9 · 7.3143 ≈ 66px stroke -->
+  <path d="M 190 805 Q 439 717, 600 497"
+        stroke="url(#fs-arc)" stroke-width="66" stroke-linecap="round" fill="none"/>
+
+  <!-- Plane — translate(84,64)·7.3143 ≈ (614, 468); scale 1.1 · 7.3143 ≈ 8.05 -->
+  <g transform="translate(614 468) scale(8.05)" fill="#fafaff">
+    <path d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -4 4 Z"/>
+    <path d="M 4 4 L 14 10" stroke="#fafaff" stroke-opacity="0.35" stroke-width="0.14"/>
   </g>
-
-  <g opacity="0.055" fill="none" stroke="#ffffff" stroke-width="1">
-    <circle cx="512" cy="512" r="360"/>
-    <circle cx="512" cy="512" r="260"/>
-  </g>
-
-  <rect width="1024" height="1024" filter="url(#noise)"/>
-
-  <circle cx="300" cy="580" r="240" fill="url(#sphereGlow)"/>
-
-  <circle cx="760" cy="420" r="52" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.26"/>
-  <circle cx="760" cy="420" r="14" fill="#ffffff" opacity="0.18"/>
-
-  <path d="M 300 580 C 420 300, 620 620, 760 420"
-        stroke="url(#arc)" stroke-width="92" stroke-linecap="round" fill="none" filter="url(#softGlow)"/>
-  <path d="M 300 580 C 420 300, 620 620, 760 420"
-        stroke="url(#arcCore)" stroke-width="22" stroke-linecap="round" fill="none"/>
-
-  <g fill="#ffe0b8">
-    <circle cx="794" cy="416" r="11" opacity="0.92"/>
-    <circle cx="828" cy="408" r="7"  opacity="0.68"/>
-    <circle cx="858" cy="428" r="5"  opacity="0.48"/>
-    <circle cx="892" cy="414" r="3.5" opacity="0.32"/>
-    <circle cx="922" cy="434" r="2.2" opacity="0.2"/>
-  </g>
-
-  <circle cx="300" cy="580" r="124" fill="url(#sphere)" filter="url(#softGlow)"/>
-  <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
-  <ellipse cx="262" cy="532" rx="14" ry="8" fill="#ffffff" opacity="0.85"/>
 </svg>

@@ -1,21 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="FastShared mark">
-  <title>FastShared mark</title>
+<!--
+  FastShared · mark · Plane + Arc (Refined)
+  Geometry from design/plane-arc.jsx PA_Refined, frame stripped so the glyph
+  can sit on any background. Violet accent is the canonical brand tone; swap
+  the gradient stops to recolour.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" role="img" aria-label="FastShared">
+  <title>FastShared</title>
   <defs>
-    <linearGradient id="rail" x1="12%" y1="74%" x2="88%" y2="26%">
-      <stop offset="0%" stop-color="#4ecf8f"/>
-      <stop offset="58%" stop-color="#00a69c"/>
-      <stop offset="100%" stop-color="#008fcb"/>
+    <linearGradient id="fs-arc" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"  stop-color="#ff7ad1" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#9d7aff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#c1a9ff"/>
     </linearGradient>
   </defs>
-  <path d="M278 690 C390 392 552 648 746 336"
-        fill="none" stroke="url(#rail)" stroke-width="74" stroke-linecap="round"/>
-  <path d="M278 690 C390 392 552 648 746 336"
-        fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" opacity="0.68"/>
-  <rect x="174" y="510" width="312" height="242" rx="42" fill="#ffffff" stroke="#d7e1e8" stroke-width="8"/>
-  <rect x="222" y="568" width="76" height="76" rx="18" fill="#00a69c"/>
-  <path d="M243 617 l22 -22 18 18 11 -11 23 27" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="552" y="282" width="300" height="174" rx="52" fill="#ffffff" stroke="#b9e7e3" stroke-width="8"/>
-  <circle cx="624" cy="369" r="34" fill="#00a69c"/>
-  <path d="M678 370 H785" stroke="#00a69c" stroke-width="24" stroke-linecap="round"/>
+  <!-- Arc — single brush stroke, fade → hot → soft -->
+  <path d="M 26 110 Q 60 98, 82 68"
+        stroke="url(#fs-arc)" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <!-- Plane — dart at arc terminus -->
+  <g transform="translate(84 64) scale(1.1)" fill="currentColor">
+    <path d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -4 4 Z"/>
+    <path d="M 4 4 L 14 10" stroke="currentColor" stroke-opacity="0.35" stroke-width="1"/>
+  </g>
 </svg>
