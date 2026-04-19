@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import PlaneArc from '../components/PlaneArc.astro';
 ---
 <Base
   title="Pricing — FastShared"
@@ -23,6 +24,9 @@ import Footer from '../components/Footer.astro';
     })} />
 
     <section class="pt-8 md:pt-12 pb-12 md:pb-16">
+      <div class="mb-8">
+        <PlaneArc size={96} ambient ariaLabel="FastShared mark" />
+      </div>
       <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-amber mb-6">
         01 / pricing
       </p>

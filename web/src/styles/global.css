@@ -204,17 +204,18 @@
 }
 
 /* ============================================================
-   Hero SVG animation — initial state (pre-GSAP)
+   PlaneArc — v3 brand mark arc-draw animation
+   Triggered via [data-animate="planearc"] on the wrapper.
    ============================================================ */
-.hero-svg .js-sphere,
-.hero-svg .js-particle,
-.hero-svg .js-ghost {
-  opacity: 0;
+@keyframes arc-draw {
+  from { stroke-dashoffset: 200; }
+  to   { stroke-dashoffset: 0; }
 }
 
-.hero-svg .js-arc {
-  stroke-dasharray: 920;
-  stroke-dashoffset: 920;
+[data-animate="planearc"] .planearc-arc {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: arc-draw 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
 }
 
 /* FAQ details disclosure */
@@ -390,13 +391,8 @@ details.faq-item .faq-body {
     scroll-behavior: auto !important;
   }
 
-  .hero-svg .js-sphere,
-  .hero-svg .js-particle,
-  .hero-svg .js-ghost {
-    opacity: 1;
-  }
-
-  .hero-svg .js-arc {
-    stroke-dashoffset: 0;
+  [data-animate="planearc"] .planearc-arc {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }

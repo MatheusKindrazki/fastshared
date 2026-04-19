@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import PlaneArc from '../components/PlaneArc.astro';
 
 interface Swatch {
   name: string;
@@ -47,6 +48,9 @@ const assets: Asset[] = [
 
     <!-- Hero -->
     <section class="max-w-[920px] mb-24 md:mb-32">
+      <div class="mb-10">
+        <PlaneArc size={120} framed ambient ariaLabel="FastShared mark" />
+      </div>
       <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-6">
         Press kit · v1.0 · 2026
       </p>
