@@ -131,8 +131,7 @@ Concrete developer actions, organized by milestone. Check items off as they land
 - [ ] 410 Gone path implemented for `expired`, `revoked`, `deleted` (landed in M4.5; regression-test it here)
 - [ ] 404 path for unknown token returns RFC 7807 body with `code: "link_not_found"`
 - [ ] Resolve-route security headers present on every response (`no-store`, `noindex, nofollow`, `no-referrer`)
-- [ ] Configure route `fsh.dev/s/*` on the dev Worker
-- [ ] Configure route `fsh.re/s/*` on the prod Worker
+- [ ] Configure route `fastsha.red/s/*` on the Worker
 - [ ] `SHORT_LINK_HOST` env respected when formatting `shortUrl` in responses, format is `https://{host}/s/{token}`
 - [ ] Integration test: full presign → PUT → complete → redirect round-trip with a real file download
 - [ ] Integration test: bump `expires_at` in DB, assert next `/s/:token` returns 410 with `reason: "expired"`
@@ -181,8 +180,8 @@ Concrete developer actions, organized by milestone. Check items off as they land
 - [ ] Fill missing XCUITest coverage for iOS and macOS happy paths, countdown states, and revoke flow
 - [ ] Opt-in crash reporting integration (MetricKit + a minimal self-hosted sink)
 - [ ] App Store privacy labels drafted and reviewed (ephemeral storage disclosure)
-- [ ] Privacy policy live at `https://fsh.re/privacy`, referencing the deletion guarantee
-- [ ] Marketing landing page live at `https://fsh.re`
+- [ ] Privacy policy live at `https://fastsha.red/privacy`, referencing the deletion guarantee
+- [ ] Marketing landing page live at `https://fastsha.red`
 - [ ] App icon assets final for all platforms
 - [ ] Submit 1.0 build to App Review
 - [ ] Public TestFlight open

@@ -118,7 +118,7 @@ All errors follow RFC 7807:
 
 ```json
 {
-  "type": "https://fsh.re/errors/link-gone",
+  "type": "https://fastsha.red/errors/link-gone",
   "title": "Link is gone",
   "status": 410,
   "code": "link_gone",
@@ -142,9 +142,9 @@ MVP is single-device. SwiftData is the local source of truth for UI; a lazy `mar
 
 ## Deployment topology
 
-- **Cloudflare Workers** hosts the Hono app. One worker per environment. Custom routes:
-  - `api.fsh.re/*` (prod), `api.fsh.dev/*` (dev) — JSON API.
-  - `fsh.re/s/*` (prod), `fsh.dev/s/*` (dev) — resolve handler (302 to 60 s signed GET).
+- **Cloudflare Workers** hosts the Hono app. Custom routes:
+  - `api.fastsha.red/*` — JSON API.
+  - `fastsha.red/s/*` — resolve handler (302 to 60 s signed GET).
 - **Workers cron triggers** — three schedules on the same Worker:
   - `*/1 * * * *` — deletion worker, drains `deletion_job` rows due for processing.
   - `0 * * * *` — reconciliation worker, expires stale links, enqueues missing deletion jobs, resets stuck running jobs.
@@ -155,10 +155,9 @@ MVP is single-device. SwiftData is the local source of truth for UI; a lazy `mar
 
 ## Environments
 
-| Env  | API host         | Short link host | R2 bucket         | Neon branch |
-| ---- | ---------------- | --------------- | ----------------- | ----------- |
-| dev  | api.fsh.dev      | fsh.dev         | fastshared-dev    | dev         |
-| prod | api.fsh.re       | fsh.re          | fastshared-prod   | main        |
+| Env  | API host         | Short link host | R2 bucket       | Neon branch |
+| ---- | ---------------- | --------------- | --------------- | ----------- |
+| prod | api.fastsha.red  | fastsha.red     | fastshared-prod | main        |
 
 ## Failure modes
 

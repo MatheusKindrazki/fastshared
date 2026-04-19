@@ -75,7 +75,7 @@ Additional levers:
 ## Transport security
 
 - TLS 1.3 everywhere, enforced by Cloudflare.
-- HSTS with `max-age=31536000; includeSubDomains; preload` on `fsh.re` and `api.fsh.re`.
+- HSTS with `max-age=31536000; includeSubDomains; preload` on `fastsha.red` and `api.fastsha.red`.
 - No `http://` fallbacks anywhere in the client.
 - The Apple client pins the Cloudflare certificate roots by default (system trust); pinning specific leaf certs is not needed because we use Cloudflare-managed certs that rotate.
 
@@ -111,7 +111,7 @@ Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipar
 - **Per device (owner API).** `60 uploads/hour`, `600 history reads/hour`, `10 devices/day` (last measured at the IP of the issuing call).
 - **Per IP, unauthenticated routes.** `120/hour` on `POST /v1/devices`; `60/min` on `/s/:token`.
 - **Per token, resolve route.** `300/min`. Whichever of the two resolve buckets trips first returns `429`.
-- **Response.** `429` with `Retry-After` and RFC 7807 body, `type = https://fsh.re/errors/rate-limited`.
+- **Response.** `429` with `Retry-After` and RFC 7807 body, `type = https://fastsha.red/errors/rate-limited`.
 - Implementation: KV now, Durable Object per-token upgrade once measured latency requires it.
 
 ## Abuse prevention
