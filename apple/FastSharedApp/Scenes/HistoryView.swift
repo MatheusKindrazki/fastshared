@@ -182,8 +182,10 @@ struct HistoryView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(BrandPalette.dust)
                 TextField("file name or token", text: $text)
-                    .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(BrandPalette.ink)
                 if !text.isEmpty {
