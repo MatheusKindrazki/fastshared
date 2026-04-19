@@ -1,0 +1,180 @@
+---
+// Hero — full viewport, massive headline, animated temporal-link mark on the side.
+// The SVG reuses the exact path + gradients from brand/appicon.svg.
+---
+<section
+  class="frame relative pt-8 md:pt-10 pb-24 md:pb-32 min-h-[86vh] flex items-center"
+  aria-labelledby="hero-headline"
+>
+  <div class="grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-12 lg:gap-20 items-center w-full">
+    <!-- Headline column -->
+    <div class="relative z-10">
+      <h1
+        id="hero-headline"
+        class="display-line font-display font-bold text-milk"
+        style="font-size: clamp(56px, 11vw, 180px); letter-spacing: -0.055em; line-height: 0.9;"
+      >
+        <span class="block">Share anything.</span>
+        <span class="block">Get a link.</span>
+        <span class="block italic text-coral">Watch it vanish.</span>
+      </h1>
+
+      <p class="mt-8 md:mt-10 font-mono text-[14px] leading-[1.6] tracking-[0.03em] text-milk/55 max-w-[580px]">
+        Temporary share links for iPhone, iPad and Mac · no accounts · no residue
+      </p>
+
+      <div class="mt-10 flex flex-wrap items-center gap-6">
+        <a href="#testflight" class="btn-primary" data-testid="hero-cta">
+          Join the TestFlight
+          <span aria-hidden="true">→</span>
+        </a>
+        <a href="#how" class="btn-ghost">
+          How it works
+          <span aria-hidden="true">↓</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Animated arc mark -->
+    <div class="relative w-full max-w-[520px] mx-auto lg:mx-0 aspect-square" data-hero-root>
+      <div
+        class="absolute inset-0 rounded-[22%] overflow-hidden"
+        style="
+          box-shadow:
+            0 80px 120px -40px rgba(90,30,160,0.7),
+            0 40px 80px -20px rgba(255,100,80,0.3),
+            inset 0 2px 0 0 rgba(255,255,255,0.12);
+        "
+      >
+        <svg
+          class="hero-svg block w-full h-full"
+          viewBox="0 0 1024 1024"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="fastshared temporal link mark"
+        >
+          <defs>
+            <radialGradient id="h-bg" cx="32%" cy="22%" r="125%">
+              <stop offset="0%" stop-color="#3b1f86" />
+              <stop offset="28%" stop-color="#1d0d4b" />
+              <stop offset="68%" stop-color="#0f0630" />
+              <stop offset="100%" stop-color="#070318" />
+            </radialGradient>
+
+            <linearGradient id="h-arc" x1="0%" y1="60%" x2="100%" y2="30%">
+              <stop offset="0%" stop-color="#ffc487" stop-opacity="1" />
+              <stop offset="18%" stop-color="#ff9f47" stop-opacity="1" />
+              <stop offset="55%" stop-color="#ff6a4a" stop-opacity="0.92" />
+              <stop offset="82%" stop-color="#ff4e7c" stop-opacity="0.45" />
+              <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0" />
+            </linearGradient>
+
+            <linearGradient id="h-arc-core" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stop-color="#fff3dc" stop-opacity="0.9" />
+              <stop offset="45%" stop-color="#ffe0b8" stop-opacity="0.55" />
+              <stop offset="80%" stop-color="#ffffff" stop-opacity="0" />
+            </linearGradient>
+
+            <radialGradient id="h-sphere" cx="38%" cy="34%" r="72%">
+              <stop offset="0%" stop-color="#fff6e0" />
+              <stop offset="22%" stop-color="#ffd28b" />
+              <stop offset="58%" stop-color="#ff8838" />
+              <stop offset="100%" stop-color="#a73b14" />
+            </radialGradient>
+
+            <radialGradient id="h-sphere-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff9f47" stop-opacity="0.55" />
+              <stop offset="65%" stop-color="#ff6a4a" stop-opacity="0.12" />
+              <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0" />
+            </radialGradient>
+
+            <filter id="h-soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="14" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <rect width="1024" height="1024" fill="url(#h-bg)" />
+
+          <g stroke="#ffffff" stroke-width="1" opacity="0.035">
+            <path d="M0 256 H1024 M0 512 H1024 M0 768 H1024 M256 0 V1024 M512 0 V1024 M768 0 V1024" />
+          </g>
+
+          <g opacity="0.05" fill="none" stroke="#ffffff" stroke-width="1">
+            <circle cx="512" cy="512" r="360" />
+            <circle cx="512" cy="512" r="260" />
+          </g>
+
+          <!-- sphere glow (always visible) -->
+          <circle cx="300" cy="580" r="240" fill="url(#h-sphere-glow)" />
+
+          <!-- ghost node -->
+          <g class="js-ghost">
+            <circle
+              cx="760"
+              cy="420"
+              r="52"
+              fill="none"
+              stroke="#ffffff"
+              stroke-width="3.5"
+              stroke-dasharray="5 9"
+              opacity="0.26"
+            />
+            <circle cx="760" cy="420" r="14" fill="#ffffff" opacity="0.18" />
+          </g>
+
+          <!-- arc (drawn) -->
+          <path
+            class="js-arc"
+            d="M 300 580 C 420 300, 620 620, 760 420"
+            stroke="url(#h-arc)"
+            stroke-width="92"
+            stroke-linecap="round"
+            fill="none"
+            filter="url(#h-soft-glow)"
+          />
+          <path
+            class="js-arc"
+            d="M 300 580 C 420 300, 620 620, 760 420"
+            stroke="url(#h-arc-core)"
+            stroke-width="22"
+            stroke-linecap="round"
+            fill="none"
+          />
+
+          <!-- particles -->
+          <g fill="#ffe0b8">
+            <circle class="js-particle" data-opacity="0.92" cx="794" cy="416" r="11" />
+            <circle class="js-particle" data-opacity="0.68" cx="828" cy="408" r="7" />
+            <circle class="js-particle" data-opacity="0.48" cx="858" cy="428" r="5" />
+            <circle class="js-particle" data-opacity="0.32" cx="892" cy="414" r="3.5" />
+            <circle class="js-particle" data-opacity="0.2" cx="922" cy="434" r="2.2" />
+          </g>
+
+          <!-- origin sphere -->
+          <g class="js-sphere">
+            <circle cx="300" cy="580" r="124" fill="url(#h-sphere)" filter="url(#h-soft-glow)" />
+            <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6" />
+            <ellipse cx="262" cy="532" rx="14" ry="8" fill="#ffffff" opacity="0.85" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- caption anchored bottom-left of section -->
+  <span
+    class="absolute bottom-6 left-[clamp(24px,5vw,88px)] font-mono text-[11px] tracking-[0.18em] uppercase text-milk/32"
+    aria-hidden="true"
+  >
+    fastsha.red — 2026
+  </span>
+</section>
+
+<script>
+  // Load the hero orchestration — GSAP is bundled via the import.
+  import('../scripts/hero.ts');
+</script>

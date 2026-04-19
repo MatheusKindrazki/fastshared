@@ -1,0 +1,39 @@
+---
+interface QA {
+  q: string;
+  a: string;
+}
+
+const items: QA[] = [
+  {
+    q: 'How long do files live?',
+    a: '1 hour, 24 hours, 1 week, or 1 month by default. Plus custom from 5 minutes up to 30 days.',
+  },
+  {
+    q: 'Can I recover a deleted link?',
+    a: 'No. Deletion is final on purpose — that\'s the product.',
+  },
+  {
+    q: 'Does it work on Mac?',
+    a: 'Yes. Native Mac app, drag-and-drop, ⌘V to upload whatever is on your clipboard. Universal Clipboard means links you create on iPhone are already on your Mac.',
+  },
+  {
+    q: 'What about privacy?',
+    a: 'Private R2 bucket. Bearer tokens, 131 bits of entropy. noindex, no referrer, no-store on every resolve. No accounts means nothing to leak.',
+  },
+];
+---
+<section class="frame pt-24 md:pt-32 pb-20 md:pb-28" aria-labelledby="faq-heading">
+  <header class="section-head">
+    <span class="section-num" id="faq-heading">03 / FAQ · READ BEFORE ASKING</span>
+  </header>
+
+  <div class="max-w-[780px]">
+    {items.map((item) => (
+      <details class="faq-item">
+        <summary>{item.q}</summary>
+        <div class="faq-body">{item.a}</div>
+      </details>
+    ))}
+  </div>
+</section>

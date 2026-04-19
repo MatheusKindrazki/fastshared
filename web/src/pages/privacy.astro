@@ -1,0 +1,45 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base title="Privacy — FastShared" description="How FastShared handles your files, tokens, and absence of accounts.">
+  <Nav />
+  <main class="frame pt-16 pb-24 max-w-[760px]">
+    <h1
+      class="font-display font-bold text-milk mb-12"
+      style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
+    >
+      Privacy.
+    </h1>
+
+    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-8">
+      Placeholder · v0.1 · final copy before public beta
+    </p>
+
+    <div class="space-y-6 text-milk/75 text-[17px] leading-[1.7]">
+      <p>
+        FastShared has no accounts. There is nothing to sign up for and nothing
+        to log into. Your files live in a private Cloudflare R2 bucket under a
+        bearer token with 131 bits of entropy, accessed only through a
+        short-lived signed redirect.
+      </p>
+      <p>
+        Every upload has an expiry date. When that expiry is reached, the link
+        returns 410 Gone and the underlying file is hard-deleted by an
+        app-level scheduler within minutes. No soft delete, no recovery.
+      </p>
+      <p>
+        Resolving a link emits <code class="font-mono text-[14px] text-amber">X-Robots-Tag: noindex</code>,
+        <code class="font-mono text-[14px] text-amber">Referrer-Policy: no-referrer</code>, and
+        <code class="font-mono text-[14px] text-amber">Cache-Control: no-store</code>.
+        We don't track you. We don't set cookies on shared links. We collect
+        operational request metrics (latency, error rates) and nothing else.
+      </p>
+      <p class="text-milk/40 italic">
+        Final privacy copy will be published before the public beta ships.
+      </p>
+    </div>
+  </main>
+  <Footer />
+</Base>

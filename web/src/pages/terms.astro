@@ -1,0 +1,41 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base title="Terms — FastShared" description="The rules for using FastShared during the TestFlight and beyond.">
+  <Nav />
+  <main class="frame pt-16 pb-24 max-w-[760px]">
+    <h1
+      class="font-display font-bold text-milk mb-12"
+      style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
+    >
+      Terms.
+    </h1>
+
+    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-8">
+      Placeholder · v0.1 · final copy before public beta
+    </p>
+
+    <div class="space-y-6 text-milk/75 text-[17px] leading-[1.7]">
+      <p>
+        FastShared is provided as-is during the TestFlight. By using it you
+        agree not to upload content that is illegal in your jurisdiction or
+        in the jurisdiction where the service is hosted.
+      </p>
+      <p>
+        Because uploads are ephemeral by design, you alone are responsible
+        for keeping your own copy of any file you wish to retain. Recovery
+        after expiry is not possible.
+      </p>
+      <p>
+        The service may be rate-limited, throttled, or interrupted at any
+        time during the TestFlight without notice.
+      </p>
+      <p class="text-milk/40 italic">
+        Final terms copy will be published before the public beta ships.
+      </p>
+    </div>
+  </main>
+  <Footer />
+</Base>

@@ -1,0 +1,93 @@
+---
+import '../styles/global.css';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  canonical?: string;
+  ogImage?: string;
+  noindex?: boolean;
+}
+
+const {
+  title = 'FastShared — share anything, get a temporary link.',
+  description = 'Temporary share links for iPhone, iPad and Mac. Share anything, get a link, watch it vanish. No accounts. No residue.',
+  canonical,
+  ogImage = '/og-image.png',
+  noindex = false,
+} = Astro.props;
+
+const pageUrl = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://www.fastsha.red').toString();
+const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toString();
+---
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={pageUrl} />
+
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#070318" />
+    <meta name="author" content="Matheus Kindrazki" />
+
+    {/* Favicon + app icons */}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/appicon.svg" />
+    <link rel="mask-icon" href="/brand/logo-mark.svg" color="#ff9f47" />
+
+    {/* Open Graph */}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FastShared" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_US" />
+
+    {/* Twitter */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    {/* Fonts — Google Fonts, variable Bricolage + JetBrains Mono */}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&family=JetBrains+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+
+    {/* Structured data — SoftwareApplication */}
+    <script is:inline type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'FastShared',
+      applicationCategory: 'UtilitiesApplication',
+      operatingSystem: 'iOS, iPadOS, macOS',
+      description,
+      url: 'https://www.fastsha.red',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+      },
+    })} />
+
+    {/* GSAP — deferred from CDN. The hero script imports gsap as an ES module too,
+         so we don't actually need the CDN copy, but having it here keeps GSAP warm
+         even if the module import path changes. Remove if redundant. */}
+    {/* <script defer is:inline src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script> */}
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

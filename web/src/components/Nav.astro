@@ -1,0 +1,26 @@
+---
+// Tiny, non-sticky navigation.
+// Logo on the left, single plain link on the right.
+---
+<nav class="frame flex items-center justify-between py-6" aria-label="Primary">
+  <a href="/" aria-label="fastshared — home" class="flex items-center gap-3 text-milk hover:text-amber transition-colors">
+    <img
+      src="/brand/logo-horizontal.svg"
+      alt="fastshared"
+      width="168"
+      height="42"
+      class="h-[28px] w-auto select-none"
+      style="color: var(--milk);"
+      decoding="async"
+      loading="eager"
+    />
+  </a>
+
+  <a
+    href="#testflight"
+    class="font-mono text-[13px] tracking-wider uppercase text-milk/70 hover:text-amber transition-colors flex items-center gap-2"
+    data-testid="nav-testflight"
+  >
+    TestFlight <span aria-hidden="true">→</span>
+  </a>
+</nav>

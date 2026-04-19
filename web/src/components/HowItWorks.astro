@@ -1,0 +1,54 @@
+---
+const steps = [
+  {
+    n: '01',
+    title: 'Share any file',
+    caption: 'image · video · document',
+  },
+  {
+    n: '02',
+    title: 'Pick how long it lives',
+    caption: '1h · 24h · 1 week · 1 month',
+  },
+  {
+    n: '03',
+    title: 'The link lands in your clipboard',
+    caption: 'paste it anywhere · it expires on its own',
+  },
+];
+---
+<section id="how" class="frame pt-24 md:pt-32 pb-20 md:pb-28" aria-labelledby="how-heading">
+  <header class="section-head">
+    <span class="section-num" id="how-heading">
+      01 / FLOW · 3 STEPS · UNDER 5 SECONDS
+    </span>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 relative">
+    {steps.map((step, i) => (
+      <div
+        class:list={[
+          'px-0 md:px-6 py-8 md:py-10 flex flex-col gap-4',
+          i > 0 && 'border-t md:border-t-0 md:border-l border-dashed border-white/10',
+        ]}
+      >
+        <span
+          class="font-display font-semibold text-amber"
+          style="font-size: 56px; line-height: 1; letter-spacing: -0.04em;"
+          aria-hidden="true"
+        >
+          {step.n}
+        </span>
+        <h3
+          class="font-display font-semibold text-milk"
+          style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;"
+        >
+          {step.title}
+        </h3>
+        <p class="font-mono text-[13px] leading-[1.6] tracking-[0.04em] text-amber/80">
+          {step.caption}
+        </p>
+      </div>
+    ))}
+  </div>
+</section>

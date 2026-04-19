@@ -1,0 +1,100 @@
+---
+// Dynamic Island moment — mocked iPhone notch + three rotating states.
+// States cycle every 2s via the script in src/scripts/hero.ts when JS is on.
+// Under prefers-reduced-motion or no-JS, the completed state is shown statically.
+---
+<section class="relative w-full py-24 md:py-36 overflow-hidden" aria-labelledby="island-heading">
+  <div class="frame grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+    <!-- copy -->
+    <div>
+      <h2
+        id="island-heading"
+        class="font-display text-milk"
+        style="font-size: clamp(40px, 7vw, 112px); line-height: 0.95; letter-spacing: -0.05em;"
+      >
+        <span class="block font-bold">Live in the Island.</span>
+        <span class="block font-light text-milk/75">Watch your upload breathe.</span>
+      </h2>
+      <p class="mt-8 font-mono text-[13px] leading-[1.6] tracking-[0.04em] text-milk/55">
+        iPhone 14 Pro and newer · Lock Screen on any iPhone.
+      </p>
+    </div>
+
+    <!-- mocked iPhone notch -->
+    <div class="relative mx-auto w-full max-w-[420px]" data-island-root>
+      <!-- phone top bezel -->
+      <div
+        class="relative mx-auto aspect-[9/10] w-full rounded-[48px] border border-white/10"
+        style="
+          background: radial-gradient(120% 80% at 50% 0%, #1d0d4b 0%, #070318 60%);
+          box-shadow: 0 40px 80px -30px rgba(90,30,160,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+        "
+      >
+        <!-- the Dynamic Island -->
+        <div
+          class="absolute left-1/2 -translate-x-1/2 top-6 h-[110px] min-w-[220px] max-w-[360px] w-[70%] rounded-[55px] flex items-center justify-between gap-4 px-6"
+          style="background: #070318; box-shadow: 0 0 0 1px rgba(255,255,255,0.04);"
+          role="img"
+          aria-label="Dynamic Island — upload state preview"
+        >
+          <!-- state 1: uploading -->
+          <div class="island-state absolute inset-0 flex items-center gap-4 px-6" data-state="uploading">
+            <!-- progress ring -->
+            <svg width="48" height="48" viewBox="0 0 48 48" class="flex-none" aria-hidden="true">
+              <circle cx="24" cy="24" r="18" fill="none" stroke="rgba(255,159,71,0.18)" stroke-width="3" />
+              <circle
+                cx="24"
+                cy="24"
+                r="18"
+                fill="none"
+                stroke="#ff9f47"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-dasharray="113"
+                stroke-dashoffset="33"
+                transform="rotate(-90 24 24)"
+              />
+            </svg>
+            <div class="flex flex-col justify-center">
+              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-milk/50">uploading</span>
+              <span class="font-mono text-[15px] font-medium text-amber tabular-nums">71<span class="text-milk/40">%</span></span>
+            </div>
+          </div>
+
+          <!-- state 2: completed -->
+          <div class="island-state absolute inset-0 flex items-center gap-4 px-6" data-state="completed">
+            <svg width="40" height="40" viewBox="0 0 40 40" class="flex-none" aria-hidden="true">
+              <circle cx="20" cy="20" r="18" fill="none" stroke="#ff9f47" stroke-width="2.4" />
+              <path d="M13 20.5 L18 26 L27.5 15" fill="none" stroke="#ff9f47" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div class="flex flex-col justify-center">
+              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-milk/50">copied</span>
+              <span class="font-mono text-[14px] text-milk truncate">fastsha.red/s/abc<span class="text-milk/40">…</span></span>
+            </div>
+          </div>
+
+          <!-- state 3: deleted -->
+          <div class="island-state absolute inset-0 flex items-center gap-4 px-6" data-state="deleted">
+            <div class="flex-none flex items-center gap-1" aria-hidden="true">
+              <span class="w-2 h-2 rounded-full bg-coral opacity-90"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-coral opacity-60"></span>
+              <span class="w-1 h-1 rounded-full bg-coral opacity-35"></span>
+            </div>
+            <div class="flex flex-col justify-center">
+              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-milk/40">expired</span>
+              <span class="font-mono text-[18px] text-coral">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- faint time stamp in the corner to sell the "phone" -->
+        <div class="absolute top-8 left-8 font-mono text-[12px] tracking-wider text-milk/40">9:41</div>
+        <div class="absolute top-8 right-8 flex items-center gap-1.5 text-milk/40" aria-hidden="true">
+          <span class="inline-block w-1 h-1 rounded-full bg-milk/60"></span>
+          <span class="inline-block w-1 h-1 rounded-full bg-milk/50"></span>
+          <span class="inline-block w-1 h-1 rounded-full bg-milk/40"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

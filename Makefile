@@ -1,4 +1,4 @@
-.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean
+.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy
 
 bootstrap:
 	@command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -33,3 +33,12 @@ clean:
 	rm -rf backend/node_modules backend/dist backend/.wrangler
 	rm -rf apple/FastShared.xcodeproj apple/FastShared.xcworkspace
 	rm -rf apple/build apple/DerivedData
+
+web-dev:
+	cd web && pnpm dev
+
+web-build:
+	cd web && pnpm build
+
+web-deploy:
+	cd web && pnpm build && pnpm dlx wrangler pages deploy dist --project-name fastshared-web
