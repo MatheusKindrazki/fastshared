@@ -57,8 +57,36 @@ app.notFound((c) => problem(c, 404, 'not_found', 'Not Found', `no route for ${c.
 
 errors(app);
 
+// WHY: the apex fastsha.red serves two concerns on one hostname — the /s/:token
+// short-link resolver (always handled by this Worker) and the marketing landing
+// page (hosted on Cloudflare Pages at fastshared-web.pages.dev). We proxy any
+// non-app path on the apex through to Pages so a single Worker custom_domain
+// keeps working without needing a separate Pages custom-domain binding in the
+// CF dashboard. api.fastsha.red is unaffected — everything there is /v1/*.
+const PAGES_ORIGIN = 'https://fastshared-web.pages.dev';
+const APP_PATH_PREFIXES = ['/s', '/s/', '/v1', '/v1/'];
+
+function isAppPath(pathname: string): boolean {
+  return APP_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p));
+}
+
+async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(req.url);
+  if (url.hostname === 'fastsha.red' && !isAppPath(url.pathname)) {
+    const target = new URL(url.pathname + url.search, PAGES_ORIGIN);
+    const proxied = new Request(target.toString(), req);
+    const res = await fetch(proxied);
+    // Strip any CF-Pages headers that leak the origin hostname to the client.
+    const headers = new Headers(res.headers);
+    headers.delete('cf-ray');
+    headers.delete('server');
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  }
+  return app.fetch(req, env, ctx);
+}
+
 export default {
-  fetch: app.fetch,
+  fetch: routeRequest,
   scheduled: async (controller, env, ctx) => {
     try {
       assertEnv(env);
