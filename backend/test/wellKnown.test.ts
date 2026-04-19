@@ -12,8 +12,8 @@ const TEST_ENV: Env = {
   R2_ACCESS_KEY_ID: 'k',
   R2_SECRET_ACCESS_KEY: 's',
   R2_BUCKET_NAME: 'fastshared-test',
-  SHORT_LINK_HOST: 'https://fsh.dev',
-  PUBLIC_API_HOST: 'https://api.test.fastshared.app',
+  SHORT_LINK_HOST: 'https://fastsha.red',
+  PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',
   APP_ENV: 'test',
 };

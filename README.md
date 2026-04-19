@@ -20,7 +20,7 @@ _Placeholder — screenshots to be added at milestone M2 (share extension) and M
          | direct PUT (bg URLSession)          | metadata | token
          v                                     v          v
       +-----+                              +--------+  +-----------+
-      | R2  |  <------ complete -------->  | Neon   |  | fsh.re/s/ |
+      | R2  |  <------ complete -------->  | Neon   |  | fastsha.red/s/ |
       +-----+                              +--------+  +-----------+
          ^
          |  every minute, deletion cron reaps objects past delete_after

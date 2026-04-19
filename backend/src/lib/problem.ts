@@ -11,7 +11,7 @@ export interface ProblemDetails {
   requestId: string;
 }
 
-const BASE_TYPE = 'https://fastshared.app/problems';
+const BASE_TYPE = 'https://fastsha.red/problems';
 
 export function problem(
   c: Context<AppBindings>,
