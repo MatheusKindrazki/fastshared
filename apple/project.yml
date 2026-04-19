@@ -57,6 +57,14 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # WHY: ground the launch surface in brand ink. A missing UILaunchScreen
+        # produces a white default, which flashes on cold start and — more
+        # importantly — bleeds at physical screen edges (rounded corners,
+        # notch, home indicator) until the SwiftUI view mounts. The dark brand
+        # color here matches `BrandPalette.ground` (#070318) so the transition
+        # into the dark UI is seamless.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
     settings:
       base:
         PRODUCT_NAME: FastShared

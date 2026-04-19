@@ -11,6 +11,13 @@ struct RootView: View {
     var body: some View {
         @Bindable var coordinator = paywallCoordinator
         return content
+            // WHY: anchor the window surface in brand ink. Without this, the
+            // WindowGroup's default white backing can flash between scenes and
+            // leaks at physical edges (notch column, home indicator, landscape
+            // sides) on iPhone. Scene-level `.ignoresSafeArea()` fills still
+            // own their own bleed; this guarantees there is never a white band
+            // underneath, even during transitions.
+            .background(BrandPalette.ground.ignoresSafeArea())
             .sheet(item: $coordinator.pending) { trigger in
                 PaywallView(trigger: trigger)
             }
@@ -45,6 +52,14 @@ struct RootView: View {
                 }
         }
         .tint(BrandPalette.amberAccent.hot)
+        // WHY: ground the whole window with the brand ink so every pixel outside
+        // the safe area (notch/dynamic-island column, home-indicator strip, side
+        // margins on landscape) reads as dark — not the default window white. The
+        // NavigationStack itself doesn't ignore safe area, so we paint underneath
+        // it. Child scenes still set `BrandPalette.ground.ignoresSafeArea()` for
+        // their own fills; this is the belt-and-suspenders layer.
+        .background(BrandPalette.ground.ignoresSafeArea())
+        .preferredColorScheme(.dark)
         .overlay(alignment: .top) {
             if let pending = screenshotDetector.pending {
                 ScreenshotBanner(
@@ -66,6 +81,8 @@ struct RootView: View {
             HistoryView()
         }
         .tint(BrandPalette.amberAccent.hot)
+        .background(BrandPalette.ground)
+        .preferredColorScheme(.dark)
         #endif
     }
 
