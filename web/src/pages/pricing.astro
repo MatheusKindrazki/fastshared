@@ -1,0 +1,174 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base
+  title="Pricing — FastShared"
+  description="FastShared Pro unlocks unlimited uploads, 30-day link retention, and iCloud history sync. Free stays free. Pro from $2.99/mo."
+>
+  <Nav />
+  <main class="frame pt-16 pb-24 max-w-[1080px] mx-auto">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: 'FastShared Pro',
+      description: 'Pro tier of FastShared — unlimited uploads, 30-day retention, iCloud sync, priority support. Available as Monthly, Annual, or one-time Lifetime.',
+      brand: { '@type': 'Brand', name: 'FastShared' },
+      offers: [
+        { '@type': 'Offer', name: 'Pro Monthly',  price: '2.99',  priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+        { '@type': 'Offer', name: 'Pro Annual',   price: '19.99', priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+        { '@type': 'Offer', name: 'Pro Lifetime', price: '49.99', priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+      ],
+    })} />
+
+    <section class="pt-8 md:pt-12 pb-12 md:pb-16">
+      <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-amber mb-6">
+        01 / pricing
+      </p>
+      <h1
+        class="font-display font-bold text-milk"
+        style="font-size: clamp(48px, 9vw, 128px); line-height: 0.92; letter-spacing: -0.055em;"
+      >
+        <span class="block">One gesture.</span>
+        <span class="block">One link.</span>
+        <span class="block italic text-coral">Your call on the rest.</span>
+      </h1>
+      <p class="mt-8 font-mono text-[14px] leading-[1.6] tracking-[0.03em] text-milk/55 max-w-[640px]">
+        Free is honest. Pro is generous. No dark patterns, no feature-gated anti-virus, no "unlock export" nonsense — just higher ceilings, longer retention, and iCloud sync for the people who share every day.
+      </p>
+    </section>
+
+    <section class="pb-16" aria-labelledby="tiers-heading">
+      <h2 id="tiers-heading" class="sr-only">Tier comparison</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Free -->
+        <article class="tier-card" data-tier="free">
+          <header class="tier-head">
+            <p class="tier-name">Free</p>
+            <p class="tier-price"><span class="amount">$0</span><span class="period">forever</span></p>
+            <p class="tier-blurb">For occasional shares. No account, no card.</p>
+          </header>
+          <a href="#app-store" class="btn-ghost tier-cta" data-testid="cta-free">Start free →</a>
+          <ul class="tier-features" aria-label="Free tier features">
+            <li><span class="ft-k">Uploads / day</span><span class="ft-v">5</span></li>
+            <li><span class="ft-k">Max file size</span><span class="ft-v">100 MB</span></li>
+            <li><span class="ft-k">Link retention</span><span class="ft-v">up to 24 h</span></li>
+            <li><span class="ft-k">iCloud sync</span><span class="ft-v ft-off">—</span></li>
+            <li><span class="ft-k">Revoke & history</span><span class="ft-v">on this device</span></li>
+            <li><span class="ft-k">Priority support</span><span class="ft-v ft-off">—</span></li>
+            <li><span class="ft-k">Family Sharing</span><span class="ft-v ft-off">—</span></li>
+          </ul>
+        </article>
+
+        <!-- Pro Monthly -->
+        <article class="tier-card tier-pro" data-tier="monthly">
+          <header class="tier-head">
+            <p class="tier-name">Pro Monthly</p>
+            <p class="tier-price"><span class="amount">$2.99</span><span class="period">/ month</span></p>
+            <p class="tier-blurb">For regulars. Pause any time.</p>
+          </header>
+          <a href="#app-store" class="btn-primary tier-cta" data-testid="cta-monthly">Go Pro →</a>
+          <ul class="tier-features" aria-label="Pro Monthly features">
+            <li><span class="ft-k">Uploads / day</span><span class="ft-v ft-on">unlimited</span></li>
+            <li><span class="ft-k">Max file size</span><span class="ft-v">2 GB</span></li>
+            <li><span class="ft-k">Link retention</span><span class="ft-v">up to 30 days</span></li>
+            <li><span class="ft-k">iCloud sync</span><span class="ft-v ft-on">included</span></li>
+            <li><span class="ft-k">Revoke & history</span><span class="ft-v ft-on">across devices</span></li>
+            <li><span class="ft-k">Priority support</span><span class="ft-v ft-on">included</span></li>
+            <li><span class="ft-k">Family Sharing</span><span class="ft-v ft-off">—</span></li>
+          </ul>
+        </article>
+
+        <!-- Pro Annual -->
+        <article class="tier-card tier-pro" data-tier="annual">
+          <header class="tier-head">
+            <p class="tier-name">Pro Annual <span class="badge-amber">save ~45%</span></p>
+            <p class="tier-price"><span class="amount">$19.99</span><span class="period">/ year</span></p>
+            <p class="tier-blurb">For the yearly budget line. Pays for itself in 7 months.</p>
+          </header>
+          <a href="#app-store" class="btn-primary tier-cta" data-testid="cta-annual">Go Pro →</a>
+          <ul class="tier-features" aria-label="Pro Annual features">
+            <li><span class="ft-k">Uploads / day</span><span class="ft-v ft-on">unlimited</span></li>
+            <li><span class="ft-k">Max file size</span><span class="ft-v">2 GB</span></li>
+            <li><span class="ft-k">Link retention</span><span class="ft-v">up to 30 days</span></li>
+            <li><span class="ft-k">iCloud sync</span><span class="ft-v ft-on">included</span></li>
+            <li><span class="ft-k">Revoke & history</span><span class="ft-v ft-on">across devices</span></li>
+            <li><span class="ft-k">Priority support</span><span class="ft-v ft-on">included</span></li>
+            <li><span class="ft-k">Family Sharing</span><span class="ft-v ft-off">—</span></li>
+          </ul>
+        </article>
+
+        <!-- Pro Lifetime -->
+        <article class="tier-card tier-pro tier-lifetime" data-tier="lifetime">
+          <div class="ribbon-coral" aria-hidden="true">Early Access</div>
+          <header class="tier-head">
+            <p class="tier-name">Pro Lifetime</p>
+            <p class="tier-price"><span class="amount">$49.99</span><span class="period">once</span></p>
+            <p class="tier-blurb">For the believers. One-time. Family Sharing included.</p>
+          </header>
+          <a href="#app-store?offer=lifetime" class="btn-primary tier-cta" data-testid="cta-lifetime">Go Lifetime →</a>
+          <ul class="tier-features" aria-label="Pro Lifetime features">
+            <li><span class="ft-k">Uploads / day</span><span class="ft-v ft-on">unlimited</span></li>
+            <li><span class="ft-k">Max file size</span><span class="ft-v">2 GB</span></li>
+            <li><span class="ft-k">Link retention</span><span class="ft-v">up to 30 days</span></li>
+            <li><span class="ft-k">iCloud sync</span><span class="ft-v ft-on">included</span></li>
+            <li><span class="ft-k">Revoke & history</span><span class="ft-v ft-on">across devices</span></li>
+            <li><span class="ft-k">Priority support</span><span class="ft-v ft-on">included</span></li>
+            <li><span class="ft-k">Family Sharing</span><span class="ft-v ft-on">up to 6</span></li>
+          </ul>
+        </article>
+      </div>
+
+      <p class="mt-8 font-mono text-[12px] tracking-[0.06em] text-milk/40">
+        Prices in USD. Apple handles localised pricing and taxes. Monthly and Annual auto-renew per Apple's standard terms. Cancel any time in iOS Settings → Apple ID → Subscriptions.
+      </p>
+    </section>
+
+    <section class="pt-16 pb-16" aria-labelledby="pricing-faq">
+      <header class="mb-10">
+        <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-amber">02 / questions</p>
+        <h2 id="pricing-faq" class="mt-3 font-display font-semibold text-milk" style="font-size: clamp(32px, 5vw, 56px); letter-spacing: -0.03em;">
+          Questions you were about to ask.
+        </h2>
+      </header>
+
+      <div class="max-w-[780px]">
+        <details class="faq-item">
+          <summary>Can I get a refund?</summary>
+          <div class="faq-body">All refunds go through Apple, not us. Open <a href="https://apps.apple.com/support" class="text-amber hover:underline">apps.apple.com/support</a> → Report a Problem, pick the FastShared purchase, and choose a reason. Apple decides. We honour whatever they decide — if they issue a refund, Pro turns off the same day via the App Store Server API.</div>
+        </details>
+        <details class="faq-item">
+          <summary>What auto-renews?</summary>
+          <div class="faq-body">Monthly and Annual auto-renew 24 hours before the period ends, per Apple's standard subscription model. Lifetime does not renew — it's a one-time purchase. You can cancel any auto-renew in iOS Settings → Apple ID → Subscriptions; the current period stays active until it ends.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Can I switch between Monthly and Annual?</summary>
+          <div class="faq-body">Yes. In iOS Settings → Apple ID → Subscriptions → FastShared Pro, pick the other tier. Apple prorates the difference and switches you on the next billing cycle. Both tiers are in the same subscription group, so you can't hold both at once.</div>
+        </details>
+        <details class="faq-item">
+          <summary>How does Family Sharing work?</summary>
+          <div class="faq-body">Lifetime supports Family Sharing — up to 6 family members unlock Pro on their own Apple IDs once the organiser enables it in Settings. Monthly and Annual do not support Family Sharing in v1; each person needs their own subscription.</div>
+        </details>
+        <details class="faq-item">
+          <summary>How do I cancel?</summary>
+          <div class="faq-body">iOS Settings → tap your name → Subscriptions → FastShared Pro → Cancel Subscription. No emails, no retention calls, no "are you sure" modals from us. Apple handles the flow end-to-end.</div>
+        </details>
+        <details class="faq-item">
+          <summary>What happens when I downgrade to Free?</summary>
+          <div class="faq-body">Existing links keep their original expiry (up to 30 days) — we don't retroactively shorten them. After the subscription lapses, new uploads revert to Free limits: 5/day, 100 MB max, 24 h retention ceiling. iCloud sync stops; records already in your private iCloud stay for 30 days, then iCloud prunes them naturally.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Why $49.99 for Lifetime?</summary>
+          <div class="faq-body">Early Access pricing for the first three months after launch. It's a thank-you to the people who show up early. After the Early Access window, Lifetime returns to its regular price. One-time purchase, Family Sharing enabled, unlimited future updates to FastShared Pro.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Is there a free trial?</summary>
+          <div class="faq-body">No trial in v1 — the Free tier is the trial. It's generous enough (5 uploads/day, 100 MB, 24 h) to let you decide if the Pro limits actually matter to you before paying.</div>
+        </details>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
