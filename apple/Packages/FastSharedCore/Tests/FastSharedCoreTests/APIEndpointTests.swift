@@ -71,7 +71,7 @@ final class APIEndpointTests: XCTestCase {
     }
 
     func test_presignResponse_decodes_live_backend_happy_path() throws {
-        // WHY: fixture copied from the real backend response at api.shared.kindrazki.dev
+        // WHY: fixture copied from the real backend response at api.fastsha.red
         // so a future DTO drift is caught by this test, not by a failing upload.
         let json = #"""
         {
@@ -113,7 +113,7 @@ final class APIEndpointTests: XCTestCase {
           "deduped": {
             "assetId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
             "token": "abcDEF0123456789ABCDEF",
-            "shortUrl": "https://shared.kindrazki.dev/s/abcDEF0123456789ABCDEF",
+            "shortUrl": "https://fastsha.red/s/abcDEF0123456789ABCDEF",
             "expiresAt": "2026-04-19T14:11:41.731Z",
             "deleteAfter": "2026-04-20T14:11:41.731Z",
             "retentionPolicy": "oneHour"
@@ -127,7 +127,7 @@ final class APIEndpointTests: XCTestCase {
         XCTAssertNil(decoded.storageKey)
         let dedupe = try XCTUnwrap(decoded.deduped)
         XCTAssertEqual(dedupe.token, "abcDEF0123456789ABCDEF")
-        XCTAssertEqual(dedupe.shortUrl.absoluteString, "https://shared.kindrazki.dev/s/abcDEF0123456789ABCDEF")
+        XCTAssertEqual(dedupe.shortUrl.absoluteString, "https://fastsha.red/s/abcDEF0123456789ABCDEF")
         XCTAssertEqual(dedupe.retentionPolicy, "oneHour")
     }
 

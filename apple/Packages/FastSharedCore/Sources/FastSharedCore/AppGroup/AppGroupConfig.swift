@@ -23,7 +23,7 @@ public enum AppGroupConfig {
            let url = URL(string: value) {
             return url
         }
-        return URL(string: "https://api.shared.kindrazki.dev")!
+        return URL(string: "https://api.fastsha.red")!
     }
 
     public static var shortLinkHost: URL {
@@ -32,6 +32,6 @@ public enum AppGroupConfig {
            let url = URL(string: value) {
             return url
         }
-        return URL(string: "https://shared.kindrazki.dev")!
+        return URL(string: "https://fastsha.red")!
     }
 }

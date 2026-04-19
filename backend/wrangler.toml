@@ -13,12 +13,14 @@ account_id = "aad020260082c48f6370fa7954b72f81"
 # Secrets (set with: wrangler secret put <NAME>):
 #   DATABASE_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, DEVICE_TOKEN_PEPPER
 
+# Production custom domains. Apex serves short-link redirects at /s/:token;
+# api serves the /v1/* surface. See docs/architecture/system-design.md.
 [[routes]]
-pattern = "api.shared.kindrazki.dev"
+pattern = "fastsha.red"
 custom_domain = true
 
 [[routes]]
-pattern = "shared.kindrazki.dev"
+pattern = "api.fastsha.red"
 custom_domain = true
 
 [[r2_buckets]]
@@ -34,7 +36,7 @@ crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 7"]
 
 [vars]
 APP_ENV = "production"
-SHORT_LINK_HOST = "https://shared.kindrazki.dev"
-PUBLIC_API_HOST = "https://api.shared.kindrazki.dev"
+SHORT_LINK_HOST = "https://fastsha.red"
+PUBLIC_API_HOST = "https://api.fastsha.red"
 R2_BUCKET_NAME = "fastshared"
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"

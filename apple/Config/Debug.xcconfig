@@ -4,8 +4,8 @@
 // We don't currently run a separate dev environment — update this when one exists.
 // The `$()` token below is a no-op build-setting substitution that prevents xcconfig from
 // treating "//" as the start of a comment when we embed URLs.
-API_BASE_URL = https:/$()/api.shared.kindrazki.dev
-SHORT_LINK_HOST = https:/$()/shared.kindrazki.dev
+API_BASE_URL = https:/$()/api.fastsha.red
+SHORT_LINK_HOST = https:/$()/fastsha.red
 
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
 SWIFT_OPTIMIZATION_LEVEL = -Onone
