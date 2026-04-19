@@ -3,8 +3,10 @@ import SwiftUI
 import UIKit
 import FastSharedCore
 
-/// Soft nudge that slides in from the top of the hub when the user takes a screenshot.
-/// 10s auto-dismiss. Tap Upload to feed it into the pipeline; tap Dismiss to hide.
+/// Soft nudge that slides in from the top of the hub when the user takes a
+/// screenshot. 10s auto-dismiss. Tap Upload to feed it into the pipeline;
+/// tap the × to hide. Layout ported from `design/screens.jsx` →
+/// `ScreenshotBanner()`.
 @MainActor
 struct ScreenshotBanner: View {
     let pending: PendingScreenshot
@@ -37,97 +39,107 @@ struct ScreenshotBanner: View {
 
     @ViewBuilder
     private func content(remainingFraction: Double) -> some View {
+        let accent = BrandPalette.amberAccent
+
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
                 thumbnail
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Screenshot · ready to share")
+                    Text("Screenshot ready")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(BrandPalette.ink)
+                        .foregroundStyle(BrandPalette.text)
                         .lineLimit(1)
-                    Text("Tap to upload")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.amber)
+                    Text("TAP UPLOAD · AUTO-HIDE 10S")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .tracking(1.2)
+                        .foregroundStyle(accent.hot)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                buttons
+                uploadButton
+                dismissButton
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
 
-            // Progress rail drains over the 10s lifetime; visual reinforcement for auto-dismiss.
+            // Drain rail — amber fills from left and shrinks as the 10s countdown progresses.
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(BrandPalette.line.opacity(0.65))
+                        .fill(BrandPalette.line)
                     Rectangle()
-                        .fill(BrandPalette.amber)
+                        .fill(accent.hot)
                         .frame(width: geo.size.width * remainingFraction)
                 }
             }
             .frame(height: 2)
-            .clipShape(Capsule())
         }
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(BrandPalette.line.opacity(0.9), lineWidth: 1)
-                )
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(BrandPalette.surface1.opacity(0.92))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         )
-        .shadow(color: BrandPalette.ink.opacity(0.12), radius: 18, y: 10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(BrandPalette.lineStrong, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.35), radius: 20, y: 12)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Screenshot ready to share")
         .accessibilityAddTraits(.isButton)
     }
 
     private var thumbnail: some View {
-        Group {
+        let accent = BrandPalette.amberAccent
+        return Group {
             if let image = UIImage(contentsOfFile: pending.url.path) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
             } else {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(BrandPalette.violet.opacity(0.85))
-                    .overlay(
-                        Image(systemName: "photo")
-                            .foregroundStyle(BrandPalette.ember)
-                    )
+                LinearGradient(
+                    colors: [BrandPalette.surface1, BrandPalette.surface2],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+                .overlay(
+                    Image(systemName: "photo")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(accent.hot)
+                )
             }
         }
-        .frame(width: 44, height: 44)
+        .frame(width: 52, height: 52)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(BrandPalette.amber.opacity(0.25), lineWidth: 0.5)
+                .strokeBorder(accent.hot.opacity(0.20), lineWidth: 1)
         )
     }
 
-    private var buttons: some View {
-        HStack(spacing: 8) {
-            Button(action: upload) {
-                Text("Upload")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(BrandPalette.lightText)
-                    .frame(height: 28)
-                    .padding(.horizontal, 12)
-                    .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .buttonStyle(.plain)
-
-            Button(action: dismiss) {
-                Text("Dismiss")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(BrandPalette.ink.opacity(0.58))
-                    .frame(height: 28)
-                    .padding(.horizontal, 10)
-            }
-            .buttonStyle(.plain)
+    private var uploadButton: some View {
+        let accent = BrandPalette.amberAccent
+        return Button(action: upload) {
+            Text("UPLOAD")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .tracking(1.4)
+                .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(accent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+        .buttonStyle(.plain)
+    }
+
+    private var dismissButton: some View {
+        Button(action: dismiss) {
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(BrandPalette.textDim)
+                .padding(8)
+        }
+        .buttonStyle(.plain)
     }
 
     private func upload() {

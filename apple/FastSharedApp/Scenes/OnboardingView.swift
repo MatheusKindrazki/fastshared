@@ -5,153 +5,177 @@ import FastSharedCore
 import UIKit
 #endif
 
-/// Full-bleed onboarding. Three pages, each deserving the whole canvas, no system page dots.
-/// A thin teal progress rail at the top is the only navigation affordance besides the buttons.
+/// Single-page declarative onboarding, per `design/screens.jsx` → `Onboarding()`.
+///
+/// The layout: a blurred amber sphere in the top-right backdrop, a heavy
+/// display headline split across four lines, a body paragraph, a three-step
+/// mono ledger ("01 SHARE / 02 PICK / 03 PASTE"), and an amber CTA block.
 struct OnboardingView: View {
     let onComplete: () -> Void
 
     @Environment(\.apiClient) private var apiClient
-    @State private var page: Int = 0
     @State private var isProvisioning: Bool = false
     @State private var errorMessage: String?
     @State private var startedPulse: Int = 0
 
-    private let totalPages: Int = 3
-
     var body: some View {
-        ZStack {
-            BrandPalette.canvas
-                .ignoresSafeArea(.all)
+        ZStack(alignment: .topLeading) {
+            BrandPalette.ground
+                .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                ProgressLine(fraction: Double(page + 1) / Double(totalPages))
+            // Ambient sphere — blurred, top-right.
+            Sphere(size: 280)
+                .opacity(0.35)
+                .blur(radius: 6)
+                .offset(x: 200, y: -90)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
 
-                topBar
-                    .padding(.horizontal, 24)
-                    .padding(.top, 8)
+            GeometryReader { geo in
+                VStack(spacing: 0) {
+                    header
+                        .padding(.horizontal, 28)
+                        .padding(.top, 40)
 
-                ZStack {
-                    switch page {
-                    case 0: WelcomePage().transition(pageTransition)
-                    case 1: HowItWorksPage().transition(pageTransition)
-                    default: EphemeralPage().transition(pageTransition)
-                    }
+                    Spacer(minLength: 0)
+
+                    ledger
+                        .padding(.horizontal, 28)
+
+                    Spacer(minLength: 16)
+
+                    cta
+                        .padding(.horizontal, 22)
+                        .padding(.bottom, max(32, geo.safeAreaInsets.bottom))
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .animation(.spring(duration: 0.55, bounce: 0.22), value: page)
-
-                controls
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        .preferredColorScheme(.light)
-        .foregroundStyle(BrandPalette.ink)
+        .preferredColorScheme(.dark)
+        .foregroundStyle(BrandPalette.text)
         #if os(iOS)
         .sensoryFeedback(.success, trigger: startedPulse)
         #endif
     }
 
-    // MARK: - Chrome
+    // MARK: - Sections
 
-    private var topBar: some View {
-        HStack {
-            if page > 0 {
-                Button {
-                    page = max(0, page - 1)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("BACK")
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .tracking(1.6)
-                    }
-                    .foregroundStyle(BrandPalette.dust)
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-            if page < totalPages - 1 {
-                Button {
-                    page = totalPages - 1
-                } label: {
-                    Text("SKIP")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .tracking(1.6)
-                        .foregroundStyle(BrandPalette.dust)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .frame(height: 24)
-    }
+    private var header: some View {
+        let accent = BrandPalette.amberAccent
+        return VStack(alignment: .leading, spacing: 22) {
+            Mono("fastshared · v1", color: accent.hot)
 
-    private var pageTransition: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.combined(with: .move(edge: .trailing)),
-            removal: .opacity.combined(with: .move(edge: .leading))
-        )
-    }
+            // Display headline — 58pt / -0.045em tracking / 0.92 line height.
+            (
+                Text("Share\nanything.\n")
+                    .foregroundStyle(BrandPalette.text)
+                + Text("Vanishes\n")
+                    .foregroundStyle(accent.hot)
+                + Text("on schedule.")
+                    .foregroundStyle(BrandPalette.text)
+            )
+            .font(.system(size: 58, weight: .bold))
+            .tracking(-2.6)
+            .lineSpacing(-6)
+            .fixedSize(horizontal: false, vertical: true)
 
-    // MARK: - Controls
+            Text("From the share sheet, Action Button, or drag onto the dock — FastShared uploads in the background, copies a temporary link, and deletes the file when time's up.")
+                .font(.system(size: 16, weight: .regular))
+                .lineSpacing(4)
+                .foregroundStyle(BrandPalette.textDim)
+                .frame(maxWidth: 320, alignment: .leading)
 
-    private var controls: some View {
-        VStack(spacing: 12) {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
-                    .foregroundStyle(BrandPalette.coral)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-            }
-
-            if page < totalPages - 1 {
-                HStack {
-                    Spacer()
-                    Button {
-                        page = min(page + 1, totalPages - 1)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text("CONTINUE")
-                                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                .tracking(1.8)
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 12, weight: .bold))
-                        }
-                        .foregroundStyle(BrandPalette.lightText)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 14)
-                        .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.defaultAction)
-                }
-            } else {
-                Button {
-                    Task { await provision() }
-                } label: {
-                    HStack(spacing: 10) {
-                        if isProvisioning {
-                            ProgressView().tint(BrandPalette.lightText)
-                        }
-                        Text(isProvisioning ? "PROVISIONING…" : "GET STARTED")
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .tracking(1.8)
-                    }
-                    .foregroundStyle(BrandPalette.lightText)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(BrandPalette.amber, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .shadow(color: BrandPalette.amber.opacity(0.22), radius: 20, y: 8)
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut(.defaultAction)
-                .disabled(isProvisioning)
+                    .foregroundStyle(BrandPalette.amberAccent.fade)
+                    .padding(.top, 4)
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 28)
-        .padding(.top, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private var ledger: some View {
+        let accent = BrandPalette.amberAccent
+        let steps: [(String, String, String)] = [
+            ("01", "SHARE", "any file, anywhere"),
+            ("02", "PICK", "1h · 24h · 1w · 1mo"),
+            ("03", "PASTE", "link lands in clipboard"),
+        ]
+        return VStack(spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
+                HStack(spacing: 14) {
+                    // Big amber numeral
+                    Text(step.0)
+                        .font(.system(size: 28, weight: .medium, design: .monospaced))
+                        .tracking(-1.0)
+                        .foregroundStyle(accent.hot)
+                        .frame(width: 52, alignment: .leading)
+
+                    // Headline + sub
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(step.1)
+                            .font(.system(size: 15, weight: .semibold))
+                            .tracking(-0.2)
+                            .foregroundStyle(BrandPalette.text)
+                        Text(step.2)
+                            .font(.system(size: 11, weight: .regular, design: .monospaced))
+                            .foregroundStyle(BrandPalette.textFaint)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    // Amber progress tick (fades with index).
+                    Rectangle()
+                        .fill(accent.hot)
+                        .frame(width: 32, height: 2)
+                        .opacity(0.2 + Double(idx) * 0.3)
+                }
+                .padding(.vertical, 14)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(idx == 0 ? BrandPalette.lineStrong : BrandPalette.line)
+                        .frame(height: 1)
+                }
+            }
+        }
+    }
+
+    private var cta: some View {
+        let accent = BrandPalette.amberAccent
+        return VStack(spacing: 14) {
+            Button {
+                Task { await provision() }
+            } label: {
+                HStack {
+                    if isProvisioning {
+                        ProgressView().tint(Color(red: 0.07, green: 0.02, blue: 0.04))
+                    }
+                    Text(isProvisioning ? "PROVISIONING" : "GET STARTED")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .tracking(1.8)
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity)
+                .background(accent.hot, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(isProvisioning)
+            #if os(iOS)
+            .keyboardShortcut(.defaultAction)
+            #endif
+
+            Mono("no account · no sign-in · no trace",
+                 size: 10, track: 1.4, color: BrandPalette.textFaint)
+        }
+    }
+
+    // MARK: - Provisioning
 
     private func provision() async {
         errorMessage = nil
@@ -181,206 +205,6 @@ struct OnboardingView: View {
     }
 }
 
-// MARK: - Page 1 · The idea
-
-private struct WelcomePage: View {
-    @State private var appeared = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 30) {
-            ArcMark()
-                .frame(height: 300)
-                .frame(maxWidth: .infinity)
-                .padding(.top, 18)
-
-            VStack(alignment: .leading, spacing: 18) {
-                Text("One gesture.\nOne temporary link.")
-                    .font(.system(size: 40, weight: .bold))
-                    .tracking(-1.4)
-                    .lineSpacing(0)
-                    .foregroundStyle(BrandPalette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text("Share from Photos, Files, or Finder. FastShared uploads in the background, copies the link, and deletes it on schedule.")
-                    .font(.system(size: 17, weight: .regular))
-                    .lineSpacing(2)
-                    .foregroundStyle(BrandPalette.ink.opacity(0.66))
-                    .frame(maxWidth: 520, alignment: .leading)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 8) {
-                    featurePill("Share sheet", "square.and.arrow.up")
-                    featurePill("Clipboard", "doc.on.doc")
-                    featurePill("Expires", "timer")
-                }
-            }
-            .padding(.horizontal, 24)
-
-            Spacer(minLength: 0)
-
-            Text("FASTSHARED · 2026")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .tracking(2.0)
-                .foregroundStyle(BrandPalette.dust)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 4)
-        }
-        .onAppear {
-            withAnimation(BrandMotion.transition.delay(0.18)) { appeared = true }
-        }
-        .opacity(appeared || reduceMotion ? 1 : 0)
-        .offset(y: appeared || reduceMotion ? 0 : 12)
-    }
-
-    private func featurePill(_ title: String, _ icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(BrandPalette.ink.opacity(0.72))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(BrandPalette.line.opacity(0.8), lineWidth: 1)
-            )
-    }
-}
-
-// MARK: - Page 2 · How it works
-
-private struct HowItWorksPage: View {
-    private struct Step: Identifiable {
-        let id: Int
-        let number: String
-        let headline: String
-        let caption: String
-    }
-
-    private let steps: [Step] = [
-        Step(id: 1, number: "01", headline: "Share any file",
-             caption: "image · video · document · whatever"),
-        Step(id: 2, number: "02", headline: "Pick how long it lives",
-             caption: "1 hour · 24 hours · 1 week · 1 month"),
-        Step(id: 3, number: "03", headline: "Your link lands in the clipboard",
-             caption: "paste it anywhere — it expires by itself")
-    ]
-
-    @State private var appeared: Bool = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 32) {
-            header
-            VStack(alignment: .leading, spacing: 28) {
-                ForEach(Array(steps.enumerated()), id: \.element.id) { idx, step in
-                    StepBlock(step: step)
-                        .opacity(appeared || reduceMotion ? 1 : 0)
-                        .offset(y: appeared || reduceMotion ? 0 : 16)
-                        .animation(BrandMotion.transition.delay(0.12 * Double(idx)), value: appeared)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .onAppear {
-            withAnimation { appeared = true }
-        }
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("HOW IT WORKS")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.8)
-                .foregroundStyle(BrandPalette.amber)
-            Text("Three moves.")
-                .font(.system(size: 44, weight: .bold))
-                .tracking(-1.8)
-                .foregroundStyle(BrandPalette.ink)
-        }
-    }
-
-    private struct StepBlock: View {
-        let step: Step
-
-        var body: some View {
-            HStack(alignment: .top, spacing: 20) {
-                Text(step.number)
-                    .font(.system(size: 64, weight: .bold))
-                    .tracking(-2.4)
-                    .foregroundStyle(BrandPalette.amber)
-                    .frame(width: 90, alignment: .leading)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(step.headline)
-                        .font(.system(size: 22, weight: .semibold))
-                        .tracking(-0.6)
-                        .foregroundStyle(BrandPalette.ink)
-                    Text(step.caption)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .tracking(0.6)
-                    .foregroundStyle(BrandPalette.dust)
-                }
-                Spacer(minLength: 0)
-            }
-        }
-    }
-}
-
-// MARK: - Page 3 · The promise
-
-private struct EphemeralPage: View {
-    @State private var appeared: Bool = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Spacer(minLength: 0)
-
-            HourglassBead()
-                .frame(height: 160)
-                .frame(maxWidth: .infinity)
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Every link")
-                    .font(.system(size: 48, weight: .bold))
-                    .tracking(-2.0)
-                + Text("\nexpires.")
-                    .font(.system(size: 48, weight: .bold))
-                    .tracking(-2.0)
-                    .foregroundStyle(BrandPalette.amber)
-
-                Text("Every file is deleted. By design.")
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(BrandPalette.ink.opacity(0.68))
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "timer")
-                    .font(.system(size: 11, weight: .semibold))
-                Text("DEFAULT · 24 HOURS")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .tracking(1.8)
-            }
-            .foregroundStyle(BrandPalette.amber)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(BrandPalette.amber.opacity(0.35), lineWidth: 1)
-            )
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .opacity(appeared || reduceMotion ? 1 : 0)
-        .offset(y: appeared || reduceMotion ? 0 : 14)
-        .onAppear {
-            withAnimation(BrandMotion.transition) { appeared = true }
-        }
-    }
+#Preview {
+    OnboardingView(onComplete: {})
 }
