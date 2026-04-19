@@ -1,10 +1,11 @@
 #include "Shared.xcconfig"
 
-// Debug build: points at the development backend and uses debug-only short link host.
+// Debug build: points at the single production-accessible backend for now.
+// We don't currently run a separate dev environment — update this when one exists.
 // The `$()` token below is a no-op build-setting substitution that prevents xcconfig from
 // treating "//" as the start of a comment when we embed URLs.
-API_BASE_URL = https:/$()/api.dev.fastshared.app
-SHORT_LINK_HOST = https:/$()/fsh.dev
+API_BASE_URL = https:/$()/api.shared.kindrazki.dev
+SHORT_LINK_HOST = https:/$()/shared.kindrazki.dev
 
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
 SWIFT_OPTIMIZATION_LEVEL = -Onone

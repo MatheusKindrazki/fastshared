@@ -14,19 +14,24 @@ public enum AppGroupConfig {
         "dev.kindrazki.fastshared"
     }
 
+    // WHY: Info.plist keys stay supported for future override, but the default
+    // is the real deployed host so a misconfigured xcconfig doesn't silently
+    // hit a non-existent domain. Flip when we have a separate dev environment.
     public static var apiBaseURL: URL {
         if let value = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String,
+           !value.isEmpty, !value.contains("$("),
            let url = URL(string: value) {
             return url
         }
-        return URL(string: "https://api.fastshared.app")!
+        return URL(string: "https://api.shared.kindrazki.dev")!
     }
 
     public static var shortLinkHost: URL {
         if let value = Bundle.main.object(forInfoDictionaryKey: "SHORT_LINK_HOST") as? String,
+           !value.isEmpty, !value.contains("$("),
            let url = URL(string: value) {
             return url
         }
-        return URL(string: "https://fsh.re")!
+        return URL(string: "https://shared.kindrazki.dev")!
     }
 }
