@@ -176,14 +176,12 @@ SDKs, no ATT tracker table.
 <key>com.apple.developer.associated-domains</key>
 <array>
     <string>applinks:fastsha.red</string>
-    <string>applinks:fsh.re</string>
 </array>
 ```
 
 Matching AASA file is served by the Hono worker at:
 
 - `https://fastsha.red/.well-known/apple-app-site-association`
-- `https://fsh.re/.well-known/apple-app-site-association`
 
 Expected body:
 

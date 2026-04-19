@@ -19,7 +19,6 @@
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:fastsha.red</string>
-		<string>applinks:fsh.re</string>
 	</array>
 </dict>
 </plist>

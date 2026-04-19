@@ -36,30 +36,29 @@ async function fetchAASA(hostname: string): Promise<Response> {
 }
 
 describe('apple-app-site-association', () => {
-  // WHY: two separate assertions (fastsha.red + fsh.re) because iOS/macOS fetch
-  // the AASA file per-hostname during install/update. If either returns HTML or
-  // a wrong content-type the universal-link handoff silently never installs —
-  // no runtime error, just a dead Share Sheet. Guard both.
-  for (const host of ['fastsha.red', 'fsh.re'] as const) {
-    it(`serves the manifest on ${host} with application/json`, async () => {
-      const res = await fetchAASA(host);
-      expect(res.status).toBe(200);
-      expect(res.headers.get('content-type')).toMatch(/application\/json/);
+  // fastsha.red is the only production hostname — the apex serves both the
+  // marketing site (proxied to Pages) and the short-link resolver (/s/*),
+  // and iOS/macOS fetch the AASA file from it during install/update. If the
+  // file returns HTML or a wrong content-type the universal-link handoff
+  // silently never installs — no runtime error, just a dead Share Sheet.
+  it('serves the manifest on fastsha.red with application/json', async () => {
+    const res = await fetchAASA('fastsha.red');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
 
-      const body = await res.json();
-      expect(body).toEqual({
-        applinks: {
-          apps: [],
-          details: [
-            {
-              appID: 'YFYB6NKC73.dev.kindrazki.fastshared',
-              paths: ['/s/*', 'NOT /api/*'],
-            },
-          ],
-        },
-      });
+    const body = await res.json();
+    expect(body).toEqual({
+      applinks: {
+        apps: [],
+        details: [
+          {
+            appID: 'YFYB6NKC73.dev.kindrazki.fastshared',
+            paths: ['/s/*', 'NOT /api/*'],
+          },
+        ],
+      },
     });
-  }
+  });
 
   // Pages-proxy sanity: the apex rewrites non-app paths to Cloudflare Pages
   // for the marketing site. /.well-known MUST stay on the worker so this

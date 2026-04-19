@@ -13,23 +13,15 @@ account_id = "aad020260082c48f6370fa7954b72f81"
 # Secrets (set with: wrangler secret put <NAME>):
 #   DATABASE_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, DEVICE_TOKEN_PEPPER
 
-# Production custom domains. Apex serves short-link redirects at /s/:token;
-# api serves the /v1/* surface. See docs/architecture/system-design.md.
-#
-# fsh.re is the legacy short-link host — bound to the same worker so it
-# serves /s/:token AND /.well-known/apple-app-site-association (the AASA
-# file ships identical bytes on both hosts so iOS can take over link
-# resolution for either hostname after install).
+# Production custom domains. Apex serves short-link redirects at /s/:token
+# AND /.well-known/apple-app-site-association for universal links; api serves
+# the /v1/* surface. See docs/architecture/system-design.md.
 [[routes]]
 pattern = "fastsha.red"
 custom_domain = true
 
 [[routes]]
 pattern = "api.fastsha.red"
-custom_domain = true
-
-[[routes]]
-pattern = "fsh.re"
 custom_domain = true
 
 [[r2_buckets]]
