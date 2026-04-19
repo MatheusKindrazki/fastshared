@@ -124,7 +124,7 @@ it's generous enough to be honest about it.
 - **No permanent hosting.** Every file has a deletion deadline; there is no "keep forever" option.
 - **No permanent public URLs.** All links are tokens over a 302 to a short-lived signed URL.
 - **No account-gated recipient access.** Recipients never sign in. The token is the credential.
-- No accounts, no cross-device sync beyond a single Apple ID's iCloud Keychain.
+- No accounts. Cross-device history sync via iCloud (CloudKit private database) ships in v1.1 as a **Pro** feature; the MVP is single-device only.
 - No custom tokens, folders, or tags.
 - No per-link passwords, max-download counts, or geographic gates (hooks exist; not exposed).
 - No Android, Windows, or web clients beyond the resolve redirect and the minimal expired-page HTML.
@@ -136,8 +136,9 @@ it's generous enough to be honest about it.
 | Phase    | Features                                                                                                           |
 | -------- | ------------------------------------------------------------------------------------------------------------------ |
 | MVP      | Share extension, Mac drop, history with countdown + tombstones, temporary links, retention presets, revoke, deletion cron, single-PUT uploads, device auth |
+| v1.1 Pro | Pro tier (Monthly / Annual / Lifetime), unlimited uploads, 2 GB files, 30-day retention, iCloud metadata sync via CloudKit private database, Family Sharing on Lifetime |
 | Post-MVP | R2 multipart for files >100 MB, resumable uploads, reliability hardening, password-protected links, max-download count, `/report/:token`, geographic gates |
-| Future   | Accounts and SSO, team libraries, iCloud sync of history, CSAM scanning, Siri Shortcuts, watchOS, custom expiration presets, one-time links                |
+| Future   | Accounts and SSO, team libraries, CSAM scanning, Siri Shortcuts, watchOS, custom expiration presets, one-time links                                         |
 
 ## Product principles
 
