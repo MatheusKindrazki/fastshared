@@ -7,9 +7,36 @@ public protocol KeychainStoring: Sendable {
     func delete(_ key: String) async throws
 }
 
-public enum KeychainError: Error, Sendable {
+public enum KeychainError: Error, Sendable, LocalizedError {
     case unexpectedStatus(OSStatus)
     case dataEncoding
+
+    public var errorDescription: String? {
+        switch self {
+        case .unexpectedStatus(let status):
+            let name = Self.describe(status: status)
+            let message = SecCopyErrorMessageString(status, nil) as String? ?? "Unknown Keychain error"
+            return "Keychain failed: \(name) (\(status)) — \(message)"
+        case .dataEncoding:
+            return "Keychain data could not be encoded"
+        }
+    }
+
+    // WHY: surfacing the OSStatus symbol in logs makes extension-context failures
+    // (errSecMissingEntitlement, errSecInteractionNotAllowed) debuggable.
+    private static func describe(status: OSStatus) -> String {
+        switch status {
+        case errSecSuccess:             return "errSecSuccess"
+        case errSecItemNotFound:        return "errSecItemNotFound"
+        case errSecDuplicateItem:       return "errSecDuplicateItem"
+        case errSecInteractionNotAllowed: return "errSecInteractionNotAllowed"
+        case errSecAuthFailed:          return "errSecAuthFailed"
+        case errSecParam:               return "errSecParam"
+        case -34018:                    return "errSecMissingEntitlement"
+        case -25243:                    return "errSecNoAccessForItem"
+        default:                        return "osstatus=\(status)"
+        }
+    }
 }
 
 public final class KeychainStore: KeychainStoring, @unchecked Sendable {
