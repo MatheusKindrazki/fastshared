@@ -178,7 +178,7 @@ final class ShareViewController: PlatformViewController {
     }
 
     private func cancel() {
-        extensionContext?.cancelRequest(withError: NSError(domain: "com.yourco.fastshared.ShareExt",
+        extensionContext?.cancelRequest(withError: NSError(domain: "dev.kindrazki.fastshared.ShareExt",
                                                            code: NSUserCancelledError,
                                                            userInfo: nil))
     }

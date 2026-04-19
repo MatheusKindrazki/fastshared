@@ -1,6 +1,6 @@
 name: FastShared
 options:
-  bundleIdPrefix: com.yourco.fastshared
+  bundleIdPrefix: dev.kindrazki.fastshared
   deploymentTarget:
     iOS: "17.0"
     macOS: "14.0"
@@ -45,7 +45,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: FastShared
-        PRODUCT_BUNDLE_IDENTIFIER: $(PRODUCT_BUNDLE_IDENTIFIER_PREFIX)
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kindrazki.fastshared
         CODE_SIGN_ENTITLEMENTS: FastSharedApp/FastSharedApp.entitlements
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
@@ -80,7 +80,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: FastSharedShareExt
-        PRODUCT_BUNDLE_IDENTIFIER: $(PRODUCT_BUNDLE_IDENTIFIER_PREFIX).ShareExt
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kindrazki.fastshared.ShareExt
         CODE_SIGN_ENTITLEMENTS: FastSharedShareExt/FastSharedShareExt.entitlements
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES

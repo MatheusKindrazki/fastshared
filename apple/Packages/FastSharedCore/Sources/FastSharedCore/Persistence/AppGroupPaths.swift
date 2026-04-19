@@ -1,7 +1,7 @@
 import Foundation
 
 public enum AppGroupPaths {
-    public static let fallbackGroupIdentifier = "group.com.yourco.fastshared"
+    public static let fallbackGroupIdentifier = "group.dev.kindrazki.fastshared"
 
     public static var groupIdentifier: String {
         if let value = Bundle.main.object(forInfoDictionaryKey: "APP_GROUP_IDENTIFIER") as? String, !value.isEmpty {

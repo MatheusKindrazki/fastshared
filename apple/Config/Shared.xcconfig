@@ -3,9 +3,9 @@
 
 DEVELOPMENT_TEAM = TEAMID
 
-PRODUCT_BUNDLE_IDENTIFIER_PREFIX = com.yourco.fastshared
-APP_GROUP_IDENTIFIER = group.com.yourco.fastshared
-KEYCHAIN_ACCESS_GROUP = $(AppIdentifierPrefix)com.yourco.fastshared
+PRODUCT_BUNDLE_IDENTIFIER_PREFIX = dev.kindrazki.fastshared
+APP_GROUP_IDENTIFIER = group.dev.kindrazki.fastshared
+KEYCHAIN_ACCESS_GROUP = $(AppIdentifierPrefix)dev.kindrazki.fastshared
 
 SWIFT_VERSION = 5.10
 
@@ -20,4 +20,4 @@ ENABLE_HARDENED_RUNTIME = YES
 SWIFT_STRICT_CONCURRENCY = complete
 CLANG_ANALYZER_NONNULL = YES
 
-SHARED_BACKGROUND_SESSION_IDENTIFIER = com.yourco.fastshared.upload
+SHARED_BACKGROUND_SESSION_IDENTIFIER = dev.kindrazki.fastshared.upload

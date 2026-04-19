@@ -28,12 +28,12 @@ open FastShared.xcodeproj
 
 1. Open `apple/Config/Shared.xcconfig` and set `DEVELOPMENT_TEAM` to your Apple Developer team ID (replace the `TEAMID` placeholder). The ID is the 10-character string shown in Apple Developer > Membership.
 2. In the Apple Developer portal, create or confirm:
-   - An App Group: `group.com.yourco.fastshared`
-   - App IDs for both `com.yourco.fastshared` (main app) and `com.yourco.fastshared.ShareExt` (share extension), each with the App Groups capability enabled and linked to the group above.
+   - An App Group: `group.dev.kindrazki.fastshared`
+   - App IDs for both `dev.kindrazki.fastshared` (main app) and `dev.kindrazki.fastshared.ShareExt` (share extension), each with the App Groups capability enabled and linked to the group above.
 3. The app and extension share:
-   - App Group: `group.com.yourco.fastshared` (see `APP_GROUP_IDENTIFIER` in `Config/Shared.xcconfig`).
-   - Keychain access group: `$(AppIdentifierPrefix)com.yourco.fastshared`.
-   - A single background `URLSession` identifier: `com.yourco.fastshared.upload`.
+   - App Group: `group.dev.kindrazki.fastshared` (see `APP_GROUP_IDENTIFIER` in `Config/Shared.xcconfig`).
+   - Keychain access group: `$(AppIdentifierPrefix)dev.kindrazki.fastshared`.
+   - A single background `URLSession` identifier: `dev.kindrazki.fastshared.upload`.
 4. Entitlements live in `FastSharedApp/FastSharedApp.entitlements` and `FastSharedShareExt/FastSharedShareExt.entitlements`. They reference `$(APP_GROUP_IDENTIFIER)` and the keychain access group so both targets can read the same SwiftData store and device token.
 
 ## Running the app

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum AppGroupConfig {
-    public static let backgroundSessionIdentifier: String = "com.yourco.fastshared.upload"
+    public static let backgroundSessionIdentifier: String = "dev.kindrazki.fastshared.upload"
 
     public static var identifier: String {
         AppGroupPaths.groupIdentifier
@@ -11,7 +11,7 @@ public enum AppGroupConfig {
         // WHY: the access group must include the team's App Identifier Prefix at runtime; the prefix is
         // folded in automatically by the entitlements `$(AppIdentifierPrefix)` substitution. We expose the
         // unprefixed form here since Security framework handles prefix matching based on entitlement.
-        "com.yourco.fastshared"
+        "dev.kindrazki.fastshared"
     }
 
     public static var apiBaseURL: URL {

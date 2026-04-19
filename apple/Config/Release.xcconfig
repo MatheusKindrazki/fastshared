@@ -1,8 +1,8 @@
 #include "Shared.xcconfig"
 
 // Release build: production backend and production short link host. Whole-module optimization.
-API_BASE_URL = https:/$()/api.fastshared.app
-SHORT_LINK_HOST = https:/$()/fsh.re
+API_BASE_URL = https:/$()/api.shared.kindrazki.dev
+SHORT_LINK_HOST = https:/$()/shared.kindrazki.dev
 
 SWIFT_OPTIMIZATION_LEVEL = -O
 SWIFT_COMPILATION_MODE = wholemodule
