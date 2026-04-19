@@ -7,17 +7,25 @@ public actor UploadOrchestrator {
     private let store: SwiftDataStore
     private let repository: UploadJobRepository
     private let clipboard: ClipboardProtocol
+    private let usageTracker: UsageTrackerProtocol
+    private let persistenceEvents: PersistenceEventStream
     private let log = Logger(subsystem: Log.subsystem, category: "upload")
 
     private let baseDelay: TimeInterval = 2
     private let maxDelay: TimeInterval = 60
     private let maxAttempts: Int = 5
 
-    public init(apiClient: APIClientProtocol, store: SwiftDataStore, clipboard: ClipboardProtocol) {
+    public init(apiClient: APIClientProtocol,
+                store: SwiftDataStore,
+                clipboard: ClipboardProtocol,
+                usageTracker: UsageTrackerProtocol = UsageTracker.shared,
+                persistenceEvents: PersistenceEventStream = .shared) {
         self.apiClient = apiClient
         self.store = store
         self.repository = UploadJobRepository(store: store)
         self.clipboard = clipboard
+        self.usageTracker = usageTracker
+        self.persistenceEvents = persistenceEvents
     }
 
     public func handleTaskSuccess(clientJobId: UUID, etag: String?) async {
@@ -150,6 +158,11 @@ public actor UploadOrchestrator {
                                  deleteAfter: completion.deleteAfter,
                                  linkStatus: completion.linkStatus,
                                  retentionPolicy: completion.retentionPolicy)
+        // WHY: a successful /complete is the canonical "upload happened" signal
+        // — increment the per-UTC-day Free-tier counter exactly once per fresh
+        // upload. Dedupe responses (recordDedupe path) explicitly skip this
+        // because the server recognized idempotency and didn't consume quota.
+        _ = await usageTracker.increment()
         clipboard.copy(completion.shortUrl.absoluteString)
         await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
                                                           shortUrl: completion.shortUrl.absoluteString,
@@ -179,6 +192,7 @@ public actor UploadOrchestrator {
             existing.sizeBytes = sizeBytes
             existing.originalFilename = filename
             try context.save()
+            await persistenceEvents.emit(.shareLinkUpdated(token: token))
             return
         }
         let entity = ShareLinkEntity(token: token,
@@ -195,6 +209,7 @@ public actor UploadOrchestrator {
                                      originalFilename: filename)
         context.insert(entity)
         try context.save()
+        await persistenceEvents.emit(.shareLinkInserted(token: token))
     }
 
     private func applyRevocation(token: String, status: String, revokedAt: Date) async throws {
@@ -204,6 +219,7 @@ public actor UploadOrchestrator {
         entity.linkStatus = status
         entity.revokedAt = revokedAt
         try context.save()
+        await persistenceEvents.emit(.shareLinkUpdated(token: token))
     }
 
     private func scheduleRetryOrFail(clientJobId: UUID, error: Error) async {

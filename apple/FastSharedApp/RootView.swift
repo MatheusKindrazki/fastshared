@@ -3,12 +3,17 @@ import FastSharedCore
 
 struct RootView: View {
     @State private var hasSeenOnboarding: Bool = Self.loadOnboardingFlag()
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
     #if os(iOS)
     @State private var screenshotDetector = ScreenshotDetector()
     #endif
 
     var body: some View {
-        content
+        @Bindable var coordinator = paywallCoordinator
+        return content
+            .sheet(item: $coordinator.pending) { trigger in
+                PaywallView(trigger: trigger)
+            }
     }
 
     @ViewBuilder

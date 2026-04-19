@@ -7,15 +7,22 @@ import FastSharedCore
 /// 4-up retention pill picker, readonly metadata rows for the backend section,
 /// amber-filled capture toggles, and a destructive "SIGN OUT DEVICE" button.
 struct SettingsView: View {
+    @Environment(\.subscriptionStore) private var subscriptionStore
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
+
     @State private var deviceIdSuffix: String = "------"
     @State private var confirmSignOut: Bool = false
     @State private var defaultRetention: RetentionPolicy = RetentionPolicy.default
     @State private var screenshotBannerOn: Bool = true
     @State private var actionButtonOn: Bool = true
     @State private var backTapOn: Bool = false
+    @State private var cloudSyncOn: Bool = true
+    @State private var snapshot: SubscriptionSnapshot = .free
+    @State private var usageCount: Int = 0
 
     private let appGroupDefaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
     private let retentionKey = "default_retention_policy"
+    private let cloudSyncKey = "cloud_sync_enabled_v1"
 
     var body: some View {
         ZStack {
@@ -34,6 +41,12 @@ struct SettingsView: View {
 
                     sharingSection
                         .padding(.top, 28)
+
+                    usageSection
+                        .padding(.top, 24)
+
+                    proSection
+                        .padding(.top, 24)
 
                     backendSection
                         .padding(.top, 24)
@@ -60,6 +73,14 @@ struct SettingsView: View {
         .task {
             await loadDeviceId()
             loadDefaultRetention()
+            loadCloudSync()
+            snapshot = await subscriptionStore.currentSnapshot()
+            for await next in subscriptionStore.snapshotStream {
+                snapshot = next
+            }
+        }
+        .task {
+            usageCount = await UsageTracker.shared.currentCount()
         }
         .confirmationDialog("Sign out this device?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) {
@@ -115,38 +136,173 @@ struct SettingsView: View {
     }
 
     private var retentionPicker: some View {
-        let accent = BrandPalette.amberAccent
-        let options = RetentionPolicy.shareable
-
-        return HStack(spacing: 6) {
-            ForEach(options, id: \.self) { policy in
-                let selected = defaultRetention == policy
-                Button {
+        GatedRetentionPicker(
+            selection: Binding(
+                get: { defaultRetention },
+                set: { policy in
                     defaultRetention = policy
                     appGroupDefaults?.set(policy.rawValue, forKey: retentionKey)
-                } label: {
-                    Text(policy.shortLabel)
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(selected ? Color(red: 0.07, green: 0.02, blue: 0.04) : BrandPalette.textDim)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(selected ? accent.hot : Color.clear)
-                        )
                 }
-                .buttonStyle(.plain)
+            ),
+            tier: currentTier,
+            onPaywall: { trigger in
+                paywallCoordinator.present(trigger)
+            }
+        )
+    }
+
+    private var currentTier: Tier {
+        snapshot.isPro ? .pro(snapshot.tier ?? .monthly) : .free
+    }
+
+    // MARK: - Usage (Part 6 — B6.2)
+
+    /// "Uploads today" row. For Free tier renders `"2 / 3"`; for Pro renders
+    /// `"47 / ∞"` via the SF Symbol so Dynamic Type + RTL both render correctly.
+    /// Reset time uses local midnight even though the counter is UTC-keyed —
+    /// the UI value is a human convenience; the counter is tz-safe.
+    private var usageSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Mono("01.5 · usage", color: BrandPalette.amberAccent.hot)
+
+            TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                VStack(spacing: 0) {
+                    usageRow(now: timeline.date)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(BrandPalette.paper)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(BrandPalette.line, lineWidth: 1)
+                        )
+                )
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(BrandPalette.ground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(BrandPalette.line, lineWidth: 1)
-                )
-        )
+    }
+
+    @ViewBuilder
+    private func usageRow(now: Date) -> some View {
+        let formatter = DateFormatter()
+        let _ = formatter.dateFormat = "h:mm a"
+        let midnight = Calendar.current.nextDate(after: now,
+                                                 matching: DateComponents(hour: 0, minute: 0),
+                                                 matchingPolicy: .strict)
+
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Uploads today")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(BrandPalette.text)
+                Spacer()
+                HStack(spacing: 4) {
+                    Text("\(usageCount)")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(BrandPalette.text)
+                    Text("/")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(BrandPalette.textFaint)
+                    if let cap = snapshot.caps.dailyUploadLimit {
+                        Text("\(cap)")
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .foregroundStyle(BrandPalette.textDim)
+                    } else {
+                        Image(systemName: "infinity")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(BrandPalette.amberAccent.hot)
+                            .accessibilityLabel("unlimited")
+                    }
+                }
+            }
+            if let midnight {
+                Text("Resets at \(midnight.formatted(.dateTime.hour().minute()))")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(BrandPalette.textFaint)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Pro section (B3.3)
+
+    private var proSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Mono("01.7 · pro", color: BrandPalette.amberAccent.hot)
+
+            VStack(spacing: 0) {
+                cloudSyncRow
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(BrandPalette.paper)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(BrandPalette.line, lineWidth: 1)
+                    )
+            )
+        }
+    }
+
+    private var cloudSyncRow: some View {
+        let isPro = snapshot.isPro && snapshot.caps.allowsCloudSync
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("Sync across devices")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(BrandPalette.text)
+                    if !isPro {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(BrandPalette.textDim)
+                    }
+                }
+                Text(isPro
+                     ? "Mirrors link history to your private iCloud."
+                     : "Pro-only. Mirrors link history to your private iCloud.")
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(BrandPalette.textFaint)
+            }
+            Spacer()
+            AmberToggle(isOn: Binding(
+                get: { cloudSyncOn && isPro },
+                set: { newValue in
+                    if isPro {
+                        cloudSyncOn = newValue
+                        appGroupDefaults?.set(newValue, forKey: cloudSyncKey)
+                    }
+                }
+            ))
+            .disabled(!isPro)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+        .overlay {
+            // WHY: disabled SwiftUI controls don't accept hit tests; a full-row
+            // transparent button catches taps so Free users land in the paywall
+            // instead of silently bouncing off the locked toggle.
+            if !isPro {
+                Button {
+                    paywallCoordinator.present(.cloudSyncRequested)
+                } label: {
+                    Color.clear
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Sync across devices — Pro only")
+                .accessibilityHint("Opens the Pro upgrade screen")
+            }
+        }
+    }
+
+    private func loadCloudSync() {
+        // Default ON for Pro; only respect the stored value if explicitly set.
+        if let stored = appGroupDefaults?.object(forKey: cloudSyncKey) as? Bool {
+            cloudSyncOn = stored
+        } else {
+            cloudSyncOn = true
+        }
     }
 
     private var backendSection: some View {

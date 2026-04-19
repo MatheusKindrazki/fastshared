@@ -23,6 +23,7 @@ struct HistoryView: View {
     @Environment(\.uploadService) private var uploadService
     @Environment(\.uploadOrchestrator) private var orchestrator
     @Environment(\.clipboard) private var clipboard
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
     @Query(sort: [SortDescriptor(\ShareLinkEntity.createdAt, order: .reverse)]) private var links: [ShareLinkEntity]
 
     @State private var viewModel: HistoryViewModel?
@@ -414,7 +415,38 @@ struct HistoryView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, let service = uploadService else { return }
         Task {
-            _ = try? await service.enqueueDrop(urls: urls)
+            do {
+                _ = try await service.enqueueDrop(urls: urls)
+            } catch let gate as SubscriptionGate {
+                await MainActor.run { routePaywall(for: gate) }
+            } catch let error as APIError {
+                if case .paymentRequired(let code, _) = error {
+                    await MainActor.run { paywallCoordinator.present(.serverForced(errorCode: code)) }
+                }
+            } catch {
+                // Swallow — Live Activity / toast handles visibility elsewhere.
+            }
+        }
+    }
+
+    private func routePaywall(for gate: SubscriptionGate) {
+        switch gate {
+        case .dailyCapReached(let used, let cap):
+            paywallCoordinator.present(.dailyCapReached(used: used, cap: cap))
+        case .fileTooLarge(let size, _):
+            paywallCoordinator.present(.largeFileRequested(sizeBytes: size))
+        case .retentionTooLong(let seconds, _):
+            let policy: RetentionPolicy = {
+                switch seconds {
+                case 0...3600: return .oneHour
+                case 0...86_400: return .oneDay
+                case 0...604_800: return .oneWeek
+                default: return .oneMonth
+                }
+            }()
+            paywallCoordinator.present(.longRetentionRequested(policy: policy))
+        case .cloudSyncRequiresPro:
+            paywallCoordinator.present(.cloudSyncRequested)
         }
     }
     #endif

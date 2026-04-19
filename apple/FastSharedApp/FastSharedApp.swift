@@ -24,6 +24,7 @@ struct FastSharedApp: App {
     private let orchestrator: UploadOrchestrator
     private let clipboard: ClipboardProtocol
     private let subscriptionStore: SubscriptionStore
+    @State private var paywallCoordinator = PaywallCoordinator()
 
     init() {
         let store = SwiftDataStore.shared
@@ -34,12 +35,13 @@ struct FastSharedApp: App {
         let orchestrator = UploadOrchestrator(apiClient: apiClient, store: store, clipboard: clipboard)
         let background = BackgroundSessionManager.shared
         background.bind(orchestrator: orchestrator, store: store)
+        let subscriptionStore = SubscriptionStore(apiClient: apiClient)
         let uploadService = UploadService(apiClient: apiClient,
                                           store: store,
                                           tokenStore: tokenStore,
                                           background: background,
-                                          orchestrator: orchestrator)
-        let subscriptionStore = SubscriptionStore(apiClient: apiClient)
+                                          orchestrator: orchestrator,
+                                          subscriptionStore: subscriptionStore)
 
         self.store = store
         self.apiClient = apiClient
@@ -69,6 +71,7 @@ struct FastSharedApp: App {
                 .environment(\.uploadOrchestrator, orchestrator)
                 .environment(\.clipboard, clipboard)
                 .environment(\.subscriptionStore, subscriptionStore)
+                .environment(\.paywallCoordinator, paywallCoordinator)
                 .modelContainer(store.modelContainer)
         }
         #if os(macOS)
