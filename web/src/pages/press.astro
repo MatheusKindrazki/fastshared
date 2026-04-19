@@ -1,0 +1,204 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+interface Swatch {
+  name: string;
+  hex: string;
+  role: string;
+  onLight?: boolean;
+}
+
+const palette: Swatch[] = [
+  { name: 'ink',        hex: '#070318', role: 'ground' },
+  { name: 'nightshade', hex: '#1d0d4b', role: 'surface 1' },
+  { name: 'violet',     hex: '#3b1f86', role: 'surface 2' },
+  { name: 'amber',      hex: '#ff9f47', role: 'pulse (primary)', onLight: true },
+  { name: 'ember',      hex: '#ffc487', role: 'pulse (soft)',    onLight: true },
+  { name: 'coral',      hex: '#ff4e7c', role: 'farewell (fade)' },
+  { name: 'cream',      hex: '#ffe0b8', role: 'particle',        onLight: true },
+  { name: 'milk',       hex: '#fafaff', role: 'typography',      onLight: true },
+];
+
+interface Asset {
+  label: string;
+  href: string;
+  meta: string;
+}
+
+const assets: Asset[] = [
+  { label: 'App icon (1024 × 1024)',           href: '/brand/appicon-1024.png',         meta: 'PNG · full bleed · App Store' },
+  { label: 'Wordmark — horizontal, dark bg',   href: '/brand/wordmark-horizontal-dark.png',  meta: 'PNG · 2000 × 500 · ink background' },
+  { label: 'Wordmark — horizontal, light bg',  href: '/brand/wordmark-horizontal-light.png', meta: 'PNG · 2000 × 500 · milk background' },
+  { label: 'Wordmark — mark only',             href: '/brand/wordmark-mark.png',         meta: 'PNG · 1024 × 1024 · transparent' },
+  { label: 'Social card / OG image',           href: '/brand/og-image.png',              meta: 'PNG · 1200 × 630' },
+  { label: 'Wordmark (vector)',                href: '/brand/logo-horizontal.svg',        meta: 'SVG · inherits currentColor' },
+  { label: 'Mark (vector)',                    href: '/brand/logo-mark.svg',              meta: 'SVG · transparent background' },
+  { label: 'App icon (vector)',                href: '/brand/appicon.svg',                meta: 'SVG · 1024 × 1024 full bleed' },
+];
+---
+<Base
+  title="Press — FastShared"
+  description="Press kit, brand assets, and boilerplate for journalists covering FastShared."
+>
+  <Nav />
+  <main class="frame pt-16 pb-24">
+
+    <!-- Hero -->
+    <section class="max-w-[920px] mb-24 md:mb-32">
+      <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-6">
+        Press kit · v1.0 · 2026
+      </p>
+      <h1
+        class="font-display font-bold text-milk mb-8"
+        style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
+      >
+        FastShared in one sentence.
+      </h1>
+      <p class="text-milk/80 text-[21px] md:text-[24px] leading-[1.45] font-display font-light max-w-[780px]" style="letter-spacing: -0.01em;">
+        FastShared is a native Apple utility that turns "share a file" into
+        "get a temporary link on my clipboard" in one gesture — ephemeral by
+        design, private by default, Apple-native in every surface.
+      </p>
+
+      <div class="mt-10 prose-like text-milk/65 text-[17px] leading-[1.7] max-w-[720px]">
+        <p>
+          We built FastShared because everyday file sharing on Apple devices
+          should cost one gesture and should not leave permanent residue on
+          the internet. Every link has an expiry you pick. When the window
+          ends, the link returns
+          <code class="font-mono text-[14px] text-amber">410 Gone</code> and
+          the underlying file is hard-deleted from a private Cloudflare R2
+          bucket. No accounts. No tracking. No "keep forever" option.
+          That's the product.
+        </p>
+      </div>
+    </section>
+
+    <!-- Quick facts -->
+    <section class="mb-24 md:mb-32">
+      <header class="section-head">
+        <span class="section-num">01 / QUICK FACTS</span>
+      </header>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12 max-w-[860px]">
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Platforms</dt>
+          <dd class="text-milk/85 text-[17px]">iOS 17+, iPadOS 17+, macOS 14+</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Launch date</dt>
+          <dd class="text-milk/85 text-[17px]">TBD — App Store 1.0</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Category</dt>
+          <dd class="text-milk/85 text-[17px]">Utilities</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Maker</dt>
+          <dd class="text-milk/85 text-[17px]">Matheus Kindrazki (independent)</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Pricing</dt>
+          <dd class="text-milk/85 text-[17px]">Free at launch. One-time unlock post-launch; no subscription.</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Stack</dt>
+          <dd class="text-milk/85 text-[17px]">SwiftUI + SwiftData · Cloudflare Workers (Hono) · R2 · Neon Postgres</dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Landing</dt>
+          <dd class="text-milk/85 text-[17px]"><a href="https://www.fastsha.red" class="text-amber hover:underline">www.fastsha.red</a></dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Short links</dt>
+          <dd class="text-milk/85 text-[17px]"><code class="font-mono text-[15px]">fsh.re/s/&lt;token&gt;</code></dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Press contact</dt>
+          <dd class="text-milk/85 text-[17px]">
+            <a href="mailto:press@fastsha.red" class="text-amber hover:underline">press@fastsha.red</a>
+            <span class="font-mono text-[11px] text-milk/40 ml-2">&lt;-- TODO confirm inbox</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Repo</dt>
+          <dd class="text-milk/85 text-[17px]">Private at launch. Will open post-1.0.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- Downloadable assets -->
+    <section class="mb-24 md:mb-32">
+      <header class="section-head">
+        <span class="section-num">02 / DOWNLOADS</span>
+      </header>
+      <p class="text-milk/60 text-[15px] max-w-[640px] mb-8">
+        Logo, mark, and icon exports. Please do not recolor the arc — the
+        amber-to-coral fade is the concept. Full identity spec lives at
+        <code class="font-mono text-[13px] text-amber">brand/README.md</code>
+        in the repository.
+      </p>
+      <ul class="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/8 max-w-[960px]">
+        {assets.map((asset) => (
+          <li class="bg-ink p-6 md:p-7 flex flex-col gap-2 hover:bg-[#0d0622] transition-colors">
+            <a href={asset.href} download class="font-display font-semibold text-milk hover:text-amber transition-colors text-[17px]" style="letter-spacing: -0.01em;">
+              {asset.label}
+              <span class="ml-2 text-amber" aria-hidden="true">↓</span>
+            </a>
+            <span class="font-mono text-[12px] tracking-[0.04em] text-milk/45">{asset.meta}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- Palette -->
+    <section class="mb-24 md:mb-32">
+      <header class="section-head">
+        <span class="section-num">03 / PALETTE</span>
+      </header>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-[1px] bg-white/8 max-w-[960px]">
+        {palette.map((swatch) => (
+          <div class="bg-ink p-5 flex flex-col gap-4">
+            <span
+              class="block aspect-square w-full rounded-sm"
+              style={`background: ${swatch.hex}; box-shadow: inset 0 0 0 1px rgba(255,255,255,${swatch.onLight ? 0.06 : 0});`}
+              aria-hidden="true"
+            ></span>
+            <div class="flex flex-col gap-1">
+              <span class="font-display font-semibold text-milk text-[15px]">{swatch.name}</span>
+              <span class="font-mono text-[11px] tracking-[0.05em] text-milk/55 uppercase">{swatch.hex}</span>
+              <span class="font-mono text-[11px] tracking-[0.05em] text-milk/40">{swatch.role}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Boilerplate -->
+    <section class="mb-20">
+      <header class="section-head">
+        <span class="section-num">04 / BOILERPLATE</span>
+      </header>
+      <p class="text-milk/60 text-[13px] mb-6 font-mono tracking-[0.06em] uppercase">
+        Paste-ready blurb for journalists · ≤ 100 words
+      </p>
+      <blockquote class="text-milk/85 text-[18px] md:text-[20px] leading-[1.65] font-display font-light max-w-[780px] border-l-2 border-amber pl-6" style="letter-spacing: -0.005em;">
+        FastShared is a native iOS, iPadOS, and macOS utility that collapses
+        the everyday "share a file" chore into one gesture. Any file from any
+        app becomes a temporary short URL on your clipboard, with a
+        configurable expiry from 5 minutes to 30 days — default 24 hours.
+        When the window closes the link stops resolving and the underlying
+        file is hard-deleted from a private Cloudflare R2 bucket. No
+        accounts, no folders, no tracking. Built by independent developer
+        Matheus Kindrazki on SwiftUI and Cloudflare Workers.
+      </blockquote>
+      <p class="mt-6 text-milk/45 text-[13px] font-mono">
+        <span class="text-milk/70">92 words.</span> Edits welcome so long as the
+        "ephemeral by design" line survives — it is the product.
+      </p>
+    </section>
+
+  </main>
+  <Footer />
+</Base>
