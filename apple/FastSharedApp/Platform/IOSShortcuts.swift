@@ -16,6 +16,18 @@ struct UploadClipboardIntent: AppIntent {
 
 struct FastSharedShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        // WHY: the hero intent is screenshot sharing — it's the Action Button / Back Tap entry
+        // point. Listed first so Siri surfaces it as the default suggestion for the app.
+        AppShortcut(
+            intent: FastShareScreenshotIntent(),
+            phrases: [
+                "Fast share in \(.applicationName)",
+                "Fast share my screenshot with \(.applicationName)",
+                "\(.applicationName) share screenshot"
+            ],
+            shortTitle: "Fast Share",
+            systemImageName: "bolt.horizontal.fill"
+        )
         AppShortcut(
             intent: UploadClipboardIntent(),
             phrases: [
