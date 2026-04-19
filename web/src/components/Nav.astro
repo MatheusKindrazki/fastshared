@@ -1,19 +1,11 @@
 ---
 // Tiny, non-sticky navigation.
-// Logo on the left, single plain link on the right.
+// Logo on the left (v3 PlaneArc + wordmark), single plain link on the right.
+import BrandLockup from './BrandLockup.astro';
 ---
 <nav class="frame flex items-center justify-between py-6" aria-label="Primary">
-  <a href="/" aria-label="fastshared — home" class="flex items-center gap-3 text-milk hover:text-amber transition-colors">
-    <img
-      src="/brand/logo-horizontal.svg"
-      alt="fastshared"
-      width="168"
-      height="42"
-      class="h-[28px] w-auto select-none"
-      style="color: var(--milk);"
-      decoding="async"
-      loading="eager"
-    />
+  <a href="/" aria-label="fastshared — home" class="inline-flex items-center text-milk hover:text-amber transition-colors">
+    <BrandLockup markSize={24} textSize={14} ariaLabel="fastshared — home" />
   </a>
 
   <div class="flex items-center gap-6">
