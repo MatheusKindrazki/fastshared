@@ -1,0 +1,61 @@
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Xcode / Swift
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+.swiftpm/
+Packages/
+!apple/Packages/
+!apple/Packages/**
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.xcarchive
+Pods/
+
+# XcodeGen output (regenerated; keep project.yml, ignore the generated project)
+apple/FastShared.xcodeproj/
+apple/FastShared.xcworkspace/
+
+# Node / TypeScript
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+.wrangler/
+.pnpm-store/
+.pnpm-debug.log*
+.npm-debug.log*
+.yarn/
+
+# Env files
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# IDE
+.idea/
+# Keep .vscode/ out of tracking by default — individual settings.json / launch.json
+# templates may be committed later under a dedicated settings folder.
+.vscode/
+
+# General
+*.pem
+*.p12
+*.mobileprovision
+tmp/
+.tmp/
+*.swp
+*.bak
+*.orig
