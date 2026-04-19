@@ -99,6 +99,7 @@ final class ShareViewController: PlatformViewController {
             await store.start()
             // WHY: share ext is short-lived — don't block on a network refresh.
             // The cached snapshot (isPro/caps) is enough for preflight decisions.
+            await store.replayEntitlementsVerification()
         }
     }
 

@@ -76,6 +76,18 @@ public protocol SubscriptionStoreProtocol: Sendable {
     func purchase(_ productID: String) async throws -> PurchaseOutcome
     func restore() async throws
     func syncCurrentEntitlements() async
+    /// Best-effort `/v1/me` fetch so server-tuned caps propagate.
+    func refreshMe() async
+    /// Idempotent entitlement replay — call once on cold launch to nudge the
+    /// server forward when device-local Apple state is ahead (e.g. Family).
+    func replayEntitlementsVerification() async
+}
+
+public extension SubscriptionStoreProtocol {
+    // Default no-op impls so tests that don't care can adopt the protocol
+    // without stubbing every new method.
+    func refreshMe() async {}
+    func replayEntitlementsVerification() async {}
 }
 
 // MARK: - Default actor
@@ -296,6 +308,9 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
             do {
                 let response = try await apiClient.verifyIAP(signedTransactionJWS: jws)
                 apply(server: response)
+                // B6.1: pull /v1/me after every successful verify so
+                // server-tuned caps propagate into the snapshot.
+                await refreshMe()
                 return true
             } catch let APIError.paymentRequired(code, _) {
                 // Authoritative refusal — revert optimistic Pro.
@@ -312,6 +327,37 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
         // All attempts failed — keep optimistic Pro (caller's UX); background
         // re-verification on cold launch will reconcile.
         return false
+    }
+
+    /// Best-effort `/v1/me` fetch. On success merges server-supplied caps into
+    /// the snapshot (server overrides the local defaults); on failure leaves
+    /// the snapshot alone.
+    public func refreshMe() async {
+        do {
+            let me = try await apiClient.fetchMe()
+            var next = snapshot
+            next.isPro = me.isPro
+            next.tier = me.tier.flatMap(ProTier.init(rawValue:))
+            next.expiresAt = me.expiresAt
+            next.caps = me.caps.toCaps()
+            apply(next)
+        } catch {
+            log.info("fetchMe failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// B6.3 — Silent replay: iterate currentEntitlements and nudge the server
+    /// once per cold launch. Idempotent; backend is safe to call repeatedly.
+    public func replayEntitlementsVerification() async {
+        var count = 0
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let tx) = result, tx.revocationDate == nil else { continue }
+            if let jws = jwsRepresentation(for: tx) {
+                _ = await verifyOnServer(jws: jws)
+                count += 1
+            }
+        }
+        log.info("verify replay count=\(count, privacy: .public)")
     }
 
     private func optimisticallyApply(transaction: Transaction) {
