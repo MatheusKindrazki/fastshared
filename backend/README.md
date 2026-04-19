@@ -134,7 +134,7 @@ curl -sS -X POST http://127.0.0.1:8787/v1/uploads/$UPLOAD_ID/complete \
   -d '{"contentType":"image/jpeg","sizeBytes":204800}' | jq
 ```
 
-The response includes `token`, `shortUrl` (`https://fsh.dev/s/<token>`),
+The response includes `token`, `shortUrl` (`https://fastsha.red/s/<token>`),
 `expiresAt`, `deleteAfter`, `linkStatus`, and `retentionPolicy`.
 
 Revoke a live link:
