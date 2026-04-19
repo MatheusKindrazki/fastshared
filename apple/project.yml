@@ -44,6 +44,7 @@ targets:
       path: FastSharedApp/Info.plist
       properties:
         NSSupportsLiveActivities: true
+        NSPhotoLibraryUsageDescription: "FastShared reads your most recent screenshot only when you ask — to upload it and give you a shareable link."
     settings:
       base:
         PRODUCT_NAME: FastShared

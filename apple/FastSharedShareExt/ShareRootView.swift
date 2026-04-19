@@ -293,6 +293,12 @@ private struct SuccessStage: View {
             Spacer(minLength: 8)
             header
             urlPill
+            // WHY: Handoff mirrors the clipboard to any nearby Mac on the same iCloud account.
+            // Apple does the work; we just reassure the user that the link will be waiting for them.
+            Label("Also on your Mac", systemImage: "laptopcomputer.and.phone")
+                .font(.caption.monospaced())
+                .foregroundStyle(BrandPalette.amber.opacity(0.7))
+                .padding(.top, 6)
             TimelineView(.periodic(from: .now, by: 1)) { ctx in
                 ExpiryCountdown(expiresAt: link.expiresAt, now: ctx.date)
             }
