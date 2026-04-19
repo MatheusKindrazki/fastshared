@@ -15,12 +15,21 @@ account_id = "aad020260082c48f6370fa7954b72f81"
 
 # Production custom domains. Apex serves short-link redirects at /s/:token;
 # api serves the /v1/* surface. See docs/architecture/system-design.md.
+#
+# fsh.re is the legacy short-link host — bound to the same worker so it
+# serves /s/:token AND /.well-known/apple-app-site-association (the AASA
+# file ships identical bytes on both hosts so iOS can take over link
+# resolution for either hostname after install).
 [[routes]]
 pattern = "fastsha.red"
 custom_domain = true
 
 [[routes]]
 pattern = "api.fastsha.red"
+custom_domain = true
+
+[[routes]]
+pattern = "fsh.re"
 custom_domain = true
 
 [[r2_buckets]]
