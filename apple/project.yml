@@ -13,6 +13,16 @@ configs:
   Debug: debug
   Release: release
 
+# xcconfig files are attached at the project level via configFiles — the
+# `settings.configs.<name>.xcconfig` YAML key is silently ignored by XcodeGen
+# (it generates a build setting literally called `xcconfig` instead of setting
+# baseConfigurationReference). Using configFiles writes the proper
+# baseConfigurationReference for each XCBuildConfiguration so MARKETING_VERSION,
+# DEVELOPMENT_TEAM, and API_BASE_URL actually propagate into builds.
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
 settings:
   base:
     SWIFT_VERSION: 5.10
@@ -21,11 +31,6 @@ settings:
     CLANG_ENABLE_MODULES: YES
     ENABLE_MODULE_VERIFIER: NO
     ALWAYS_SEARCH_USER_PATHS: NO
-  configs:
-    Debug:
-      xcconfig: Config/Debug.xcconfig
-    Release:
-      xcconfig: Config/Release.xcconfig
 
 packages:
   FastSharedCore:
@@ -45,6 +50,13 @@ targets:
       properties:
         NSSupportsLiveActivities: true
         NSPhotoLibraryUsageDescription: "FastShared reads your most recent screenshot only when you ask — to upload it and give you a shareable link."
+        # Export compliance: FastShared only uses standard HTTPS / system-
+        # provided crypto. Declaring false here lets App Store Connect skip
+        # the yearly export-compliance self-classification form. Flip back
+        # to true if we ever ship password-protected links or E2E crypto.
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_NAME: FastShared
@@ -58,12 +70,10 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
-        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Matheus Kindrazki. All rights reserved."
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
-        MARKETING_VERSION: $(MARKETING_VERSION)
-        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
     dependencies:
       - target: FastSharedShareExt
@@ -90,6 +100,8 @@ targets:
         CFBundleDisplayName: FastShared
         CFBundlePackageType: XPC!
         NSSupportsLiveActivities: true
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -107,8 +119,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FastSharedShareExt/FastSharedShareExt.entitlements
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
-        MARKETING_VERSION: $(MARKETING_VERSION)
-        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         TARGETED_DEVICE_FAMILY: "1,2"
 
@@ -124,6 +134,8 @@ targets:
       path: FastSharedLiveActivity/Info.plist
       properties:
         CFBundleDisplayName: FastShared Live Activity
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
@@ -133,8 +145,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FastSharedLiveActivity/FastSharedLiveActivity.entitlements
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
-        MARKETING_VERSION: $(MARKETING_VERSION)
-        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         TARGETED_DEVICE_FAMILY: "1,2"
 

@@ -1,0 +1,103 @@
+name: apple-release
+
+# Builds a signed archive of the FastShared app for both iOS and macOS and
+# exports it with the committed ExportOptions.plist. The exported artifacts
+# (.ipa / .app.zip) are uploaded to the workflow run so a human can inspect
+# entitlements and size before pushing to TestFlight.
+#
+# TODO(post-MVP): add an App Store Connect API-key step + `xcrun altool
+# --upload-app` (or the newer `xcrun notarytool` for mac distribution) to
+# complete the push to TestFlight automatically. That requires three repo
+# secrets — APP_STORE_CONNECT_KEY_ID, ISSUER_ID, KEY_CONTENT (the private
+# key, base64-encoded). See apple/README.md for the expected format.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'CFBundleVersion override (defaults to GITHUB_RUN_NUMBER)'
+        required: false
+        default: ''
+
+jobs:
+  archive:
+    strategy:
+      # Keep each platform independent so a macOS-only tooling issue does not
+      # block an iOS-only TestFlight push.
+      fail-fast: false
+      matrix:
+        platform:
+          - name: iOS
+            destination: 'generic/platform=iOS'
+            archive: FastShared-iOS.xcarchive
+            export_subdir: ipa
+          - name: macOS
+            destination: 'generic/platform=macOS'
+            archive: FastShared-macOS.xcarchive
+            export_subdir: app
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        # Must match the Xcode used to generate the xcodeproj locally so
+        # xcconfig settings and default deployment targets resolve the same.
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: apple
+        run: xcodegen generate
+
+      - name: Resolve build number
+        id: build_number
+        run: |
+          if [ -n "${{ github.event.inputs.build_number }}" ]; then
+            echo "value=${{ github.event.inputs.build_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Archive ${{ matrix.platform.name }}
+        working-directory: apple
+        # CODE_SIGNING_ALLOWED=NO is intentionally NOT set here — this is the
+        # release pipeline and the archive MUST be code-signed. Signing certs
+        # must be present on the runner before this step runs (TODO: wire up
+        # the fastlane match / p12 import step once ASC credentials exist).
+        run: |
+          xcodebuild archive \
+            -scheme FastSharedApp \
+            -destination '${{ matrix.platform.destination }}' \
+            -configuration Release \
+            -archivePath "build/${{ matrix.platform.archive }}" \
+            CURRENT_PROJECT_VERSION=${{ steps.build_number.outputs.value }} \
+            | xcpretty || true
+          # xcpretty swallows non-zero exit; re-check the archive actually landed.
+          test -d "apple/build/${{ matrix.platform.archive }}" || (
+            echo "::error::archive did not produce an xcarchive"; exit 1
+          )
+
+      - name: Export ${{ matrix.platform.name }}
+        working-directory: apple
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "build/${{ matrix.platform.archive }}" \
+            -exportPath "build/${{ matrix.platform.export_subdir }}" \
+            -exportOptionsPlist ExportOptions.plist \
+            | xcpretty || true
+          ls -la "apple/build/${{ matrix.platform.export_subdir }}" || true
+
+      - name: Upload archive + export
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastshared-${{ matrix.platform.name }}-${{ steps.build_number.outputs.value }}
+          path: |
+            apple/build/${{ matrix.platform.archive }}
+            apple/build/${{ matrix.platform.export_subdir }}
+          retention-days: 14
+          if-no-files-found: warn

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Export options for App Store archives (both iOS and macOS).
+    Consumed by `xcodebuild -exportArchive -exportOptionsPlist`.
+
+    - `method = app-store-connect` targets TestFlight / App Store. On modern
+      Xcode this replaces the older `app-store` string — both are still
+      accepted but `app-store-connect` is the documented spelling.
+    - `destination = export` writes the signed payload to -exportPath; we
+      do NOT use `upload` here because CI uploads separately (future TODO)
+      so we can inspect the artifact and gate on size / entitlements first.
+    - `signingStyle = automatic` lets Xcode resolve matching signing certs
+      and provisioning profiles from the keychain / ASC account. Requires
+      the runner to have an Apple Developer ID seeded (CI step sets this
+      up with fastlane match or manual p12 import before -exportArchive).
+    - `uploadSymbols = true` ships dSYMs to App Store Connect for crash
+      symbolication. No binary-size impact on the shipped IPA.
+    - `uploadBitcode = false` because Apple deprecated bitcode in Xcode 14;
+      archiving with it true is now an outright error.
+    - `teamID` is pinned to YFYB6NKC73 to avoid the automatic-signing
+      prompt when multiple teams are available on the runner keychain.
+-->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>teamID</key>
+	<string>YFYB6NKC73</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>uploadBitcode</key>
+	<false/>
+	<key>stripSwiftSymbols</key>
+	<true/>
+	<key>compileBitcode</key>
+	<false/>
+</dict>
+</plist>
