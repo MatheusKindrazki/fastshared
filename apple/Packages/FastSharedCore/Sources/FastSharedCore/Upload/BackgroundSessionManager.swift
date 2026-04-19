@@ -79,6 +79,10 @@ public final class BackgroundSessionManager: NSObject,
         guard let repo else { return }
         Task.detached(priority: .utility) {
             try? await repo.updateProgress(clientJobId: clientJobId, progress: progress)
+            await LiveActivityController.shared.updateProgress(clientJobId: clientJobId,
+                                                               progress: progress,
+                                                               bytesSent: totalBytesSent,
+                                                               bytesTotal: totalBytesExpectedToSend)
         }
     }
 

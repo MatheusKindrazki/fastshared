@@ -74,6 +74,9 @@ public actor UploadOrchestrator {
                                  linkStatus: "active",
                                  retentionPolicy: dedupe.retentionPolicy)
         clipboard.copy(dedupe.shortUrl.absoluteString)
+        await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
+                                                          shortUrl: dedupe.shortUrl.absoluteString,
+                                                          expiresAt: dedupe.expiresAt)
     }
 
     public func revoke(token: String) async throws {
@@ -148,6 +151,9 @@ public actor UploadOrchestrator {
                                  linkStatus: completion.linkStatus,
                                  retentionPolicy: completion.retentionPolicy)
         clipboard.copy(completion.shortUrl.absoluteString)
+        await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
+                                                          shortUrl: completion.shortUrl.absoluteString,
+                                                          expiresAt: completion.expiresAt)
     }
 
     private func writeShareLink(token: String,
@@ -206,6 +212,8 @@ public actor UploadOrchestrator {
             let attempts = entity.attemptCount + 1
             if attempts > maxAttempts {
                 try await repository.markFailed(clientJobId: clientJobId, error: error.localizedDescription)
+                await LiveActivityController.shared.finishFailure(clientJobId: clientJobId,
+                                                                  reason: error.localizedDescription)
                 return
             }
             try await repository.markFailed(clientJobId: clientJobId, error: error.localizedDescription)

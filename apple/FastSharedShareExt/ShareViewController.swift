@@ -201,6 +201,12 @@ final class ShareViewController: PlatformViewController {
                                                 originalFilename: first.filename,
                                                 retentionPolicy: policy)
             log.info("share enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
+            await LiveActivityController.shared.start(clientJobId: job.clientJobId,
+                                                      filename: first.filename,
+                                                      contentType: first.contentType,
+                                                      retentionPolicy: policy.rawValue,
+                                                      progress: 0,
+                                                      bytesTotal: first.sizeBytes)
             await MainActor.run {
                 viewModel.startObserving(clientJobId: job.clientJobId,
                                          filename: first.filename,
@@ -211,10 +217,17 @@ final class ShareViewController: PlatformViewController {
             let remaining = await viewModel.items.dropFirst()
             for item in remaining {
                 Task.detached {
-                    _ = try? await service.enqueue(stagedURL: item.localURL,
-                                                   contentType: item.contentType,
-                                                   originalFilename: item.filename,
-                                                   retentionPolicy: policy)
+                    if let tailJob = try? await service.enqueue(stagedURL: item.localURL,
+                                                                contentType: item.contentType,
+                                                                originalFilename: item.filename,
+                                                                retentionPolicy: policy) {
+                        await LiveActivityController.shared.start(clientJobId: tailJob.clientJobId,
+                                                                  filename: item.filename,
+                                                                  contentType: item.contentType,
+                                                                  retentionPolicy: policy.rawValue,
+                                                                  progress: 0,
+                                                                  bytesTotal: item.sizeBytes)
+                    }
                 }
             }
         } catch {
