@@ -12,7 +12,16 @@ KEYCHAIN_ACCESS_GROUP = $(AppIdentifierPrefix)dev.kindrazki.fastshared
 
 SWIFT_VERSION = 5.10
 
-MARKETING_VERSION = 0.1.0
+// MARKETING_VERSION: human-readable release version (CFBundleShortVersionString).
+// Bumped on each public release following semver; CI may override for TestFlight
+// pre-releases.
+MARKETING_VERSION = 1.0.0
+
+// CURRENT_PROJECT_VERSION: build number (CFBundleVersion). Must be monotonically
+// increasing for every archive uploaded to App Store Connect under the same
+// MARKETING_VERSION. CI is expected to overwrite this per build (e.g.
+//   xcodebuild ... CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER
+// ) so the committed value below is only a fallback for local archives.
 CURRENT_PROJECT_VERSION = 1
 
 IPHONEOS_DEPLOYMENT_TARGET = 17.0

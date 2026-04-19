@@ -45,6 +45,13 @@ targets:
       properties:
         NSSupportsLiveActivities: true
         NSPhotoLibraryUsageDescription: "FastShared reads your most recent screenshot only when you ask — to upload it and give you a shareable link."
+        # Export compliance: FastShared only uses standard HTTPS / system-
+        # provided crypto. Declaring false here lets App Store Connect skip
+        # the yearly export-compliance self-classification form. Flip back
+        # to true if we ever ship password-protected links or E2E crypto.
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_NAME: FastShared
@@ -58,7 +65,7 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
-        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Matheus Kindrazki. All rights reserved."
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -90,6 +97,8 @@ targets:
         CFBundleDisplayName: FastShared
         CFBundlePackageType: XPC!
         NSSupportsLiveActivities: true
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -124,6 +133,8 @@ targets:
       path: FastSharedLiveActivity/Info.plist
       properties:
         CFBundleDisplayName: FastShared Live Activity
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
