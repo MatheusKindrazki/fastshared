@@ -32,4 +32,15 @@ public enum RetentionPolicy: String, CaseIterable, Sendable, Codable {
     // WHY: .custom is intentionally excluded from the share extension picker in MVP; power users
     // can come later via a settings-level override.
     public static let shareable: [RetentionPolicy] = [.oneHour, .oneDay, .oneWeek, .oneMonth]
+
+    /// Reads the user's preferred retention from the shared App Group suite, falling back to `.default`.
+    /// Used by surfaces that run outside the SwiftUI environment (App Intents, headless entry points).
+    public static func defaultFromAppGroup() -> RetentionPolicy {
+        let defaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
+        if let raw = defaults?.string(forKey: "default_retention_policy"),
+           let policy = RetentionPolicy(rawValue: raw) {
+            return policy
+        }
+        return .default
+    }
 }
