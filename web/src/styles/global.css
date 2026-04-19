@@ -12,12 +12,18 @@
 :root {
   --ink: #070318;
   --nightshade: #1d0d4b;
-  --violet: #3b1f86;
+  --deep-violet: #3b1f86;
   --amber: #ff9f47;
   --ember: #ffc487;
   --coral: #ff4e7c;
   --cream: #ffe0b8;
   --milk: #fafaff;
+
+  /* Violet accent — Plane + Arc (Refined) default */
+  --violet-hot: #9d7aff;
+  --violet-soft: #c1a9ff;
+  --violet-fade: #ff7ad1;
+  --violet-dust: #e0d4ff;
 
   --rule: rgba(255, 255, 255, 0.08);
   --rule-soft: rgba(255, 255, 255, 0.04);
@@ -89,13 +95,13 @@
   }
 
   ::selection {
-    background: var(--amber);
+    background: var(--violet-hot);
     color: var(--ink);
   }
 
-  /* Keyboard focus — amber ring, clearly visible */
+  /* Keyboard focus — violet-hot ring, clearly visible */
   :focus-visible {
-    outline: 2px solid var(--amber);
+    outline: 2px solid var(--violet-hot);
     outline-offset: 4px;
     border-radius: 2px;
   }
@@ -153,21 +159,23 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 26px;
-    background: var(--amber);
+    padding: 16px 28px;
+    background: var(--violet-hot);
     color: var(--ink);
-    font-family: var(--display);
+    font-family: var(--mono);
     font-weight: 600;
-    font-size: 16px;
-    letter-spacing: -0.01em;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     border-radius: 999px;
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 10px 40px -12px rgba(255, 159, 71, 0.6);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s;
+    box-shadow: 0 10px 40px -12px rgba(157, 122, 255, 0.65);
   }
 
   .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 18px 48px -10px rgba(255, 159, 71, 0.7);
+    background: var(--violet-soft);
+    box-shadow: 0 18px 52px -10px rgba(157, 122, 255, 0.8);
   }
 
   .btn-ghost {
@@ -175,18 +183,28 @@
     align-items: center;
     gap: 8px;
     color: var(--milk);
-    font-family: var(--display);
+    font-family: var(--mono);
     font-weight: 500;
-    font-size: 16px;
-    letter-spacing: -0.01em;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     padding: 14px 6px;
     border-bottom: 1px solid transparent;
     transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s;
   }
 
   .btn-ghost:hover {
-    border-bottom-color: var(--amber);
-    color: var(--amber);
+    border-bottom-color: var(--violet-hot);
+    color: var(--violet-hot);
+  }
+
+  .mono-eyebrow {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--violet-hot);
   }
 
   .mono-caption {
@@ -204,18 +222,61 @@
 }
 
 /* ============================================================
-   PlaneArc — v3 brand mark arc-draw animation
+   PlaneArc — Plane + Arc (Refined) — full cinematic sequence
    Triggered via [data-animate="planearc"] on the wrapper.
+   Four steps:
+     1. Frame fades in (0.3s, ease).
+     2. Arc draws via stroke-dashoffset (1.2s spring).
+     3. Plane flies in from top-right (0.6s, ending shortly after arc).
+     4. Particle pulses once at the arc origin (0.9s loop once).
    ============================================================ */
-@keyframes arc-draw {
+@keyframes pa-frame-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pa-arc-draw {
   from { stroke-dashoffset: 200; }
   to   { stroke-dashoffset: 0; }
+}
+
+@keyframes pa-plane-in {
+  from {
+    opacity: 0;
+    transform: translate(42px, -42px) scale(1.1);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.1);
+  }
+}
+
+@keyframes pa-particle {
+  0%   { opacity: 0; r: 2; }
+  35%  { opacity: 1; r: 8; }
+  100% { opacity: 0; r: 12; }
+}
+
+[data-animate="planearc"] .planearc-frame {
+  opacity: 0;
+  animation: pa-frame-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0s forwards;
 }
 
 [data-animate="planearc"] .planearc-arc {
   stroke-dasharray: 200;
   stroke-dashoffset: 200;
-  animation: arc-draw 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+  animation: pa-arc-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+}
+
+[data-animate="planearc"] .planearc-plane {
+  opacity: 0;
+  transform-origin: 0 0;
+  animation: pa-plane-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.0s forwards;
+}
+
+[data-animate="planearc"] .planearc-particle {
+  opacity: 0;
+  animation: pa-particle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
 }
 
 /* FAQ details disclosure */
@@ -391,8 +452,14 @@ details.faq-item .faq-body {
     scroll-behavior: auto !important;
   }
 
-  [data-animate="planearc"] .planearc-arc {
+  [data-animate="planearc"] .planearc-frame,
+  [data-animate="planearc"] .planearc-arc,
+  [data-animate="planearc"] .planearc-plane,
+  [data-animate="planearc"] .planearc-particle {
     animation: none !important;
-    stroke-dashoffset: 0 !important;
   }
+  [data-animate="planearc"] .planearc-frame,
+  [data-animate="planearc"] .planearc-plane { opacity: 1 !important; transform: none !important; }
+  [data-animate="planearc"] .planearc-arc { stroke-dashoffset: 0 !important; }
+  [data-animate="planearc"] .planearc-particle { opacity: 0 !important; }
 }

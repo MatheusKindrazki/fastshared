@@ -1,27 +1,44 @@
 ---
 // Tiny, non-sticky navigation.
-// Logo on the left (v3 PlaneArc + wordmark), single plain link on the right.
-import BrandLockup from './BrandLockup.astro';
+// Uses /brand/logo-horizontal.svg (Plane + Arc Refined) on the left,
+// plain links on the right with violet-hot hover states.
 ---
 <nav class="frame flex items-center justify-between py-6" aria-label="Primary">
-  <a href="/" aria-label="fastshared — home" class="inline-flex items-center text-milk hover:text-amber transition-colors">
-    <BrandLockup markSize={24} textSize={14} ariaLabel="fastshared — home" />
+  <a
+    href="/"
+    aria-label="fastshared — home"
+    class="inline-flex items-center text-milk transition-colors nav-brand"
+    style="color: var(--milk);"
+  >
+    <img
+      src="/brand/logo-horizontal.svg"
+      alt="fastshared"
+      width="180"
+      height="32"
+      style="height:28px;width:auto;display:block;"
+      decoding="async"
+    />
   </a>
 
   <div class="flex items-center gap-6">
     <a
       href="/pricing"
-      class="font-mono text-[13px] tracking-wider uppercase text-milk/70 hover:text-amber transition-colors"
+      class="nav-link font-mono text-[13px] tracking-wider uppercase text-milk/70 transition-colors"
       data-testid="nav-pricing"
     >
       Pricing
     </a>
     <a
       href="#testflight"
-      class="font-mono text-[13px] tracking-wider uppercase text-milk/70 hover:text-amber transition-colors flex items-center gap-2"
+      class="nav-link font-mono text-[13px] tracking-wider uppercase text-milk/70 transition-colors flex items-center gap-2"
       data-testid="nav-testflight"
     >
       TestFlight <span aria-hidden="true">→</span>
     </a>
   </div>
 </nav>
+
+<style>
+  .nav-link:hover,
+  .nav-brand:hover { color: var(--violet-hot); }
+</style>

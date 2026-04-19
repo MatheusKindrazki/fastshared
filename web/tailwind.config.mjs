@@ -9,6 +9,10 @@ export default {
         violet: {
           DEFAULT: '#3b1f86',
           deep: '#1d0d4b',
+          hot: '#9d7aff',
+          soft: '#c1a9ff',
+          fade: '#ff7ad1',
+          dust: '#e0d4ff',
         },
         amber: {
           DEFAULT: '#ff9f47',

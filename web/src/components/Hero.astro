@@ -1,72 +1,114 @@
 ---
-// Hero — full viewport, massive headline, v3 PlaneArc mark on the side.
-// The old sphere+arc+ghost-node metaphor is replaced by the v3 plane+arc mark.
-// Animation: CSS-only arc stroke draw (see global.css @keyframes arc-draw).
+// Hero — Plane + Arc (Refined) cinematic stage.
+// Left column: eyebrow, headline with "Vanishes" in violet-hot, sub-line, CTA pair.
+// Right column: frosted rounded-rect card containing the animated PlaneArc mark.
+// Animation sequence (CSS-driven, no GSAP):
+//   1) frame fades in · 2) arc stroke draws · 3) plane flies in · 4) particle pulses.
+// Respects prefers-reduced-motion via global.css overrides.
 import PlaneArc from './PlaneArc.astro';
 ---
 <section
-  class="frame relative pt-8 md:pt-10 pb-24 md:pb-32 min-h-[86vh] flex items-center"
+  class="frame relative pt-10 md:pt-14 pb-20 md:pb-28 min-h-[86vh] flex items-center"
   aria-labelledby="hero-headline"
 >
-  <div class="grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-12 lg:gap-20 items-center w-full">
-    <!-- Headline column -->
-    <div class="relative z-10">
+  <div class="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-12 lg:gap-20 items-center w-full">
+    <!-- Copy column -->
+    <div class="relative z-10 order-2 lg:order-1">
+      <span class="mono-eyebrow block mb-8 md:mb-10" data-testid="hero-eyebrow">
+        FASTSHARED · 2026
+      </span>
+
       <h1
         id="hero-headline"
         class="display-line font-display font-bold text-milk"
-        style="font-size: clamp(56px, 11vw, 180px); letter-spacing: -0.055em; line-height: 0.9;"
+        style="font-size: clamp(56px, 10.5vw, 168px); letter-spacing: -0.055em; line-height: 0.9;"
       >
         <span class="block">Share anything.</span>
-        <span class="block">Get a link.</span>
-        <span class="block italic text-coral">Watch it vanish.</span>
+        <span class="block"><span class="text-violet-hot" style="color: var(--violet-hot);">Vanishes</span></span>
+        <span class="block">on schedule.</span>
       </h1>
 
-      <p class="mt-8 md:mt-10 font-mono text-[14px] leading-[1.6] tracking-[0.03em] text-milk/55 max-w-[580px]">
-        Temporary share links for iPhone, iPad and Mac · no accounts · no residue
+      <p class="mt-8 md:mt-10 font-mono text-[14px] leading-[1.65] tracking-[0.02em] text-milk/60 max-w-[560px]">
+        Temporary share links for iPhone, iPad and Mac · no accounts · no residue.
       </p>
 
-      <div class="mt-10 flex flex-wrap items-center gap-6">
+      <div class="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
         <a href="#testflight" class="btn-primary" data-testid="hero-cta">
           Join the TestFlight
           <span aria-hidden="true">→</span>
         </a>
-        <a href="/pricing" class="btn-ghost" data-testid="hero-cta-pricing">
-          Start free
-          <span aria-hidden="true">→</span>
-        </a>
-        <a href="#how" class="btn-ghost">
+        <a href="#how" class="btn-ghost" data-testid="hero-cta-how">
           How it works
           <span aria-hidden="true">↓</span>
         </a>
       </div>
     </div>
 
-    <!-- v3 brand mark — plane + gradient arc -->
-    <div class="relative w-full max-w-[520px] mx-auto lg:mx-0 aspect-square" data-hero-root>
+    <!-- Plane + Arc (Refined) — cinematic animation card -->
+    <div
+      class="relative w-full max-w-[520px] mx-auto lg:mx-0 aspect-square order-1 lg:order-2"
+      data-hero-stage
+    >
+      <!-- ambient violet halo behind the tile -->
+      <div
+        aria-hidden="true"
+        class="absolute inset-0 pointer-events-none"
+        style="
+          background:
+            radial-gradient(60% 60% at 70% 30%, rgba(157,122,255,0.35) 0%, rgba(157,122,255,0) 60%),
+            radial-gradient(60% 60% at 30% 80%, rgba(255,122,209,0.18) 0%, rgba(255,122,209,0) 55%);
+          filter: blur(8px);
+        "
+      ></div>
       <div
         class="absolute inset-0 rounded-[22%] overflow-hidden flex items-center justify-center"
         style="
+          background: linear-gradient(160deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%);
+          border: 1px solid rgba(255,255,255,0.08);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
           box-shadow:
-            0 80px 120px -40px rgba(90,30,160,0.7),
-            0 40px 80px -20px rgba(255,100,80,0.3),
-            inset 0 2px 0 0 rgba(255,255,255,0.12);
+            0 80px 120px -40px rgba(60,20,120,0.55),
+            0 40px 80px -20px rgba(255,122,209,0.18),
+            inset 0 2px 0 0 rgba(255,255,255,0.1);
         "
       >
-        <PlaneArc size={420} framed ambient animate ariaLabel="fastshared temporal link mark" class="hero-planearc" />
+        <PlaneArc
+          size={420}
+          animate
+          ariaLabel="FastShared mark — Plane and Arc"
+          class="hero-planearc"
+        />
       </div>
     </div>
   </div>
-
-  <!-- caption anchored bottom-left of section -->
-  <span
-    class="absolute bottom-6 left-[clamp(24px,5vw,88px)] font-mono text-[11px] tracking-[0.18em] uppercase text-milk/32"
-    aria-hidden="true"
-  >
-    fastsha.red — 2026
-  </span>
 </section>
 
+<!-- Tech annotation strip -->
+<aside
+  class="frame pb-14 md:pb-18"
+  aria-label="FastShared technical facts"
+>
+  <div
+    class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 border-t border-dashed"
+    style="border-color: rgba(157,122,255,0.18);"
+  >
+    <div class="flex items-baseline gap-3 pt-5">
+      <span class="font-mono text-[11px] tracking-[0.18em] uppercase" style="color: var(--violet-hot);">Signed redirect</span>
+      <span class="font-mono text-[12px] tracking-[0.08em] text-milk/55">60s</span>
+    </div>
+    <div class="flex items-baseline gap-3 pt-5 md:border-l md:border-dashed md:pl-8" style="border-color: rgba(157,122,255,0.18);">
+      <span class="font-mono text-[11px] tracking-[0.18em] uppercase" style="color: var(--violet-hot);">Default expiry</span>
+      <span class="font-mono text-[12px] tracking-[0.08em] text-milk/55">24h</span>
+    </div>
+    <div class="flex items-baseline gap-3 pt-5 md:border-l md:border-dashed md:pl-8" style="border-color: rgba(157,122,255,0.18);">
+      <span class="font-mono text-[11px] tracking-[0.18em] uppercase" style="color: var(--violet-hot);">Apex</span>
+      <span class="font-mono text-[12px] tracking-[0.08em] text-milk/55">fastsha.red</span>
+    </div>
+  </div>
+</aside>
+
 <script>
-  // Load the hero orchestration (Dynamic Island rotator + prefers-reduced-motion).
+  // Lean hero orchestration — Dynamic Island state rotator + reduced-motion handling.
   import('../scripts/hero.ts');
 </script>

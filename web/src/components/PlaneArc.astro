@@ -1,16 +1,17 @@
 ---
 /**
- * PlaneArc — v3 brand mark.
- * Paper-plane dart at the terminus of a linear-gradient arc (amber → coral fade).
- * Single source of truth for the FastShared mark. Used at all sizes.
+ * PlaneArc — Plane + Arc (Refined) brand mark.
+ * Single brush-stroke arc ending in a sharp dart plane, framed in a rounded
+ * violet tile. Gradient: fade@0 → hot@0.5 → soft@1.0. Geometry is verbatim
+ * from design-v3/plane-arc.jsx (PA_Refined), locked at viewBox 140 × 140.
  *
- * Spec verbatim from design-v3/screens.jsx, lines 66–102:
- *   - SVG viewBox 0 0 140 140
- *   - ambient: radial glow ::before sibling (inset -35%, blur 6px)
- *   - linearGradient: fade → hot (0.95) @ 50% → soft
- *   - framed: rounded rect 4,4 w=132 h=132 rx=32 surface0/lineStrong
- *   - arc path:  M 26 110 Q 60 98, 82 68  · width 9 · round cap
- *   - plane at translate(84,64) scale(1.1)
+ *   arc        M 26 110 Q 60 98, 82 68     stroke 9, round cap
+ *   plane      translate(84, 64) scale(1.1)
+ *   plane path M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -4 4 Z
+ *
+ * When `animate` is true the markup also includes a particle circle at the
+ * arc origin, and class hooks (.planearc-frame/-arc/-plane/-particle) that
+ * drive the four-step hero sequence defined in global.css.
  */
 
 interface Props {
@@ -38,16 +39,9 @@ const {
 // Unique gradient id per instance — avoids collision when multiple instances render.
 const gid = `fspa-${Math.random().toString(36).slice(2, 10)}`;
 
-// Design tokens (mirrors JSX t.*):
-//   hot       → amber   (#ff9f47)
-//   soft      → coral   (#ff4e7c)
-//   fade      → ember / cream (low-opacity start)
-//   text      → milk    (#fafaff)
-//   surface0  → ink     (#070318)
-//   lineStrong → rule   (white @ 8%)
-// All read from CSS custom properties in global.css so they follow the palette.
+// Ambient glow — violet radial around the tile, for hero stage lift.
 const ambientStyle = ambient
-  ? `position:absolute;inset:-${Math.round(size * 0.35)}px;border-radius:50%;background:radial-gradient(circle, rgba(255,159,71,0.35) 0%, rgba(255,159,71,0) 65%);filter:blur(6px);pointer-events:none;`
+  ? `position:absolute;inset:-${Math.round(size * 0.35)}px;border-radius:50%;background:radial-gradient(circle, rgba(157,122,255,0.45) 0%, rgba(255,122,209,0.12) 45%, rgba(157,122,255,0) 70%);filter:blur(10px);pointer-events:none;`
   : '';
 ---
 <div
@@ -62,7 +56,7 @@ const ambientStyle = ambient
     viewBox="0 0 140 140"
     width={size}
     height={size}
-    style="display:block;position:relative;"
+    style="display:block;position:relative;overflow:visible;"
     role={decorative ? undefined : 'img'}
     aria-label={decorative ? undefined : ariaLabel}
     aria-hidden={decorative ? 'true' : undefined}
@@ -70,13 +64,14 @@ const ambientStyle = ambient
   >
     <defs>
       <linearGradient id={gid} x1="0%" y1="100%" x2="100%" y2="0%">
-        <stop offset="0%"  stop-color="var(--ember, #ffc487)" stop-opacity="0"/>
-        <stop offset="50%" stop-color="var(--amber, #ff9f47)" stop-opacity="0.95"/>
-        <stop offset="100%" stop-color="var(--coral, #ff4e7c)"/>
+        <stop offset="0%"  stop-color="var(--violet-fade, #ff7ad1)" stop-opacity="0"/>
+        <stop offset="50%" stop-color="var(--violet-hot, #9d7aff)" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="var(--violet-soft, #c1a9ff)"/>
       </linearGradient>
     </defs>
     {framed && (
       <rect
+        class="planearc-frame"
         x="4"
         y="4"
         width="132"
@@ -94,8 +89,18 @@ const ambientStyle = ambient
       stroke-width="9"
       stroke-linecap="round"
       fill="none"
+      pathLength="200"
     />
-    <g transform="translate(84,64) scale(1.1)">
+    {animate && (
+      <circle
+        class="planearc-particle"
+        cx="26"
+        cy="110"
+        r="2"
+        fill="var(--violet-hot, #9d7aff)"
+      />
+    )}
+    <g class="planearc-plane" transform="translate(84 64) scale(1.1)">
       <path
         d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -4 4 Z"
         fill="var(--milk, #fafaff)"

@@ -1,11 +1,10 @@
 /**
- * Hero orchestration (v3).
+ * Lean client-side hero orchestration.
  *
- * The v3 brand mark (PlaneArc) uses a CSS-only stroke-dashoffset animation
- * (see global.css @keyframes arc-draw) so no JS is needed for the mark itself.
- *
- * This script now only wires the Dynamic Island state rotator and respects
- * prefers-reduced-motion by locking to the "completed" resting state.
+ * The Plane + Arc (Refined) hero animation is pure CSS (see global.css,
+ * `[data-animate="planearc"]` selectors). Reduced-motion is also handled
+ * there. This file only wires the Dynamic Island state rotator used
+ * further down the page.
  */
 
 type El = Element | null;
@@ -13,24 +12,26 @@ type El = Element | null;
 function mount(): void {
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ----- Dynamic Island state rotator (2s per state) -----
+  // Dynamic Island — rotate through the three states every 2s.
   const island: El = document.querySelector('[data-island-root]');
-  if (island && !prefersReducedMotion) {
-    const states = island.querySelectorAll<HTMLElement>('.island-state');
-    if (states.length > 0) {
-      let i = 0;
-      states[i]!.classList.add('is-active');
-      setInterval(() => {
-        states[i]!.classList.remove('is-active');
-        i = (i + 1) % states.length;
-        states[i]!.classList.add('is-active');
-      }, 2000);
-    }
-  } else if (island && prefersReducedMotion) {
-    // Show the "completed" state as the resting frame under reduced motion.
+  if (!island) return;
+
+  const states = island.querySelectorAll<HTMLElement>('.island-state');
+  if (states.length === 0) return;
+
+  if (prefersReducedMotion) {
     const completed = island.querySelector<HTMLElement>('[data-state="completed"]');
     completed?.classList.add('is-active');
+    return;
   }
+
+  let i = 0;
+  states[i]!.classList.add('is-active');
+  window.setInterval(() => {
+    states[i]!.classList.remove('is-active');
+    i = (i + 1) % states.length;
+    states[i]!.classList.add('is-active');
+  }, 2000);
 }
 
 if (document.readyState === 'loading') {

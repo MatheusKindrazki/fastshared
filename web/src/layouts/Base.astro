@@ -39,7 +39,7 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toS
     {/* Favicon + app icons */}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/appicon.svg" />
-    <link rel="mask-icon" href="/brand/logo-mark.svg" color="#ff9f47" />
+    <link rel="mask-icon" href="/brand/logo-mark.svg" color="#9d7aff" />
 
     {/* Open Graph */}
     <meta property="og:type" content="website" />
@@ -82,10 +82,6 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toS
       },
     })} />
 
-    {/* GSAP — deferred from CDN. The hero script imports gsap as an ES module too,
-         so we don't actually need the CDN copy, but having it here keeps GSAP warm
-         even if the module import path changes. Remove if redundant. */}
-    {/* <script defer is:inline src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script> */}
   </head>
   <body>
     <slot />
