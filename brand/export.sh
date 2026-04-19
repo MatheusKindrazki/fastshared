@@ -49,6 +49,16 @@ for row in "${SIZES[@]}"; do
   read -r name px <<<"$row"
   out="$OUT/${name}.png"
   rsvg-convert -w "$px" -h "$px" "$SRC" -o "$out"
+  # WHY: App Store Connect rejects icons with an alpha channel (error 90717
+  # "Invalid large app icon"). rsvg-convert always writes RGBA, so flatten
+  # every exported PNG onto the brand ground and drop the alpha channel.
+  # Uses ImageMagick when available; falls back to a warning if not.
+  if command -v magick >/dev/null; then
+    magick "$out" -background "#070318" -alpha remove -alpha off -define png:color-type=2 "$out.flat" \
+      && mv "$out.flat" "$out"
+  else
+    echo "  (warning) ImageMagick missing — $out still has an alpha channel." >&2
+  fi
   printf "  %-20s %4dpx  %s\n" "$name" "$px" "$out"
 done
 

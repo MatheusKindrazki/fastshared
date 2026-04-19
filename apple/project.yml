@@ -65,6 +65,20 @@ targets:
         # into the dark UI is seamless.
         UILaunchScreen:
           UIColorName: LaunchBackground
+        # WHY: App Store Connect rejects bundles missing
+        # UISupportedInterfaceOrientations (error 90474) even for iPhone-only
+        # apps, because iPad multitasking requires the full set. We declare
+        # portrait only on iPhone (the hub feels off in landscape) and all
+        # four on iPad. The previous INFOPLIST_KEY_UISupportedInterfaceOrientations_*
+        # build settings are ignored when GENERATE_INFOPLIST_FILE is NO, so
+        # the values have to live here inside the plist authoritatively.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
     settings:
       base:
         PRODUCT_NAME: FastShared

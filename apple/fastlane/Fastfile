@@ -45,17 +45,26 @@ platform :ios do
     new_build = (Time.now.to_i - 1_577_836_800).to_s
     increment_build_number(xcodeproj: XCODE_PROJECT, build_number: new_build)
 
+    # WHY: -allowProvisioningUpdates tells xcodebuild to consult App Store
+    # Connect (via the API key we just loaded) and mint App Store Distribution
+    # profiles on demand for all three targets (app, ShareExt, LiveActivity).
+    # Without it the first TestFlight upload fails with "No profiles for ...
+    # were found" because local automatic signing only seeds Development
+    # profiles. Applied to both archive and export so neither step stalls
+    # waiting for manually-managed profiles.
     build_app(
-      scheme:          APP_SCHEME,
-      project:         XCODE_PROJECT,
-      configuration:   "Release",
-      export_method:   "app-store",
-      export_options:  EXPORT_OPTIONS,
+      scheme:           APP_SCHEME,
+      project:          XCODE_PROJECT,
+      configuration:    "Release",
+      export_method:    "app-store",
+      export_options:   EXPORT_OPTIONS,
       output_directory: IPA_OUTPUT_DIR,
-      output_name:     "FastShared.ipa",
-      clean:           true,
-      silent:          false,
-      export_team_id:  "YFYB6NKC73",
+      output_name:      "FastShared.ipa",
+      clean:            true,
+      silent:           false,
+      export_team_id:   "YFYB6NKC73",
+      xcargs:           "-allowProvisioningUpdates",
+      export_xcargs:    "-allowProvisioningUpdates",
     )
 
     upload_to_testflight(
