@@ -200,7 +200,7 @@ public actor SwiftDataStore {
         modelContainer.mainContext
     }
 
-    public func backgroundContext() -> ModelContext {
+    public nonisolated func backgroundContext() -> ModelContext {
         ModelContext(modelContainer)
     }
 }
