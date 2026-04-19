@@ -3,6 +3,9 @@ import FastSharedCore
 
 struct RootView: View {
     @State private var hasSeenOnboarding: Bool = Self.loadOnboardingFlag()
+    #if os(iOS)
+    @State private var screenshotDetector = ScreenshotDetector()
+    #endif
 
     var body: some View {
         content
@@ -34,6 +37,20 @@ struct RootView: View {
                 }
         }
         .tint(BrandPalette.amber)
+        .overlay(alignment: .top) {
+            if let pending = screenshotDetector.pending {
+                ScreenshotBanner(
+                    pending: pending,
+                    onUpload: { screenshotDetector.accept() },
+                    onDismiss: { screenshotDetector.dismiss() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(10)
+            }
+        }
+        .animation(BrandMotion.transition, value: screenshotDetector.pending?.id)
         #else
         NavigationSplitView {
             MacSidebar()
