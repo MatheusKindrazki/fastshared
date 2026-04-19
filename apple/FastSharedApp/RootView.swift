@@ -9,19 +9,22 @@ struct RootView: View {
 
     var body: some View {
         content
-            .fullScreenCoverIfAvailable(isPresented: .constant(!hasSeenOnboarding)) {
-                OnboardingView(onComplete: {
-                    Self.persistOnboardingFlag(true)
-                    // WHY: toggling the local state after persisting keeps the `.fullScreenCover` dismissal
-                    // in lockstep with the UserDefaults write — the next cold boot also sees the flag.
-                    hasSeenOnboarding = true
-                })
-                .interactiveDismissDisabled(true)
-            }
     }
 
     @ViewBuilder
     private var content: some View {
+        if !hasSeenOnboarding {
+            OnboardingView(onComplete: {
+                Self.persistOnboardingFlag(true)
+                hasSeenOnboarding = true
+            })
+        } else {
+            mainContent
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
         #if os(iOS)
         NavigationStack {
             HistoryView()
@@ -31,7 +34,7 @@ struct RootView: View {
                             SettingsView()
                         } label: {
                             Image(systemName: "gearshape")
-                                .foregroundStyle(BrandPalette.milk.opacity(0.75))
+                                .foregroundStyle(BrandPalette.ink.opacity(0.72))
                         }
                     }
                 }
@@ -64,29 +67,19 @@ struct RootView: View {
     // WHY: the app-group suite is shared with the share extension, so onboarding state is consistent
     // when the user uninstalls/reinstalls the main app but keeps the share extension.
     private static func loadOnboardingFlag() -> Bool {
-        UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?.bool(forKey: "has_seen_onboarding") ?? false
+        onboardingDefaults.bool(forKey: "has_seen_onboarding")
     }
 
     private static func persistOnboardingFlag(_ value: Bool) {
-        UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?.set(value, forKey: "has_seen_onboarding")
+        onboardingDefaults.set(value, forKey: "has_seen_onboarding")
     }
-}
 
-// WHY: macOS has no `fullScreenCover`; present as a modal sheet sized to a card instead.
-private extension View {
-    @ViewBuilder
-    func fullScreenCoverIfAvailable<Sheet: View>(
-        isPresented: Binding<Bool>,
-        @ViewBuilder content: @escaping () -> Sheet
-    ) -> some View {
-        #if os(iOS)
-        self.fullScreenCover(isPresented: isPresented, content: content)
-        #else
-        self.sheet(isPresented: isPresented) {
-            content()
-                .frame(minWidth: 640, minHeight: 720)
+    private static var onboardingDefaults: UserDefaults {
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroupPaths.groupIdentifier) != nil,
+              let shared = UserDefaults(suiteName: AppGroupPaths.groupIdentifier) else {
+            return .standard
         }
-        #endif
+        return shared
     }
 }
 
