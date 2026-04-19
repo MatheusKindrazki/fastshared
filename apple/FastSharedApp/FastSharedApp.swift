@@ -23,6 +23,7 @@ struct FastSharedApp: App {
     private let uploadService: UploadServiceProtocol
     private let orchestrator: UploadOrchestrator
     private let clipboard: ClipboardProtocol
+    private let subscriptionStore: SubscriptionStore
 
     init() {
         let store = SwiftDataStore.shared
@@ -38,18 +39,26 @@ struct FastSharedApp: App {
                                           tokenStore: tokenStore,
                                           background: background,
                                           orchestrator: orchestrator)
+        let subscriptionStore = SubscriptionStore(apiClient: apiClient)
 
         self.store = store
         self.apiClient = apiClient
         self.uploadService = uploadService
         self.orchestrator = orchestrator
         self.clipboard = clipboard
+        self.subscriptionStore = subscriptionStore
 
         // WHY: App Intents (FastShareScreenshotIntent) need access to the same UploadService the
         // views use, but they run outside the SwiftUI environment. Install once on launch so the
         // Action Button / Siri / Back Tap paths can resolve it synchronously via the locator.
         Task { await UploadServiceLocator.shared.install(uploadService) }
+        Task { await SubscriptionStoreLocator.shared.install(subscriptionStore) }
         Task { await orchestrator.resumeUnfinishedJobs() }
+        Task {
+            await subscriptionStore.start()
+            try? await subscriptionStore.refreshProducts()
+            await subscriptionStore.syncCurrentEntitlements()
+        }
     }
 
     var body: some Scene {
@@ -59,6 +68,7 @@ struct FastSharedApp: App {
                 .environment(\.uploadService, uploadService)
                 .environment(\.uploadOrchestrator, orchestrator)
                 .environment(\.clipboard, clipboard)
+                .environment(\.subscriptionStore, subscriptionStore)
                 .modelContainer(store.modelContainer)
         }
         #if os(macOS)
