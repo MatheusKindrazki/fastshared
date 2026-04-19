@@ -2,55 +2,39 @@
 # out-of-band (dashboard or `wrangler r2 bucket lifecycle`). The app-level
 # deletion_job cron is authoritative; the bucket rule is only there to reap
 # anything the app somehow never got around to (e.g. if the scheduler is paused
-# for days). Suggested rule: delete objects 90 days after creation. This file
-# does NOT configure it — Workers config has no R2 lifecycle knob.
+# for days). Suggested rule: delete objects 90 days after creation.
 
 name = "fastshared-api"
 main = "src/index.ts"
 compatibility_date = "2026-04-19"
 compatibility_flags = ["nodejs_compat"]
+account_id = "aad020260082c48f6370fa7954b72f81"
 
-# Secrets (set with: wrangler secret put <NAME>)
-# wrangler secret put DATABASE_URL
-# wrangler secret put R2_ACCESS_KEY_ID
-# wrangler secret put R2_SECRET_ACCESS_KEY
-# wrangler secret put DEVICE_TOKEN_PEPPER
+# Secrets (set with: wrangler secret put <NAME>):
+#   DATABASE_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, DEVICE_TOKEN_PEPPER
+
+[[routes]]
+pattern = "api.shared.kindrazki.dev"
+custom_domain = true
+
+[[routes]]
+pattern = "shared.kindrazki.dev"
+custom_domain = true
 
 [[r2_buckets]]
 binding = "R2"
-bucket_name = "fastshared-prod"
+bucket_name = "fastshared"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "REPLACE_ME_KV_ID"
+id = "6fba7370dd774b42b4ac36d00ec90238"
 
 [triggers]
-crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 0"]
+crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 7"]
 
 [vars]
-APP_ENV = "dev"
-SHORT_LINK_HOST = "https://fsh.dev"
-PUBLIC_API_HOST = "https://api.dev.fastshared.app"
-R2_BUCKET_NAME = "fastshared-prod"
-R2_ACCOUNT_ID = "REPLACE_ME"
-
-[env.production]
-name = "fastshared-api-prod"
-
-[env.production.vars]
 APP_ENV = "production"
-SHORT_LINK_HOST = "https://fsh.re"
-PUBLIC_API_HOST = "https://api.fastshared.app"
-R2_BUCKET_NAME = "fastshared-prod"
-R2_ACCOUNT_ID = "REPLACE_ME"
-
-[[env.production.r2_buckets]]
-binding = "R2"
-bucket_name = "fastshared-prod"
-
-[[env.production.kv_namespaces]]
-binding = "RATE_LIMIT"
-id = "REPLACE_ME_PROD_KV_ID"
-
-[env.production.triggers]
-crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 0"]
+SHORT_LINK_HOST = "https://shared.kindrazki.dev"
+PUBLIC_API_HOST = "https://api.shared.kindrazki.dev"
+R2_BUCKET_NAME = "fastshared"
+R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"

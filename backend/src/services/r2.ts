@@ -23,6 +23,9 @@ function getClient(env: Env): S3Client {
       accessKeyId: env.R2_ACCESS_KEY_ID,
       secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     },
+    // R2 rejects the default CRC32 checksums the AWS SDK v3 injects.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   CLIENT_CACHE.set(env as unknown as object, client);
   return client;
