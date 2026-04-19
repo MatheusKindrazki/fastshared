@@ -106,4 +106,51 @@ public actor UploadJobRepository {
         entity.updatedAt = Date()
         try context.save()
     }
+
+    public func snapshot(clientJobId: UUID) throws -> UploadJob? {
+        let context = store.backgroundContext()
+        let descriptor = FetchDescriptor<UploadJobEntity>(predicate: #Predicate { $0.clientJobId == clientJobId })
+        return try context.fetch(descriptor).first?.snapshot()
+    }
+
+    public func findShareLinkForJob(clientJobId: UUID) throws -> ShareLink? {
+        let context = store.backgroundContext()
+        let jobDescriptor = FetchDescriptor<UploadJobEntity>(predicate: #Predicate { $0.clientJobId == clientJobId })
+        guard let job = try context.fetch(jobDescriptor).first,
+              let shortString = job.shortURLString,
+              let shortURL = URL(string: shortString),
+              let assetIdString = job.remoteAssetId,
+              let assetId = UUID(uuidString: assetIdString) else { return nil }
+
+        // WHY: the ShareLinkEntity carries the canonical token and timestamps; we look it up by short URL since
+        // UploadJobEntity never stores the token directly.
+        let linkDescriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.shortURLString == shortString })
+        if let link = try context.fetch(linkDescriptor).first {
+            return ShareLink(token: link.token,
+                             assetId: link.assetId,
+                             shortURL: link.shortURL,
+                             createdAt: link.createdAt,
+                             visibility: link.visibility,
+                             expiresAt: link.expiresAt,
+                             deleteAfter: link.deleteAfter,
+                             linkStatus: link.status,
+                             retentionPolicy: link.retention,
+                             revokedAt: link.revokedAt,
+                             lastAccessedAt: link.lastAccessedAt,
+                             accessCount: link.accessCount)
+        }
+
+        // WHY: while the ShareLink row may not yet be written (race on orchestrator), synthesize a minimal
+        // payload from the job so the share-extension UI can still unveil the short URL.
+        guard let expiresAt = job.expiresAt, let deleteAfter = job.deleteAfter else { return nil }
+        return ShareLink(token: shortURL.lastPathComponent,
+                         assetId: assetId,
+                         shortURL: shortURL,
+                         createdAt: job.createdAt,
+                         visibility: .unlisted,
+                         expiresAt: expiresAt,
+                         deleteAfter: deleteAfter,
+                         linkStatus: .active,
+                         retentionPolicy: RetentionPolicy(rawValue: job.retentionPolicy) ?? .default)
+    }
 }
