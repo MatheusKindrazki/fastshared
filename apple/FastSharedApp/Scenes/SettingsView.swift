@@ -13,7 +13,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Sharing") {
+            Section {
                 Picker("Default retention", selection: $defaultRetention) {
                     ForEach(RetentionPolicy.shareable, id: \.self) { policy in
                         Text(policy.displayName).tag(policy)
@@ -22,6 +22,8 @@ struct SettingsView: View {
                 .onChange(of: defaultRetention) { _, newValue in
                     appGroupDefaults?.set(newValue.rawValue, forKey: retentionKey)
                 }
+            } header: {
+                Text("Sharing")
             } footer: {
                 Text("Chooses the default link lifetime in the share sheet. You can still change it per upload.")
             }
