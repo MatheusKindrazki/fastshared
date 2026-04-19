@@ -44,13 +44,45 @@ pnpm dlx wrangler secret put DATABASE_URL
 pnpm dlx wrangler secret put R2_ACCESS_KEY_ID
 pnpm dlx wrangler secret put R2_SECRET_ACCESS_KEY
 pnpm dlx wrangler secret put DEVICE_TOKEN_PEPPER
+pnpm dlx wrangler secret put APP_STORE_CONNECT_KEY_ID
+pnpm dlx wrangler secret put APP_STORE_CONNECT_ISSUER_ID
+pnpm dlx wrangler secret put APP_STORE_CONNECT_P8_KEY_BASE64
 ```
 
 `DEVICE_TOKEN_PEPPER` must be a long random string (generate with
 `openssl rand -base64 48`). Losing it invalidates every device token.
 
-Public vars live in `wrangler.toml` under `[vars]`. Update `R2_ACCOUNT_ID` and
-the KV namespace id before first deploy.
+Public vars live in `wrangler.toml` under `[vars]` — `APP_ENV`,
+`SHORT_LINK_HOST`, `PUBLIC_API_HOST`, `R2_BUCKET_NAME`, `R2_ACCOUNT_ID`,
+`APPLE_BUNDLE_ID`. Update `R2_ACCOUNT_ID` and the KV namespace id before
+first deploy.
+
+## Pro subscriptions setup
+
+The `/v1/iap/verify` and `/v1/iap/webhook` endpoints sign App Store Connect
+JWTs and verify Apple-signed JWS receipts. Three one-time steps:
+
+1. **Register product IDs in App Store Connect** (Subscriptions + Lifetime
+   IAP): `red.fastsha.pro.monthly`, `red.fastsha.pro.annual`,
+   `red.fastsha.pro.lifetime`. Match the StoreKit configuration the client
+   ships. The server throws `422 unknown_product` on any product ID not in
+   this set — keep them in lockstep.
+2. **Create an API Key with "In-App Purchase" access** at
+   <https://appstoreconnect.apple.com/access/api>. Note the Key ID and
+   Issuer ID; download the `AuthKey_XXXXXX.p8` file (one-time download).
+3. **Upload the three secrets to Wrangler**:
+
+   ```bash
+   base64 -i AuthKey_XXXXXX.p8 | tr -d '\n' | pbcopy
+   pnpm dlx wrangler secret put APP_STORE_CONNECT_P8_KEY_BASE64   # paste
+   pnpm dlx wrangler secret put APP_STORE_CONNECT_KEY_ID           # the 10-char ID
+   pnpm dlx wrangler secret put APP_STORE_CONNECT_ISSUER_ID        # UUID
+   ```
+
+Also configure Apple's **Server-to-Server Notifications v2** to point at
+`https://api.fastsha.red/v1/iap/webhook` (both Production and Sandbox URLs).
+Notifications are signed by Apple; the Worker verifies the JWS chain before
+touching the database, so the endpoint is safe to expose unauthenticated.
 
 ## Provision the database
 

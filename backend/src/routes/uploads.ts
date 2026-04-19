@@ -7,6 +7,7 @@ import { createDb, type Db } from '~/db/client';
 import { shareLink, uploadJob } from '~/db/schema';
 import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
+import { rateLimitFreeTier } from '~/middleware/rateLimitFreeTier';
 import { buildObjectKeyForJob, headObject, presignPut, type PresignPutResult } from '~/services/r2';
 import { createAsset, findLiveAssetBySha256AndDevice, scheduleDeletion } from '~/services/assets';
 import { createShareLink } from '~/services/shareLinks';
@@ -52,6 +53,9 @@ export const uploadRoutes = new Hono<AppBindings>();
 
 uploadRoutes.use('*', auth());
 uploadRoutes.use('*', ratelimit({ bucket: 'upload', limit: 30, windowSeconds: 600 }));
+// Free-tier enforcement only on the presign endpoint — /complete and /fail
+// operate on an existing job and shouldn't be gated a second time.
+uploadRoutes.use('/', rateLimitFreeTier());
 
 uploadRoutes.post('/', async (c) => {
   const body = createUploadSchema.parse(await c.req.json());
@@ -121,7 +125,15 @@ uploadRoutes.post('/', async (c) => {
   });
 
   return c.json(
-    presignResponse(job.id, storageKey, presigned, body, c.env.R2_BUCKET_NAME, retention),
+    presignResponse(
+      job.id,
+      storageKey,
+      presigned,
+      body,
+      c.env.R2_BUCKET_NAME,
+      retention,
+      c.get('freeTierClampedRetention') === true,
+    ),
   );
 });
 
@@ -356,6 +368,7 @@ function presignResponse(
   body: CreateUploadInput,
   bucket: string,
   retention: { expiresAt: Date; deleteAfter: Date; retentionPolicy: string },
+  retentionClamped: boolean,
 ) {
   return {
     uploadId,
@@ -367,6 +380,7 @@ function presignResponse(
     retentionPolicy: retention.retentionPolicy,
     expiresAt: retention.expiresAt.toISOString(),
     deleteAfter: retention.deleteAfter.toISOString(),
+    ...(retentionClamped ? { retentionClamped: true, clampedTo: 'oneDay' as const } : {}),
   };
 }
 

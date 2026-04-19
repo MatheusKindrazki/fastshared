@@ -236,6 +236,41 @@ function inferExtension(contentType: string, filename?: string): string {
   return map[ct] ?? '';
 }
 
+// Range arg shape mirrors the Cloudflare R2 binding API directly so the caller
+// can parse the HTTP `Range` header once and hand the result straight through.
+export type R2GetRange =
+  | { offset: number; length?: number }
+  | { offset: number }
+  | { length: number }
+  | { suffix: number };
+
+export interface GetObjectStreamResult {
+  body: ReadableStream;
+  size: number;
+  etag: string;
+  httpMetadata: R2HTTPMetadata | undefined;
+  range: R2Range | undefined;
+}
+
+// Streams an R2 object through the Worker via the binding (no S3 presign, no
+// redirect). The returned `body` is a ReadableStream — callers MUST pipe it
+// into the Response, never `await body` it, or we defeat the whole point.
+export async function getObjectStream(
+  env: Env,
+  key: string,
+  range?: R2GetRange,
+): Promise<GetObjectStreamResult | null> {
+  const obj = range ? await env.R2.get(key, { range }) : await env.R2.get(key);
+  if (!obj) return null;
+  return {
+    body: obj.body,
+    size: obj.size,
+    etag: obj.etag,
+    httpMetadata: obj.httpMetadata,
+    range: obj.range,
+  };
+}
+
 function isNotFound(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as { name?: string; $metadata?: { httpStatusCode?: number }; Code?: string };
