@@ -130,5 +130,6 @@ The product name is **FastShared**. One word. Capital F, capital S. _Not_
 `FastShare`, `Fast Shared`, `fast-shared`. The wordmark in design is lowercase
 (`fastshared`) — the typeset form — but in copy we use `FastShared`.
 
-The domain is **fastsha.red** for the landing page and **fsh.re** for
-generated short links. Both are intentional; do not "fix" either.
+The canonical domain is **fastsha.red** — the landing page lives on the apex
+and generated short links take the form `fastsha.red/s/<token>`. There is no
+second short-link host; do not "fix" this to a shorter TLD.
