@@ -43,26 +43,21 @@ struct HistoryView: View {
     var body: some View {
         ZStack {
             BrandPalette.canvas
-                .ignoresSafeArea()
+                .ignoresSafeArea(.all)
 
             TimelineView(.periodic(from: .now, by: 1)) { timeline in
                 let now = timeline.date
                 let snapshot = ExpirySnapshot.build(from: filtered(links), now: now)
                 content(now: now, snapshot: snapshot)
             }
-
-            #if os(iOS)
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    floatingAddButton
-                }
-            }
-            .padding(.trailing, 20)
-            .padding(.bottom, 28)
-            #endif
         }
+        #if os(iOS)
+        .overlay(alignment: .bottomTrailing) {
+            floatingAddButton
+                .padding(.trailing, 20)
+                .padding(.bottom, 24)
+        }
+        #endif
         .preferredColorScheme(.dark)
         .foregroundStyle(BrandPalette.milk)
         .navigationTitle("")
@@ -70,10 +65,14 @@ struct HistoryView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        #endif
+        .searchable(text: $searchText,
+                    placement: .navigationBarDrawer(displayMode: .automatic),
+                    prompt: Text("search by name or token").foregroundStyle(BrandPalette.milk.opacity(0.5)))
+        #else
         .searchable(text: $searchText,
                     placement: .automatic,
                     prompt: Text("search by name or token").foregroundStyle(BrandPalette.milk.opacity(0.5)))
+        #endif
         #if os(iOS)
         .refreshable {
             await viewModel?.refresh(visibleLinks: links)
