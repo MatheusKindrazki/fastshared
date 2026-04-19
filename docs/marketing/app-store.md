@@ -46,6 +46,23 @@ Ephemeral share links, Apple-native
 "ephemeral" keyword in the subtitle slot, a trimmed variant: `Ephemeral share
 links for Apple` (31 / 30 — still over). Use option 1.
 
+**4. Pro-aware (candidate for launch week).**
+
+```
+Ephemeral share. Pro sync.
+```
+
+(26 / 30) — names Pro explicitly, keeps "ephemeral" as brand word. Loses the
+"fast" closer. Use only if the owner decides Pro messaging outranks speed.
+
+**5. Pro-aware (alt).**
+
+```
+Temporary links. iCloud sync.
+```
+
+(29 / 30) — closer to existing voice, swaps "fast" for the Pro benefit.
+
 ---
 
 ## Promotional text — 3 options, ranked
@@ -76,6 +93,14 @@ Watch uploads breathe in the Dynamic Island. Temporary links for iPhone, iPad an
 ```
 
 (159 / 170)
+
+**4. Pro launch variant.**
+
+```
+Share anything, get a temporary link, watch it vanish. No accounts, no residue. Pro unlocks unlimited uploads, 30-day links, iCloud sync. Monthly, annual, or lifetime.
+```
+
+(167 / 170)
 
 ---
 
@@ -117,6 +142,15 @@ YOUR FILES, YOUR RULES
 • Bearer tokens with 131 bits of entropy. The link is the credential. Revoke any time.
 • noindex, no-referrer, no-store on every resolve — tokens stay out of search engines, out of referrer chains, out of caches.
 
+FASTSHARED PRO
+• Unlimited uploads per day. No throttle. No counter.
+• 2 GB per file — for the screen recording, the slide deck, the full-resolution export.
+• Link retention up to 30 days — enough to ship a contract and still have the link alive next week.
+• iCloud history sync. Your links follow you across iPhone, iPad, and Mac.
+• Family Sharing on Lifetime — one purchase, up to six people.
+• Priority support. Reply within one business day.
+• Three ways to buy: $2.99/mo, $19.99/yr, or $49.99 once. Pick the one you don't have to think about.
+
 NOT INCLUDED — ON PURPOSE
 • No permanent hosting. Every file has a deletion deadline. There is no "keep forever".
 • No accounts, no folders, no tags, no libraries.
@@ -130,34 +164,47 @@ Privacy — https://www.fastsha.red/privacy
 Terms — https://www.fastsha.red/terms
 ```
 
-(2777 / 4000)
+(3816 / 4000)
 
 ---
 
-## Keywords (final)
+## Keywords (v1.1 Pro-launch pack — commit for launch)
+
+```
+share,link,temporary,ephemeral,upload,transfer,file,expire,private,airdrop,sync,subscription,icloud
+```
+
+(99 / 100)
+
+### Why these keywords
+
+- `share`, `link`, `upload`, `transfer`, `file` — raw intent. People
+  type these when they're looking for exactly this class of tool.
+- `temporary`, `ephemeral`, `expire` — differentiator keywords. They
+  let us show up when someone wants the "disappearing" nuance without typing
+  it.
+- `private` — the privacy-driven searcher funnel.
+- `airdrop` — Apple-native comparison query. We are not AirDrop, but people
+  looking for "AirDrop but to Android/any link" find us here.
+- `sync`, `icloud` — Pro iCloud sync is the core differentiator; pairs with
+  `airdrop` for the Apple-ecosystem query.
+- `subscription` — high-intent for people comparing subscription utilities
+  and owning the in-app-purchase comparison funnel.
+
+Cuts vs v1.0: `vanish` (brand word, low volume), `cloud` (`icloud` is more
+specific), `send` (`share`+`upload`+`transfer` cover the intent), `clip`
+(niche; Pro slots matter more). `pro` was considered but cut — the app name
+"FastShared Pro" already carries that token for Apple's search index.
+Re-evaluate in Pack B/C/D if data shows conversion loss.
+
+### v1.0 Keywords (fallback pack)
 
 ```
 share,link,temporary,ephemeral,upload,transfer,file,expire,vanish,private,send,cloud,airdrop,clip
 ```
 
-(97 / 100)
-
-### Why these keywords
-
-- `share`, `link`, `upload`, `transfer`, `file`, `send` — raw intent. People
-  type these when they're looking for exactly this class of tool.
-- `temporary`, `ephemeral`, `expire`, `vanish` — differentiator keywords. They
-  let us show up when someone wants the "disappearing" nuance without typing
-  it.
-- `private` — the privacy-driven searcher funnel.
-- `cloud` — broad match for people comparing to Dropbox/Drive.
-- `airdrop` — Apple-native comparison query. We are not AirDrop, but people
-  looking for "AirDrop but to Android/any link" find us here.
-- `clip` — short-link / clipboard association; also helps surface against
-  clipboard-centric tools.
-
-`quick` was considered and cut to stay under the 100-char cap; the app name
-itself already carries speed intent.
+(97 / 100) — Pre-Pro pack. Use as a fallback if the v1.1 pack underperforms on
+conversion after the 7-day hold.
 
 Notes:
 
@@ -179,3 +226,13 @@ First public release. Share anything from any app, pick how long the link lives,
 ```
 
 (424 chars, well under the 4000 What's New limit.)
+
+---
+
+## What's New in Version 1.1.0
+
+```
+FastShared Pro is here. Unlimited uploads, 30-day links, iCloud history sync across iPhone, iPad, and Mac. Pick Monthly at $2.99, Annual at $19.99 — or grab Lifetime at $49.99 during Early Access with Family Sharing included. Free stays free, no strings. Every link is still temporary by design.
+```
+
+(295 / 4000)

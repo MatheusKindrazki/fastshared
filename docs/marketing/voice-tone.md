@@ -124,6 +124,48 @@ vanish." "Watch your upload breathe." One per moment.
 
 ---
 
+## Pro / paywall tone
+
+Pro messaging is **confident, transparent, and never guilty-trip**. The
+paywall is the product helping you decide, not the product talking you
+into a purchase.
+
+### Do
+
+1. **"Unlimited uploads. 30-day links. iCloud sync."** — facts first. The
+   reader picks.
+2. **"Free stays free."** — whenever Pro is introduced, reassure that Free
+   isn't getting worse. It's a load-bearing sentence.
+3. **"Pick the one you don't have to think about."** — honest hint that
+   Annual is usually the right pick without hectoring the reader.
+
+### Don't
+
+1. **"Upgrade to unlock the full power of FastShared."** — "unlock the
+   power" is the marketing residue we always cut.
+2. **"Don't miss out on Early Access!"** — FOMO with exclamation mark.
+   Both banned.
+3. **"Limited time offer — act now!"** — banned for the same reason.
+   Early Access is time-bounded, state the end date instead:
+   "Early Access price through [date]."
+4. **"Try Pro free for 7 days."** — there is no trial in v1. Don't promise
+   what the product doesn't ship.
+
+### Word list — Pro-specific
+
+| prefer                              | avoid                                                               |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| Pro (capital P)                     | pro (lowercase), PRO (shouting)                                     |
+| Pro Monthly / Pro Annual / Lifetime | monthly plan / yearly plan / lifetime plan (wordier, no gain)       |
+| unlimited uploads                   | "no limits!"                                                        |
+| subscription                        | "paid tier", "premium" (Apple prefers `subscription`)               |
+| auto-renew                          | "automatically continues" (Apple legal language wants `auto-renew`) |
+| priority support                    | "VIP support" (sounds cheap)                                        |
+| Early Access (Title Case)           | "early bird", "launch special" (cringe)                             |
+| Family Sharing                      | "family plan" (Apple calls it Family Sharing)                       |
+
+---
+
 ## Brand-speak cheat sheet
 
 The product name is **FastShared**. One word. Capital F, capital S. _Not_

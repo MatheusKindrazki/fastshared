@@ -101,3 +101,38 @@ to disappear on a schedule you pick. No accounts, no libraries, no graveyard
 of forgotten uploads — just a link that does its job, then stops existing.
 
 (79 words)
+
+---
+
+## Pro-aware taglines (v1.1)
+
+The primary tagline ("Share anything. Get a link. Watch it vanish.") stays
+as the hero headline. These alternates are for the pricing page sub-header,
+paid ad rotations, or Pro-specific surfaces where the tier actually matters.
+
+**A. For the pricing page sub-head.**
+
+```
+One gesture. One link. Your call on the rest.
+```
+
+(45 / 60) — already in use on /pricing. Nods at Pro without naming it.
+
+**B. For the Pro paywall inside the app.**
+
+```
+Unlimited uploads. 30-day links. iCloud sync.
+```
+
+(45 / 60) — literal, feature-forward. Works because it stays factual, no
+"unlock the power" residue.
+
+**C. For the Lifetime Early Access banner.**
+
+```
+Buy once. Share forever-ish.
+```
+
+(28 / 60) — the hyphen-ish acknowledges that nothing is literally forever,
+which keeps the voice honest. "Ephemeral by design" still applies inside
+the app — Lifetime buys you the tool, not file permanence.

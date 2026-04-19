@@ -53,6 +53,39 @@ share,link,temporary,ephemeral,upload,transfer,file,expire,vanish,private,send,c
 
 ---
 
+## Pro-launch pack (committed for v1.1)
+
+```
+share,link,temporary,ephemeral,upload,transfer,file,expire,private,airdrop,sync,subscription,icloud
+```
+
+(99 / 100)
+
+### Per-keyword delta vs v1.0 pack
+
+| keyword        | change   | rationale                                                              |
+| -------------- | -------- | ---------------------------------------------------------------------- |
+| `sync`         | added    | Pro iCloud sync is the core differentiator; also catches "photo sync". |
+| `subscription` | added    | High-intent for people comparing subscription utilities.               |
+| `icloud`       | added    | Apple-native match; pairs with `airdrop` for the ecosystem query.      |
+| `vanish`       | removed  | Brand voice word; low volume, freed slot for Pro intent.               |
+| `cloud`        | removed  | `icloud` is more specific and higher-intent for our audience.          |
+| `send`         | removed  | `share` + `upload` + `transfer` already cover the intent space.        |
+| `clip`         | removed  | Niche; Pro pack needs slots more than clipboard adjacency does.        |
+
+`pro` was evaluated as a 14th keyword but the combined field would land at
+103/100 characters. The app's name — "FastShared Pro" — already delivers the
+`pro` token through the App name + subtitle index. Cutting it frees one slot
+without losing the Pro-intent surface.
+
+### Measurement
+
+Hold for 7 days post v1.1 release before iterating. Compare installs-per-
+impression vs v1.0 pack (which stays as the fallback if Pro pack
+underperforms on conversion).
+
+---
+
 ## Secondary packs (for A/B after we have 30 days of data)
 
 These are equally-valid alternates. Change the keyword field (no re-submission
