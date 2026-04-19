@@ -61,3 +61,6 @@ tmp/
 *.swp
 *.bak
 *.orig
+
+# generated brand exports (run brand/export.sh to regenerate)
+brand/out/
