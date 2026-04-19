@@ -13,6 +13,7 @@ import { assetRoutes } from '~/routes/assets';
 import { redirectRoutes } from '~/routes/redirect';
 import { revokeRoutes } from '~/routes/revoke';
 import { wellKnownRoutes } from '~/routes/wellKnown';
+import { assetsPublicRoutes } from '~/routes/assetsPublic';
 import { runDueDeletionJobs } from '~/services/deletion';
 import { runReconciliation } from '~/services/reconciliation';
 import { runMultipartSweeper } from '~/services/multipartSweeper';
@@ -54,6 +55,7 @@ app.route('/v1/assets', assetRoutes);
 app.route('/v1/links', revokeRoutes);
 app.route('/s', redirectRoutes);
 app.route('/.well-known', wellKnownRoutes);
+app.route('/', assetsPublicRoutes);
 
 app.notFound((c) => problem(c, 404, 'not_found', 'Not Found', `no route for ${c.req.path}`));
 
@@ -69,7 +71,15 @@ const PAGES_ORIGIN = 'https://fastshared-web.pages.dev';
 // /.well-known MUST stay on the worker so iOS/macOS can fetch the AASA file
 // directly — if we proxied it to Pages, Apple's CDN would see a 404 HTML body
 // and the universal-link handoff would silently never install.
-const APP_PATH_PREFIXES = ['/s', '/s/', '/v1', '/v1/', '/.well-known', '/.well-known/'];
+const APP_PATH_PREFIXES = [
+  '/s',
+  '/s/',
+  '/v1',
+  '/v1/',
+  '/.well-known',
+  '/.well-known/',
+  '/og-image.png',
+];
 
 function isAppPath(pathname: string): boolean {
   return APP_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p));
