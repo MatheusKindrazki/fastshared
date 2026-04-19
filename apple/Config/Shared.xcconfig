@@ -1,7 +1,10 @@
 // Shared build settings for FastShared (app + extension + tests).
-// Replace TEAMID with your Apple Developer team identifier before generating the Xcode project.
+// DEVELOPMENT_TEAM is hardcoded to the project owner's Apple Developer team
+// ("MATHEUS SALDANHA"). Forks will need to override locally via a
+// Local.xcconfig + CODE_SIGN_IDENTITY_OVERRIDE pattern when that becomes a
+// real need. For the single-maintainer setup this file is canonical.
 
-DEVELOPMENT_TEAM = TEAMID
+DEVELOPMENT_TEAM = YFYB6NKC73
 
 PRODUCT_BUNDLE_IDENTIFIER_PREFIX = dev.kindrazki.fastshared
 APP_GROUP_IDENTIFIER = group.dev.kindrazki.fastshared
