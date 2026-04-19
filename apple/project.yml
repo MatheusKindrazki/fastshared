@@ -13,6 +13,16 @@ configs:
   Debug: debug
   Release: release
 
+# xcconfig files are attached at the project level via configFiles — the
+# `settings.configs.<name>.xcconfig` YAML key is silently ignored by XcodeGen
+# (it generates a build setting literally called `xcconfig` instead of setting
+# baseConfigurationReference). Using configFiles writes the proper
+# baseConfigurationReference for each XCBuildConfiguration so MARKETING_VERSION,
+# DEVELOPMENT_TEAM, and API_BASE_URL actually propagate into builds.
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
 settings:
   base:
     SWIFT_VERSION: 5.10
@@ -21,11 +31,6 @@ settings:
     CLANG_ENABLE_MODULES: YES
     ENABLE_MODULE_VERIFIER: NO
     ALWAYS_SEARCH_USER_PATHS: NO
-  configs:
-    Debug:
-      xcconfig: Config/Debug.xcconfig
-    Release:
-      xcconfig: Config/Release.xcconfig
 
 packages:
   FastSharedCore:
@@ -69,8 +74,6 @@ targets:
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
-        MARKETING_VERSION: $(MARKETING_VERSION)
-        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
     dependencies:
       - target: FastSharedShareExt
@@ -116,8 +119,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FastSharedShareExt/FastSharedShareExt.entitlements
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
-        MARKETING_VERSION: $(MARKETING_VERSION)
-        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         TARGETED_DEVICE_FAMILY: "1,2"
 
@@ -144,8 +145,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: FastSharedLiveActivity/FastSharedLiveActivity.entitlements
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
-        MARKETING_VERSION: $(MARKETING_VERSION)
-        CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         TARGETED_DEVICE_FAMILY: "1,2"
 
