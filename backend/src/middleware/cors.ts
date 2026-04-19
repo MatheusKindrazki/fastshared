@@ -2,7 +2,7 @@ import { cors as honoCors } from 'hono/cors';
 import type { MiddlewareHandler } from 'hono';
 import type { AppBindings } from '~/env';
 
-const ALLOWED = new Set(['https://fsh.re', 'https://fsh.dev']);
+const ALLOWED = new Set(['https://fastsha.red']);
 
 export const cors = (): MiddlewareHandler<AppBindings> =>
   honoCors({

@@ -49,8 +49,7 @@ In Xcode, select the `FastSharedShareExt` scheme, choose a host app (for iOS, Sa
 
 ## Environments
 
-- `Debug.xcconfig` points at `https://api.dev.fastshared.app` and uses `https://fsh.dev` as the short-link host.
-- `Release.xcconfig` points at `https://api.fastshared.app` and uses `https://fsh.re`.
+- `Debug.xcconfig` and `Release.xcconfig` both point at `https://api.fastsha.red` and use `https://fastsha.red` as the short-link host. There is currently no separate dev environment; both configs target the single production backend.
 
 ## Camera / photo library usage strings
 

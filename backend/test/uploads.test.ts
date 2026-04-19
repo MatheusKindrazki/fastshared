@@ -409,8 +409,8 @@ const TEST_ENV: Env = {
   R2_ACCESS_KEY_ID: 'k',
   R2_SECRET_ACCESS_KEY: 's',
   R2_BUCKET_NAME: 'fastshared-test',
-  SHORT_LINK_HOST: 'https://fsh.dev',
-  PUBLIC_API_HOST: 'https://api.test.fastshared.app',
+  SHORT_LINK_HOST: 'https://fastsha.red',
+  PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',
   APP_ENV: 'test',
 };
@@ -638,7 +638,7 @@ describe('uploads flow', () => {
         retentionPolicy: string;
       };
     };
-    expect(body.deduped?.shortUrl).toBe('https://fsh.dev/s/abcdefghijABCDEFGHIJkl');
+    expect(body.deduped?.shortUrl).toBe('https://fastsha.red/s/abcdefghijABCDEFGHIJkl');
     expect(body.deduped?.token).toBe('abcdefghijABCDEFGHIJkl');
     expect(body.deduped?.retentionPolicy).toBe('oneDay');
     expect(presignPutMock).not.toHaveBeenCalled();
@@ -706,7 +706,7 @@ describe('uploads flow', () => {
       assetId: string;
     };
     expect(body.token).toMatch(BASE62_22);
-    expect(body.shortUrl).toBe(`https://fsh.dev/s/${body.token}`);
+    expect(body.shortUrl).toBe(`https://fastsha.red/s/${body.token}`);
     expect(body.linkStatus).toBe('active');
     expect(body.retentionPolicy).toBe('oneDay');
     expect(new Date(body.deleteAfter).getTime()).toBeGreaterThan(
