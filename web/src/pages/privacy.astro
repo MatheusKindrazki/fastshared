@@ -17,7 +17,7 @@ import Footer from '../components/Footer.astro';
     </h1>
 
     <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-10">
-      Effective 19 April 2026 · v1.0
+      Effective 19 April 2026 · v1.1
     </p>
 
     <div class="space-y-7 text-milk/75 text-[17px] leading-[1.7]">
@@ -145,6 +145,32 @@ import Footer from '../components/Footer.astro';
       </p>
 
       <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Cross-device sync (Pro)
+      </h2>
+      <p>
+        If you are a Pro subscriber, FastShared can sync your link-history
+        metadata (token, filename, MIME type, timestamps, and link state —
+        live, expired, revoked, or removed) across your Apple devices using
+        Apple's <strong class="text-milk">CloudKit private database</strong>,
+        scoped to your Apple ID's personal iCloud container. We never see this
+        data — it lives in your own iCloud storage, covered by Apple's privacy
+        terms, and we have no API to read or modify it.
+      </p>
+      <p>
+        When you downgrade from Pro to Free, sync stops. The records already
+        in your private iCloud container remain there for up to 30 days, after
+        which iCloud prunes them naturally according to its own retention
+        rules. If you want to remove them sooner, iOS Settings → Apple ID →
+        iCloud → Manage Account Storage → FastShared → Delete from iCloud.
+        Nothing about that flow touches our servers.
+      </p>
+      <p>
+        This sync covers metadata only. The underlying file bytes always live
+        on Cloudflare R2 with the lifecycle described above — they are never
+        mirrored into iCloud.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
         Sub-processors
       </h2>
       <p>
@@ -196,6 +222,30 @@ import Footer from '../components/Footer.astro';
       </p>
 
       <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Subscription data (Pro)
+      </h2>
+      <p>
+        When you purchase Pro, we store one server-side record that maps your
+        device ID to Apple's transaction identifier, the tier you bought
+        (monthly, annual, lifetime), its current status (active, expired,
+        refunded), and its expiry timestamp. We use this to decide whether
+        your device can upload under Pro limits.
+      </p>
+      <p>
+        <strong class="text-milk">No billing information ever touches our
+        servers.</strong> Apple handles the payment end-to-end: card, tax,
+        receipt, refund. We only receive the transaction identifier from the
+        App Store Server API, over a signed, authenticated channel. If you
+        request a refund through Apple, Apple notifies us via server-to-server
+        notifications and we revoke your Pro access within minutes.
+      </p>
+      <p>
+        Subscription records are retained for as long as the associated
+        device is registered, plus 90 days after cancellation, for audit and
+        dispute resolution. After that, the record is pruned.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
         Your rights
       </h2>
       <p>
@@ -239,6 +289,16 @@ import Footer from '../components/Footer.astro';
             Brazil that is the
             <abbr title="Autoridade Nacional de Proteção de Dados">ANPD</abbr>;
             in the EU it is your national DPA.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-amber flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Cancel or manage your Pro subscription</strong>
+            at any time through iOS Settings → Apple ID → Subscriptions, or at
+            <a href="https://apps.apple.com/account/subscriptions" class="text-amber hover:underline">apps.apple.com/account/subscriptions</a>.
+            Apple processes the cancellation; we revoke Pro access when we
+            receive Apple's server-to-server notification.
           </span>
         </li>
       </ul>
