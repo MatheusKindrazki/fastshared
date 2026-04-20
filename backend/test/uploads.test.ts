@@ -50,6 +50,8 @@ interface UploadJob {
   retentionPolicy: string | null;
   expiresAt: Date | null;
   deleteAfter: Date | null;
+  pendingShareLinkToken: string | null;
+  multipartUploadId: string | null;
   createdAt: Date;
 }
 interface DeletionJob {
@@ -268,6 +270,8 @@ vi.mock('~/db/client', () => {
                     retentionPolicy: (v.retentionPolicy as string | null) ?? null,
                     expiresAt: (v.expiresAt as Date | null) ?? null,
                     deleteAfter: (v.deleteAfter as Date | null) ?? null,
+                    pendingShareLinkToken: (v.pendingShareLinkToken as string | null) ?? null,
+                    multipartUploadId: (v.multipartUploadId as string | null) ?? null,
                     createdAt: new Date(),
                   };
                   store.uploadJobs.push(row);
@@ -356,8 +360,20 @@ vi.mock('~/db/client', () => {
           },
         };
       },
-      delete() {
-        return { where: () => Promise.resolve() };
+      delete(table: { _: { name: string } }) {
+        const name = tableName(table);
+        return {
+          where(cond: unknown) {
+            const conds = extractParamStrings(cond);
+            if (name === 'share_link') {
+              // Delete rows whose token or assetId appears in the WHERE params.
+              store.shareLinks = store.shareLinks.filter(
+                (l) => !conds.some((c) => c === l.token || c === l.assetId || c === l.id),
+              );
+            }
+            return Promise.resolve();
+          },
+        };
       },
       execute<T>(_sql: unknown) {
         void _sql;
@@ -387,6 +403,10 @@ function tableName(table: unknown): string {
 const headMock = vi.fn();
 const presignPutMock = vi.fn();
 const presignGetMock = vi.fn();
+const createMultipartMock = vi.fn();
+const presignPartMock = vi.fn();
+const completeMultipartMock = vi.fn();
+const abortMultipartMock = vi.fn();
 vi.mock('~/services/r2', async () => {
   const actual = await vi.importActual<typeof import('~/services/r2')>('~/services/r2');
   return {
@@ -395,6 +415,14 @@ vi.mock('~/services/r2', async () => {
     presignGet: (args: unknown) => presignGetMock(args),
     headObject: (args: unknown) => headMock(args),
     deleteObject: vi.fn(),
+    createMultipartUpload: (env: unknown, key: unknown, contentType: unknown) =>
+      createMultipartMock(env, key, contentType),
+    presignPart: (env: unknown, key: unknown, uploadId: unknown, partNumber: unknown) =>
+      presignPartMock(env, key, uploadId, partNumber),
+    completeMultipartUpload: (env: unknown, key: unknown, uploadId: unknown, parts: unknown) =>
+      completeMultipartMock(env, key, uploadId, parts),
+    abortMultipartUpload: (env: unknown, key: unknown, uploadId: unknown) =>
+      abortMultipartMock(env, key, uploadId),
   };
 });
 
@@ -486,6 +514,10 @@ describe('uploads flow', () => {
     headMock.mockReset();
     presignPutMock.mockReset();
     presignGetMock.mockReset();
+    createMultipartMock.mockReset();
+    presignPartMock.mockReset();
+    completeMultipartMock.mockReset();
+    abortMultipartMock.mockReset();
     presignPutMock.mockImplementation(
       async ({
         key,
@@ -505,6 +537,13 @@ describe('uploads flow', () => {
     presignGetMock.mockImplementation(
       async ({ key }: { key: string }) => `https://r2.test/${key}?get=x`,
     );
+    createMultipartMock.mockImplementation(async () => ({ uploadId: 'mpu-test-id' }));
+    presignPartMock.mockImplementation(
+      async (_env: unknown, key: string, uploadId: string, partNumber: number) =>
+        `https://r2.test/${key}?uploadId=${uploadId}&partNumber=${partNumber}&sig=x`,
+    );
+    completeMultipartMock.mockImplementation(async () => undefined);
+    abortMultipartMock.mockImplementation(async () => undefined);
   });
 
   it('presign happy path', async () => {
@@ -703,7 +742,7 @@ describe('uploads flow', () => {
 
     const res = await post(
       `/v1/uploads/${uploadId}/complete`,
-      { contentType: 'image/jpeg', sizeBytes: 1024 },
+      { contentType: 'image/jpeg', sizeBytes: 1024, sha256: 'c'.repeat(64) },
       { authorization: `Bearer ${token}` },
     );
     expect(res.status).toBe(200);
@@ -747,10 +786,287 @@ describe('uploads flow', () => {
 
     const res = await post(
       `/v1/uploads/${uploadId}/complete`,
-      { contentType: 'image/jpeg', sizeBytes: 1024 },
+      { contentType: 'image/jpeg', sizeBytes: 1024, sha256: 'd'.repeat(64) },
       { authorization: `Bearer ${otherToken}` },
     );
     expect(res.status).toBe(403);
+  });
+
+  it('presign without sha256 skips dedup even when a matching live asset exists', async () => {
+    const { deviceId, token } = await seedDevice();
+    const sha = 'e'.repeat(64);
+    const assetId = crypto.randomUUID();
+    const inOneDay = new Date(Date.now() + 86_400_000);
+    const inTwoDays = new Date(Date.now() + 2 * 86_400_000);
+    store.assets.push({
+      id: assetId,
+      ownerDeviceId: deviceId,
+      bucket: 'b',
+      storageKey: 'uploads/xx/2026/04/19/preexisting.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 500,
+      sha256: sha,
+      originalFilename: 'old.jpg',
+      status: 'verified',
+      createdAt: new Date(),
+      verifiedAt: new Date(),
+      deletedAt: null,
+      deleteAfter: inTwoDays,
+      deletionStatus: 'pending',
+      deletionAttempts: 0,
+      deletionLastError: null,
+    });
+    store.shareLinks.push({
+      id: crypto.randomUUID(),
+      token: 'dedupableTokenAAAAAAAA',
+      assetId,
+      visibility: 'signed',
+      expiresAt: inOneDay,
+      hits: 0,
+      linkStatus: 'active',
+      retentionPolicy: 'oneDay',
+      revokedAt: null,
+      lastAccessedAt: null,
+      accessCount: 0,
+      maxAccessCount: null,
+      createdAt: new Date(),
+    });
+    // Client hashes in parallel with presign — omits sha256 here.
+    const res = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'image/jpeg', sizeBytes: 500 },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { deduped?: unknown; uploadId?: string; upload?: { url: string } };
+    expect(body.deduped).toBeUndefined();
+    expect(body.uploadId).toBeTruthy();
+    expect(body.upload?.url).toContain('https://r2.test/');
+    expect(presignPutMock).toHaveBeenCalledOnce();
+  });
+
+  // Tier 1 — optimistic short URL
+  it('fresh presign inserts share_link with pending status and returns shortUrl', async () => {
+    const { token } = await seedDevice();
+    const res = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'image/jpeg', sizeBytes: 1024 },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      token: string;
+      shortUrl: string;
+      linkStatus: string;
+      uploadId: string;
+    };
+    expect(body.token).toMatch(BASE62_22);
+    expect(body.shortUrl).toBe(`https://fastsha.red/s/${body.token}`);
+    expect(body.linkStatus).toBe('pending');
+    // The share_link row was inserted with pending status.
+    const row = store.shareLinks.find((l) => l.token === body.token);
+    expect(row).toBeDefined();
+    expect(row?.linkStatus).toBe('pending');
+    expect(row?.assetId).toBeNull();
+  });
+
+  it('/complete flips pending share_link to active and attaches assetId', async () => {
+    const { token } = await seedDevice();
+    const presign = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'image/jpeg', sizeBytes: 1024 },
+      { authorization: `Bearer ${token}` },
+    );
+    const { uploadId, token: presignToken } = (await presign.json()) as {
+      uploadId: string;
+      token: string;
+    };
+    headMock.mockResolvedValueOnce({ sizeBytes: 1024, contentType: 'image/jpeg', etag: 'x' });
+    const res = await post(
+      `/v1/uploads/${uploadId}/complete`,
+      { contentType: 'image/jpeg', sizeBytes: 1024, sha256: 'c'.repeat(64) },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string; linkStatus: string; assetId: string };
+    // Same token preserved across presign → complete.
+    expect(body.token).toBe(presignToken);
+    expect(body.linkStatus).toBe('active');
+    // share_link row in the store now carries the created assetId.
+    const row = store.shareLinks.find((l) => l.token === presignToken);
+    expect(row?.linkStatus).toBe('active');
+    expect(row?.assetId).toBe(body.assetId);
+  });
+
+  // Tier 2 — multipart uploads
+  it('presign with sizeBytes > 10MB returns a multipart plan', async () => {
+    const { token } = await seedDevice();
+    const size = 12 * 1024 * 1024;
+    const res = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      upload: {
+        mode: string;
+        multipartUploadId?: string;
+        partSize?: number;
+        parts?: Array<{ partNumber: number; url: string; method: string }>;
+      };
+    };
+    expect(body.upload.mode).toBe('multipart');
+    expect(body.upload.multipartUploadId).toBe('mpu-test-id');
+    expect(body.upload.partSize).toBe(8 * 1024 * 1024);
+    // 12MB / 8MB part size = 2 parts, ceil.
+    expect(body.upload.parts).toHaveLength(2);
+    expect(body.upload.parts?.[0]?.partNumber).toBe(1);
+    expect(body.upload.parts?.[1]?.partNumber).toBe(2);
+    expect(body.upload.parts?.[0]?.method).toBe('PUT');
+    expect(createMultipartMock).toHaveBeenCalledOnce();
+    expect(presignPartMock).toHaveBeenCalledTimes(2);
+    expect(presignPutMock).not.toHaveBeenCalled();
+  });
+
+  it('presign with sizeBytes <= 10MB returns single-PUT plan', async () => {
+    const { token } = await seedDevice();
+    const size = 5 * 1024 * 1024;
+    const res = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      upload: { mode: string; url?: string; method?: string };
+    };
+    expect(body.upload.mode).toBe('single');
+    expect(body.upload.url).toContain('https://r2.test/');
+    expect(body.upload.method).toBe('PUT');
+    expect(createMultipartMock).not.toHaveBeenCalled();
+    expect(presignPutMock).toHaveBeenCalledOnce();
+  });
+
+  it('/complete with multipart parts calls completeMultipartUpload', async () => {
+    const { token } = await seedDevice();
+    const size = 12 * 1024 * 1024;
+    const presign = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      { authorization: `Bearer ${token}` },
+    );
+    const { uploadId } = (await presign.json()) as { uploadId: string };
+    headMock.mockResolvedValueOnce({
+      sizeBytes: size,
+      contentType: 'application/octet-stream',
+      etag: 'x',
+    });
+    const res = await post(
+      `/v1/uploads/${uploadId}/complete`,
+      {
+        contentType: 'application/octet-stream',
+        sizeBytes: size,
+        sha256: 'f'.repeat(64),
+        multipart: {
+          parts: [
+            { partNumber: 2, eTag: '"etag-2"' },
+            { partNumber: 1, eTag: 'etag-1' },
+          ],
+        },
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    expect(completeMultipartMock).toHaveBeenCalledOnce();
+    const call = completeMultipartMock.mock.calls[0];
+    // Quotes stripped; parts sorted by PartNumber ascending.
+    expect(call?.[2]).toBe('mpu-test-id');
+    expect(call?.[3]).toEqual([
+      { PartNumber: 1, ETag: 'etag-1' },
+      { PartNumber: 2, ETag: 'etag-2' },
+    ]);
+  });
+
+  it('/complete with multipart payload but no multipartUploadId returns 400', async () => {
+    const { token } = await seedDevice();
+    // Presign a small single-PUT job.
+    const presign = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'image/jpeg', sizeBytes: 1024 },
+      { authorization: `Bearer ${token}` },
+    );
+    const { uploadId } = (await presign.json()) as { uploadId: string };
+    const res = await post(
+      `/v1/uploads/${uploadId}/complete`,
+      {
+        contentType: 'image/jpeg',
+        sizeBytes: 1024,
+        sha256: 'c'.repeat(64),
+        multipart: { parts: [{ partNumber: 1, eTag: 'x' }] },
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('abort-multipart deletes pending share_link and marks job failed', async () => {
+    const { token } = await seedDevice();
+    const size = 12 * 1024 * 1024;
+    const presign = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      { authorization: `Bearer ${token}` },
+    );
+    const { uploadId, token: shareToken } = (await presign.json()) as {
+      uploadId: string;
+      token: string;
+    };
+    // Sanity: the pending link exists before abort.
+    expect(store.shareLinks.find((l) => l.token === shareToken)).toBeDefined();
+
+    const res = await post(
+      `/v1/uploads/${uploadId}/abort-multipart`,
+      {},
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(204);
+    expect(abortMultipartMock).toHaveBeenCalledOnce();
+    // Pending link gone; upload_job marked failed.
+    expect(store.shareLinks.find((l) => l.token === shareToken)).toBeUndefined();
+    const job = store.uploadJobs.find((j) => j.id === uploadId);
+    expect(job?.status).toBe('failed');
+  });
+
+  it('/complete is idempotent when called twice with the same job', async () => {
+    const { token } = await seedDevice();
+    const presign = await post(
+      '/v1/uploads',
+      { clientJobId: crypto.randomUUID(), contentType: 'image/jpeg', sizeBytes: 1024 },
+      { authorization: `Bearer ${token}` },
+    );
+    const { uploadId } = (await presign.json()) as { uploadId: string };
+    headMock.mockResolvedValue({ sizeBytes: 1024, contentType: 'image/jpeg', etag: 'x' });
+
+    const first = await post(
+      `/v1/uploads/${uploadId}/complete`,
+      { contentType: 'image/jpeg', sizeBytes: 1024, sha256: 'c'.repeat(64) },
+      { authorization: `Bearer ${token}` },
+    );
+    const firstBody = (await first.json()) as { token: string; assetId: string };
+
+    const second = await post(
+      `/v1/uploads/${uploadId}/complete`,
+      { contentType: 'image/jpeg', sizeBytes: 1024, sha256: 'c'.repeat(64) },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as { token: string; assetId: string };
+    expect(secondBody.token).toBe(firstBody.token);
+    expect(secondBody.assetId).toBe(firstBody.assetId);
+    // No duplicate share_link for the same token.
+    const count = store.shareLinks.filter((l) => l.token === firstBody.token).length;
+    expect(count).toBe(1);
   });
 });
 

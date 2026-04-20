@@ -289,4 +289,80 @@ describe('redirect proxy', () => {
     expect(res.status).toBe(200);
     expect(res.body).toBeInstanceOf(ReadableStream);
   });
+
+  // Tier 1 — pending share_link. Seeds a pending row with no asset (null
+  // assetId — asset is created only at /complete).
+  function seedPendingLink(token = 'pendingTokenAAAAAAAAAA'): string {
+    store.shareLinks.push({
+      id: crypto.randomUUID(),
+      token,
+      // Cast via unknown because the fake's row type requires a string
+      // assetId; real schema column is nullable for pending rows.
+      assetId: null as unknown as string,
+      visibility: 'signed',
+      expiresAt: new Date(Date.now() + 3_600_000),
+      hits: 0,
+      linkStatus: 'pending',
+      retentionPolicy: 'oneDay',
+      revokedAt: null,
+      lastAccessedAt: null,
+      accessCount: 0,
+      maxAccessCount: null,
+      createdAt: new Date(),
+    });
+    return token;
+  }
+
+  it('GET /s/:token on pending link returns 200 HTML with Uploading + meta refresh', async () => {
+    const token = seedPendingLink();
+    const res = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toMatch(/text\/html/);
+    const body = await res.text();
+    expect(body.toLowerCase()).toContain('uploading');
+    expect(body).toMatch(/<meta\s+http-equiv="refresh"/i);
+  });
+
+  it('GET /s/:token/raw on pending link returns 404 (file not in R2 yet)', async () => {
+    const token = seedPendingLink('pendingRawTokenAAAAAAA');
+    const res = await get(`/s/${token}/raw`, { accept: '*/*' });
+    expect(res.status).toBe(404);
+  });
+
+  it('after /complete flips pending to active, redirect serves normal preview', async () => {
+    const token = seedPendingLink('pendingFlipTokenAAAAAA');
+    // Simulate /complete by mutating the row — attach an asset and flip
+    // linkStatus to active.
+    const assetId = crypto.randomUUID();
+    const deviceId = crypto.randomUUID();
+    store.assets.push({
+      id: assetId,
+      ownerDeviceId: deviceId,
+      bucket: 'b',
+      storageKey: `uploads/aa/2026/04/19/${assetId}.bin`,
+      contentType: 'application/octet-stream',
+      sizeBytes: 16,
+      sha256: null,
+      originalFilename: 'pending-to-active.bin',
+      status: 'verified',
+      createdAt: new Date(),
+      verifiedAt: new Date(),
+      deletedAt: null,
+      deleteAfter: new Date(Date.now() + 86_400_000),
+      deletionStatus: 'pending',
+      deletionAttempts: 0,
+      deletionLastError: null,
+    });
+    const row = store.shareLinks.find((l) => l.token === token);
+    if (!row) throw new Error('seed failed');
+    row.linkStatus = 'active';
+    row.assetId = assetId;
+
+    const res = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    // Normal preview includes the countdown element + filename.
+    expect(body).toContain('data-expires-at="');
+    expect(body).toContain('pending-to-active.bin');
+  });
 });

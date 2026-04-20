@@ -9,6 +9,13 @@ export function contentDispositionAttachment(filename: string): string {
   return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
 
+export function contentDispositionInline(filename: string): string {
+  const safe = filename.length > 0 ? filename : 'download';
+  const asciiFallback = toAsciiFallback(safe);
+  const encoded = rfc5987Encode(safe);
+  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
+
 function toAsciiFallback(name: string): string {
   // Strip anything outside printable ASCII and escape the two characters
   // (backslash, double-quote) that would break the quoted-string form.

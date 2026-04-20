@@ -1,10 +1,13 @@
 import {
   AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListMultipartUploadsCommand,
   PutObjectCommand,
+  UploadPartCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -64,6 +67,72 @@ export async function presignPut(args: PresignPutArgs): Promise<PresignPutResult
     },
     expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
   };
+}
+
+// Tier 2: multipart upload. Files > 10 MB are split into 8 MB parts the client
+// PUTs in parallel. These helpers mirror the single-PUT presign shape so the
+// route layer stays symmetric. The 4 S3 ops used are Create/UploadPart(signed)/
+// Complete/Abort — all other multipart housekeeping is the cleanup cron's job.
+
+export async function createMultipartUpload(
+  env: Env,
+  key: string,
+  contentType: string,
+): Promise<{ uploadId: string }> {
+  const res = await getClient(env).send(
+    new CreateMultipartUploadCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Key: key,
+      ContentType: contentType,
+    }),
+  );
+  if (!res.UploadId) throw new Error('R2 CreateMultipartUpload returned no UploadId');
+  return { uploadId: res.UploadId };
+}
+
+export async function presignPart(
+  env: Env,
+  key: string,
+  uploadId: string,
+  partNumber: number,
+): Promise<string> {
+  const cmd = new UploadPartCommand({
+    Bucket: env.R2_BUCKET_NAME,
+    Key: key,
+    UploadId: uploadId,
+    PartNumber: partNumber,
+  });
+  return getSignedUrl(getClient(env), cmd, { expiresIn: 15 * 60 });
+}
+
+export async function completeMultipartUpload(
+  env: Env,
+  key: string,
+  uploadId: string,
+  parts: Array<{ PartNumber: number; ETag: string }>,
+): Promise<void> {
+  await getClient(env).send(
+    new CompleteMultipartUploadCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts },
+    }),
+  );
+}
+
+export async function abortMultipartUpload(
+  env: Env,
+  key: string,
+  uploadId: string,
+): Promise<void> {
+  await getClient(env).send(
+    new AbortMultipartUploadCommand({
+      Bucket: env.R2_BUCKET_NAME,
+      Key: key,
+      UploadId: uploadId,
+    }),
+  );
 }
 
 export interface PresignGetArgs {
@@ -151,20 +220,6 @@ export async function listAbortedMultipartUploads(args: {
   }
 
   return result;
-}
-
-export async function abortMultipartUpload(args: {
-  env: Env;
-  key: string;
-  uploadId: string;
-}): Promise<void> {
-  await getClient(args.env).send(
-    new AbortMultipartUploadCommand({
-      Bucket: args.env.R2_BUCKET_NAME,
-      Key: args.key,
-      UploadId: args.uploadId,
-    }),
-  );
 }
 
 export interface BuildStorageKeyArgs {

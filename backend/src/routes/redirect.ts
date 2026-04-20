@@ -6,8 +6,8 @@ import { asset, type Asset, type ShareLink } from '~/db/schema';
 import { findByToken, incrementAccess, markExpiredByToken } from '~/services/shareLinks';
 import { getObjectStream, type R2GetRange } from '~/services/r2';
 import { parseRangeHeader } from '~/lib/httpRange';
-import { contentDispositionAttachment } from '~/lib/contentDisposition';
-import { renderGonePage, renderPreviewPage } from '~/lib/previewPage';
+import { contentDispositionAttachment, contentDispositionInline } from '~/lib/contentDisposition';
+import { renderGonePage, renderPendingPage, renderPreviewPage } from '~/lib/previewPage';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { log } from '~/lib/logger';
@@ -26,10 +26,11 @@ redirectRoutes.use(
   tokenRateLimit({ bucket: 'redirect_token', limit: 300, windowSeconds: 60 }),
 );
 
-redirectRoutes.get('/:token/download', (c) => binaryHandler(c));
+redirectRoutes.get('/:token/download', (c) => binaryHandler(c, 'attachment'));
+redirectRoutes.get('/:token/raw', (c) => binaryHandler(c, 'inline'));
 // Hono doesn't expose a dedicated .head() — register via the generic `.on()`.
 // Resumable-download clients probe with HEAD before issuing ranged GETs.
-redirectRoutes.on('HEAD', '/:token', (c) => binaryHandler(c));
+redirectRoutes.on('HEAD', '/:token', (c) => binaryHandler(c, 'attachment'));
 redirectRoutes.get('/:token', (c) => dispatchHandler(c));
 
 redirectRoutes.post('/:token/verify', (c) => {
@@ -50,7 +51,8 @@ interface LoadedLinkAndAsset {
 type LoadResult =
   | LoadedLinkAndAsset
   | { status: 'not_found' }
-  | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' };
+  | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' }
+  | { status: 'pending'; link: ShareLink };
 
 async function loadActiveLinkAndAsset(
   c: Context<AppBindings>,
@@ -60,6 +62,8 @@ async function loadActiveLinkAndAsset(
   const link = await findByToken(db, token);
   if (!link) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
+  // Pending: asset hasn't landed yet. Recipient sees the "Uploading…" page.
+  if (link.linkStatus === 'pending') return { status: 'pending', link };
   const now = Date.now();
   if (link.expiresAt.getTime() <= now) {
     // Lazy flip so the stored state matches reality for observers.
@@ -74,6 +78,9 @@ async function loadActiveLinkAndAsset(
     );
     return { status: 'gone', reason: 'expired' };
   }
+  // assetId is nullable on the schema (pending rows), but any non-pending
+  // state must have an asset — if it's missing the link is effectively gone.
+  if (!link.assetId) return { status: 'gone', reason: 'deleted' };
   const [a] = await db.select().from(asset).where(eq(asset.id, link.assetId)).limit(1);
   if (!a || a.deletedAt !== null || a.status === 'deleted') {
     return { status: 'gone', reason: 'deleted' };
@@ -92,6 +99,17 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
   if (loaded.status === 'gone') {
     return goneOrNotFoundHtml(c, 410, 'gone', loaded.reason);
   }
+  if (loaded.status === 'pending') {
+    // Tier 1: bytes not in R2 yet. upload_job doesn't carry filename/size
+    // today (the presign payload is request-only), so the page renders with
+    // neutral copy. It's a progress shell, not a preview of the final asset.
+    return renderPendingPage({
+      filename: 'upload',
+      sizeBytes: 0,
+      expiresAt: loaded.link.expiresAt,
+      canonicalUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
+    });
+  }
 
   if (loaded.link.visibility === 'password') {
     return problem(
@@ -108,7 +126,7 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
     !acceptsHtml(c.req.header('accept')) ||
     isAutomatedClient(c.req.header('user-agent'));
   if (wantsDownload) {
-    return binaryHandler(c);
+    return binaryHandler(c, 'attachment');
   }
 
   // Preview page (HTML).
@@ -123,18 +141,56 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
     }),
   );
 
+  const a = loaded.assetRow;
+  let textPreview: string | undefined;
+  let textTruncated = false;
+  if (isTextLikeContentType(a.contentType) && a.sizeBytes > 0) {
+    const cap = Math.min(TEXT_PREVIEW_CAP_BYTES, a.sizeBytes);
+    try {
+      const got = await getObjectStream(c.env, a.storageKey, { offset: 0, length: cap });
+      if (got) {
+        const buf = new Uint8Array(await new Response(got.body).arrayBuffer());
+        const decoded = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+        // The decoder already replaces malformed UTF-8 with U+FFFD, so a
+        // straight slice is safe even if the byte cap landed mid-codepoint.
+        textPreview = decoded;
+        textTruncated = a.sizeBytes > cap;
+      }
+    } catch {
+      // Fall through — renderer drops to the glyph card on undefined preview.
+    }
+  }
+
   return renderPreviewPage({
-    filename: loaded.assetRow.originalFilename ?? 'download',
-    sizeBytes: loaded.assetRow.sizeBytes,
-    contentType: loaded.assetRow.contentType,
+    filename: a.originalFilename ?? 'download',
+    sizeBytes: a.sizeBytes,
+    contentType: a.contentType,
     expiresAt: loaded.link.expiresAt,
     downloadUrl: `${c.env.SHORT_LINK_HOST}/s/${token}/download`,
+    previewUrl: `${c.env.SHORT_LINK_HOST}/s/${token}/raw`,
     canonicalUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
     ogImageUrl: `${c.env.SHORT_LINK_HOST}/og-image.png`,
+    ...(textPreview !== undefined ? { textPreview, textTruncated } : {}),
   });
 }
 
-async function binaryHandler(c: Context<AppBindings>): Promise<Response> {
+const TEXT_PREVIEW_CAP_BYTES = 16 * 1024;
+
+function isTextLikeContentType(ct: string): boolean {
+  const lower = ct.toLowerCase();
+  return (
+    lower.startsWith('text/') ||
+    lower === 'application/json' ||
+    lower === 'application/xml' ||
+    lower === 'application/javascript' ||
+    lower === 'application/yaml'
+  );
+}
+
+async function binaryHandler(
+  c: Context<AppBindings>,
+  mode: 'attachment' | 'inline' = 'attachment',
+): Promise<Response> {
   const token = c.req.param('token') ?? '';
   if (!token) return goneOrNotFoundJson(c, 404, 'not_found', 'missing token');
   const db = createDb(c.env.DATABASE_URL);
@@ -144,6 +200,11 @@ async function binaryHandler(c: Context<AppBindings>): Promise<Response> {
   }
   if (loaded.status === 'gone') {
     return goneOrNotFoundJson(c, 410, 'gone', loaded.reason);
+  }
+  if (loaded.status === 'pending') {
+    // Pending link has no bytes yet. 404 (not 410) so the pending page's
+    // HEAD poll treats it as "keep waiting" rather than "gave up".
+    return goneOrNotFoundJson(c, 404, 'not_found', 'upload in progress');
   }
   if (loaded.link.visibility === 'password') {
     return problem(
@@ -191,9 +252,12 @@ async function binaryHandler(c: Context<AppBindings>): Promise<Response> {
 
   const headers = new Headers();
   headers.set('Content-Type', a.contentType);
+  const dispositionFilename = a.originalFilename ?? 'download';
   headers.set(
     'Content-Disposition',
-    contentDispositionAttachment(a.originalFilename ?? 'download'),
+    mode === 'inline'
+      ? contentDispositionInline(dispositionFilename)
+      : contentDispositionAttachment(dispositionFilename),
   );
   headers.set('Accept-Ranges', 'bytes');
   headers.set('Content-Length', String(contentLength));

@@ -12,7 +12,7 @@ export async function runMultipartSweeper(env: Env): Promise<void> {
   let failed = 0;
   for (const u of stale) {
     try {
-      await abortMultipartUpload({ env, key: u.key, uploadId: u.uploadId });
+      await abortMultipartUpload(env, u.key, u.uploadId);
       aborted++;
       log.info({ msg: 'multipart_aborted', key: u.key, uploadId: u.uploadId });
     } catch (err) {

@@ -20,25 +20,46 @@ const citext = customType<{ data: string }>({
   },
 });
 
-export const user = pgTable('user', {
-  id: uuid('id')
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  email: citext('email').unique(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const user = pgTable(
+  'user',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    // Apple-issued stable identifier (`sub` on the identity token). This is
+    // the ONLY stable link between the account and the human — email may be
+    // hidden behind Apple's Private Relay or absent on subsequent sign-ins.
+    appleUserId: text('apple_user_id').unique(),
+    email: citext('email').unique(),
+    fullName: text('full_name'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    appleUserIdIdx: uniqueIndex('user_apple_user_id_unique').on(t.appleUserId),
+  }),
+);
 
-export const device = pgTable('device', {
-  id: uuid('id')
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  tokenHash: text('token_hash').notNull().unique(),
-  platform: text('platform').notNull(),
-  appVersion: text('app_version').notNull(),
-  userId: uuid('user_id').references(() => user.id),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const device = pgTable(
+  'device',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    tokenHash: text('token_hash').notNull().unique(),
+    platform: text('platform').notNull(),
+    appVersion: text('app_version').notNull(),
+    // Nullable so anonymous devices can run without an account; set when the
+    // device is claimed by a Sign in with Apple flow. ON DELETE SET NULL lets
+    // a user deletion orphan their devices rather than cascade-dropping uploads.
+    userId: uuid('user_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index('device_user_id_idx').on(t.userId),
+  }),
+);
 
 // Allowed values for asset.deletion_status, enforced via CHECK in SQL migration.
 export const ASSET_DELETION_STATUSES = ['pending', 'scheduled', 'deleted', 'failed'] as const;
@@ -77,7 +98,7 @@ export const asset = pgTable(
   }),
 );
 
-export const LINK_STATUSES = ['active', 'expired', 'revoked'] as const;
+export const LINK_STATUSES = ['pending', 'active', 'expired', 'revoked'] as const;
 export type LinkStatus = (typeof LINK_STATUSES)[number];
 
 export const RETENTION_POLICIES = ['oneHour', 'oneDay', 'oneWeek', 'oneMonth', 'custom'] as const;
@@ -90,9 +111,9 @@ export const shareLink = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     token: text('token').notNull().unique(),
-    assetId: uuid('asset_id')
-      .notNull()
-      .references(() => asset.id),
+    // Nullable — pending share_link rows are created at presign before any
+    // asset exists; /complete backfills this once the bytes are verified.
+    assetId: uuid('asset_id').references(() => asset.id),
     // visibility: 'public' | 'signed' | 'password' (CHECK in SQL).
     visibility: text('visibility').notNull(),
     passwordHash: text('password_hash'),
@@ -129,6 +150,13 @@ export const uploadJob = pgTable(
     retentionPolicy: text('retention_policy'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     deleteAfter: timestamp('delete_after', { withTimezone: true }),
+    // Tier 1: token of the pending share_link minted at presign; /complete
+    // flips the row by this token instead of inserting a fresh one.
+    pendingShareLinkToken: text('pending_share_link_token'),
+    // Tier 2: R2 multipart uploadId, set when presign takes the multipart
+    // branch (size > 10 MB). /complete needs it to call CompleteMultipartUpload;
+    // the abort endpoint needs it to call AbortMultipartUpload.
+    multipartUploadId: text('multipart_upload_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

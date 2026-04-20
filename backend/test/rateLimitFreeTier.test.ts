@@ -33,6 +33,14 @@ vi.mock('~/services/r2', async () => {
     }),
     presignGet: async ({ key }: { key: string }) => `https://r2.test/${key}?get=x`,
     headObject: async () => null,
+    // Tier 2: multipart helpers — stubbed so the Pro 1 GB path doesn't try to
+    // reach real R2. Multipart is not the subject here; we only need the route
+    // to return 200 so the Free-cap bypass assertion runs.
+    createMultipartUpload: async () => ({ uploadId: 'mpu-test-id' }),
+    presignPart: async (_env: unknown, key: string, uploadId: string, partNumber: number) =>
+      `https://r2.test/${key}?uploadId=${uploadId}&partNumber=${partNumber}&sig=x`,
+    completeMultipartUpload: async () => undefined,
+    abortMultipartUpload: async () => undefined,
   };
 });
 

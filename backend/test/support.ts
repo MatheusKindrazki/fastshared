@@ -11,6 +11,15 @@ export interface DeviceRow {
   tokenHash: string;
   platform: string;
   appVersion: string;
+  userId: string | null;
+}
+export interface UserRow {
+  id: string;
+  appleUserId: string | null;
+  email: string | null;
+  fullName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 export interface AssetRow {
   id: string;
@@ -54,6 +63,7 @@ export interface UploadJobRow {
   retentionPolicy: string | null;
   expiresAt: Date | null;
   deleteAfter: Date | null;
+  pendingShareLinkToken: string | null;
   createdAt: Date;
 }
 export interface DeletionJobRow {
@@ -79,6 +89,7 @@ export interface SubscriptionRow {
 
 export interface Store {
   devices: DeviceRow[];
+  users: UserRow[];
   assets: AssetRow[];
   shareLinks: ShareLinkRow[];
   uploadJobs: UploadJobRow[];
@@ -91,6 +102,7 @@ export const store: Store = emptyStore();
 function emptyStore(): Store {
   return {
     devices: [],
+    users: [],
     assets: [],
     shareLinks: [],
     uploadJobs: [],
@@ -101,6 +113,7 @@ function emptyStore(): Store {
 
 export function resetStore(): void {
   store.devices.length = 0;
+  store.users.length = 0;
   store.assets.length = 0;
   store.shareLinks.length = 0;
   store.uploadJobs.length = 0;
@@ -233,7 +246,16 @@ export function installDrizzleFake(): void {
                 return chain<DeviceRow>(
                   () => store.devices,
                   (r, conds) =>
-                    conds.length === 0 || conds.some((c) => c === r.tokenHash || c === r.id),
+                    conds.length === 0 ||
+                    conds.some((c) => c === r.tokenHash || c === r.id || c === r.userId),
+                );
+              }
+              if (name === 'user') {
+                return chain<UserRow>(
+                  () => store.users,
+                  (r, conds) =>
+                    conds.length === 0 ||
+                    conds.some((c) => c === r.id || c === r.appleUserId || c === r.email),
                 );
               }
               if (name === 'asset') {
@@ -310,8 +332,20 @@ export function installDrizzleFake(): void {
                       tokenHash: v.tokenHash as string,
                       platform: v.platform as string,
                       appVersion: v.appVersion as string,
+                      userId: (v.userId as string | null) ?? null,
                     };
                     store.devices.push(row);
+                    out.push(row);
+                  } else if (name === 'user') {
+                    const row: UserRow = {
+                      id: (v.id as string) ?? crypto.randomUUID(),
+                      appleUserId: (v.appleUserId as string | null) ?? null,
+                      email: (v.email as string | null) ?? null,
+                      fullName: (v.fullName as string | null) ?? null,
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                    };
+                    store.users.push(row);
                     out.push(row);
                   } else if (name === 'asset') {
                     const row: AssetRow = {
@@ -381,6 +415,7 @@ export function installDrizzleFake(): void {
                       retentionPolicy: (v.retentionPolicy as string | null) ?? null,
                       expiresAt: (v.expiresAt as Date | null) ?? null,
                       deleteAfter: (v.deleteAfter as Date | null) ?? null,
+                      pendingShareLinkToken: (v.pendingShareLinkToken as string | null) ?? null,
                       createdAt: new Date(),
                     };
                     store.uploadJobs.push(row);
@@ -516,6 +551,10 @@ export function installDrizzleFake(): void {
                     store.devices
                       .filter((d) => matches(d as unknown as Record<string, unknown>))
                       .forEach((d) => apply(d as unknown as Record<string, unknown>));
+                  if (name === 'user')
+                    store.users
+                      .filter((u) => matches(u as unknown as Record<string, unknown>))
+                      .forEach((u) => apply(u as unknown as Record<string, unknown>));
                   if (name === 'subscription')
                     store.subscriptions
                       .filter((s) => matches(s as unknown as Record<string, unknown>))
@@ -523,6 +562,12 @@ export function installDrizzleFake(): void {
                   return {
                     returning() {
                       if (name === 'share_link') return Promise.resolve(store.shareLinks.slice());
+                      if (name === 'user') {
+                        const updated = store.users.filter((u) =>
+                          matches(u as unknown as Record<string, unknown>),
+                        );
+                        return Promise.resolve(updated);
+                      }
                       return Promise.resolve([{ id: 'stub' }]);
                     },
                     then<T>(onFulfilled?: (v: unknown) => T) {
@@ -560,6 +605,12 @@ export async function seedDevice(options?: {
   const { hashDeviceToken } = await import('~/services/devices');
   const tokenHash = await hashDeviceToken(token, TEST_ENV.DEVICE_TOKEN_PEPPER);
   const deviceId = options?.deviceId ?? crypto.randomUUID();
-  store.devices.push({ id: deviceId, tokenHash, platform: 'ios', appVersion: '0.1.0' });
+  store.devices.push({
+    id: deviceId,
+    tokenHash,
+    platform: 'ios',
+    appVersion: '0.1.0',
+    userId: null,
+  });
   return { deviceId, token };
 }
