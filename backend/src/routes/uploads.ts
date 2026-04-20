@@ -13,6 +13,7 @@ import {
   buildObjectKeyForJob,
   completeMultipartUpload,
   createMultipartUpload,
+  deleteObject,
   headObject,
   presignPart,
   presignPut,
@@ -325,20 +326,48 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
     });
   }
 
-  const createdAsset = await createAsset(db, {
-    ownerDeviceId: deviceId,
-    bucket: c.env.R2_BUCKET_NAME,
-    storageKey,
-    contentType: body.contentType,
-    sizeBytes: body.sizeBytes,
-    sha256: body.sha256 ?? null,
-    originalFilename: body.originalFilename ?? null,
-    status: 'verified',
-    verifiedAt: new Date(),
-    deleteAfter: job.deleteAfter,
-    deletionStatus: 'pending',
-    deletionAttempts: 0,
-  });
+  // Tier 3 side-effect dedup: since presign now accepts sha256=null (to allow
+  // parallel hashing on the client), first-upload dedup no longer runs there.
+  // We check here instead — if this device already has a live asset with the
+  // same sha256, reuse it and let the freshly-uploaded R2 object get GC'd by
+  // the bucket lifecycle. Skipping this check would trip the
+  // UNIQUE(owner_device_id, sha256) index on asset and explode with a 500.
+  const existing = body.sha256
+    ? await findLiveAssetBySha256AndDevice(db, deviceId, body.sha256)
+    : null;
+
+  let assetForLink: { id: string; deleteAfter: Date };
+  if (existing) {
+    assetForLink = { id: existing.id, deleteAfter: existing.deleteAfter };
+    // Orphaned bytes — drop them now instead of waiting on the lifecycle rule.
+    // Fire-and-forget: if R2 hiccups here, the 90-day bucket rule is the safety net.
+    c.executionCtx.waitUntil(
+      deleteObject({ env: c.env, key: storageKey }).catch((err) => {
+        log.warn({
+          msg: 'dedup_orphan_delete_failed',
+          requestId: c.get('requestId'),
+          key: storageKey,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }),
+    );
+  } else {
+    const createdAsset = await createAsset(db, {
+      ownerDeviceId: deviceId,
+      bucket: c.env.R2_BUCKET_NAME,
+      storageKey,
+      contentType: body.contentType,
+      sizeBytes: body.sizeBytes,
+      sha256: body.sha256 ?? null,
+      originalFilename: body.originalFilename ?? null,
+      status: 'verified',
+      verifiedAt: new Date(),
+      deleteAfter: job.deleteAfter,
+      deletionStatus: 'pending',
+      deletionAttempts: 0,
+    });
+    assetForLink = { id: createdAsset.id, deleteAfter: createdAsset.deleteAfter };
+  }
 
   // Tier 1: flip the pending share_link minted at presign. Falls back to
   // creating a fresh row if the pending one is missing (cron swept it, or
@@ -347,7 +376,7 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
   if (job.pendingShareLinkToken) {
     const updatedRows = await db
       .update(shareLink)
-      .set({ assetId: createdAsset.id, linkStatus: 'active' })
+      .set({ assetId: assetForLink.id, linkStatus: 'active' })
       .where(
         and(
           eq(shareLink.token, job.pendingShareLinkToken),
@@ -369,7 +398,7 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
   if (!link) {
     link = await createShareLink({
       db,
-      assetId: createdAsset.id,
+      assetId: assetForLink.id,
       retentionPolicy: job.retentionPolicy,
       expiresAt: job.expiresAt,
       visibility: 'signed',
@@ -378,15 +407,16 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
 
   // Pre-queue the deletion job for the grace-past-expiry moment. The
   // reconciliation cron is an additional safety net for anything that slips.
-  await scheduleDeletion(db, createdAsset.id, job.deleteAfter);
+  // Idempotent for dedup hits (existing asset may already have a scheduled job).
+  await scheduleDeletion(db, assetForLink.id, assetForLink.deleteAfter);
 
   await db
     .update(uploadJob)
-    .set({ status: 'verified', assetId: createdAsset.id, updatedAt: sql`now()` })
+    .set({ status: 'verified', assetId: assetForLink.id, updatedAt: sql`now()` })
     .where(eq(uploadJob.id, uploadId));
 
   return c.json(
-    completeResponse(c.env.SHORT_LINK_HOST, createdAsset.id, link, createdAsset.deleteAfter),
+    completeResponse(c.env.SHORT_LINK_HOST, assetForLink.id, link, assetForLink.deleteAfter),
   );
 });
 
