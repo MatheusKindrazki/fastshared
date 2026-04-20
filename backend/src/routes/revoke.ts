@@ -35,16 +35,20 @@ revokeRoutes.post('/:token/revoke', async (c) => {
 
   // Fast-path: collapse the grace window — the user explicitly asked us to
   // forget this. scheduleDeletion is idempotent via the partial unique index.
-  c.executionCtx.waitUntil(
-    scheduleDeletion(db, link.assetId, new Date()).catch((err) => {
-      log.warn({
-        msg: 'revoke_schedule_deletion_failed',
-        token,
-        assetId: link.assetId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }),
-  );
+  // Pending links have no asset yet so there's nothing to deletion-schedule.
+  if (link.assetId) {
+    const assetIdForDeletion = link.assetId;
+    c.executionCtx.waitUntil(
+      scheduleDeletion(db, assetIdForDeletion, new Date()).catch((err) => {
+        log.warn({
+          msg: 'revoke_schedule_deletion_failed',
+          token,
+          assetId: assetIdForDeletion,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }),
+    );
+  }
 
   return c.json({
     ok: true,
