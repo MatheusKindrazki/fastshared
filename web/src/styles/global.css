@@ -357,7 +357,11 @@ details.faq-item .faq-body {
   background: linear-gradient(180deg, rgba(255, 159, 71, 0.08) 0%, rgba(29, 13, 75, 0.5) 100%);
   border-color: rgba(255, 159, 71, 0.25);
 }
-.tier-card.tier-lifetime { border-color: rgba(255, 78, 124, 0.35); }
+.tier-card.tier-lifetime {
+  background: linear-gradient(180deg, rgba(255, 78, 124, 0.10) 0%, rgba(29, 13, 75, 0.5) 100%);
+  border-color: rgba(255, 78, 124, 0.4);
+}
+.tier-card.tier-lifetime:hover { border-color: rgba(255, 78, 124, 0.6); }
 
 .tier-head { margin-bottom: 20px; }
 .tier-name {
