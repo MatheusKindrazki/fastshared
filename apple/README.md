@@ -12,7 +12,7 @@ Key pieces (Plan B):
 - `FastSharedCore/Usage/UsageTracker.swift` — UTC-keyed daily upload counter shared between main app + share ext.
 - `FastSharedCore/CloudKit/CloudKitSyncEngine.swift` — Pro-gated `CKSyncEngine` wrapper; mirrors `ShareLinkEntity` rows into the user's private CloudKit DB. Stop never deletes cloud data.
 - `FastSharedApp/Scenes/PaywallView.swift` + `PaywallTierCard.swift` — the paywall surface, driven by `PaywallCoordinator` and presented from every upsell moment (daily cap, cloud-sync toggle, extended retention, large file, 402 server-forced).
-- `FastSharedApp/FastShared.storekit` — hand-authored StoreKit configuration with the three production SKUs (`dev.kindrazki.fastshared.pro.monthly|annual|lifetime`).
+- `FastSharedApp/FastShared.storekit` — hand-authored StoreKit configuration with the three production SKUs (`red.fastsha.pro.monthly|annual|lifetime`).
 
 QA: `docs/plan/pro-feature-B-apple-qa-matrix.md`.
 

@@ -84,13 +84,59 @@ Also configure Apple's **Server-to-Server Notifications v2** to point at
 Notifications are signed by Apple; the Worker verifies the JWS chain before
 touching the database, so the endpoint is safe to expose unauthenticated.
 
+## Auth: Sign in with Apple
+
+`POST /v1/auth/apple` verifies an Apple identity token, finds-or-creates a
+user keyed on the Apple `sub` claim, optionally claims an existing anonymous
+device, and issues a fresh device token scoped to the user.
+
+Request body:
+
+```jsonc
+{
+  "identityToken": "<ES256 JWT from ASAuthorizationAppleIDCredential>",
+  "authorizationCode": "<single-use auth code from Apple>",
+  "fullName": "Ada Lovelace",          // only populated on FIRST authorization
+  "email": "ada@example.com",          // only populated on FIRST authorization
+  "claimDeviceToken": "<prior anonymous device token>", // optional
+  "platform": "ios",                   // or "ipados" | "macos"
+  "appVersion": "0.2.0"                // optional
+}
+```
+
+Response (201):
+
+```jsonc
+{
+  "deviceToken": "<new bearer token>",
+  "userId": "uuid",
+  "isNewUser": true
+}
+```
+
+Apple only returns `fullName` and `email` on the very first authorization of
+your bundle identifier per Apple ID — every subsequent call omits both. The
+endpoint must not require them. We persist whatever we see the first time
+and never overwrite non-null columns on later calls.
+
+The bundle identifier used as the JWT `aud` claim comes from the
+`APPLE_BUNDLE_ID` public var (see `wrangler.toml [vars]` and `.env.example`).
+Apple's JWKS is fetched lazily from
+<https://appleid.apple.com/auth/keys> and cached at module scope per Worker
+isolate.
+
+One-time provisioning: enable "Sign In with Apple" for the bundle ID in the
+Apple Developer portal under **Certificates, Identifiers & Profiles →
+Identifiers → \<your app ID\> → Capabilities**. See
+<https://developer.apple.com/documentation/sign_in_with_apple/sign_in_with_apple_js/configuring_your_webpage_for_sign_in_with_apple>.
+
 ## Provision the database
 
 1. Create a Neon project, copy the pooled connection string into `DATABASE_URL`.
 2. Apply migrations:
 
 ```bash
-pnpm db:migrate     # applies drizzle/0000_init.sql then drizzle/0001_ephemeral.sql
+pnpm db:migrate     # applies drizzle/0000_init.sql through drizzle/0003_apple_auth.sql
 ```
 
 The initial migration requires the `pgcrypto` and `citext` extensions; Neon
