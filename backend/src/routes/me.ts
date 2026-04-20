@@ -4,8 +4,8 @@ import { createDb } from '~/db/client';
 import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
-import { FREE_CAPS, PRO_CAPS, type TierCaps } from '~/lib/tierCaps';
-import { findActiveByDeviceId } from '~/services/subscriptions';
+import { FREE_CAPS, PRO_CAPS, toWireCaps, type TierCapsWire } from '~/lib/tierCaps';
+import { findActiveProForDevice, parseDevProAllowList } from '~/services/subscriptions';
 import type { SubscriptionStatus } from '~/db/schema';
 
 export const meRoutes = new Hono<AppBindings>();
@@ -13,10 +13,18 @@ export const meRoutes = new Hono<AppBindings>();
 meRoutes.use('/', auth());
 meRoutes.use('/', ratelimit({ bucket: 'me', limit: 120, windowSeconds: 60 }));
 
+// WHY: `caps` uses the client-wire shape (TierCapsWire) rather than the
+// internal TierCaps — iOS `TierCapsDTO` decodes
+// `{dailyUploadLimit, maxFileSizeBytes, maxRetentionSeconds, allowsCloudSync}`.
+// Serving the internal shape caused silent decode failures, leaving the app
+// pinned to its hardcoded default caps no matter what the server reported.
+// `isPro` is duplicated at the top level because the client keys its paywall
+// gate on `MeResponse.isPro`, not on `tier` alone.
 interface MeResponse {
+  isPro: boolean;
   tier: 'free' | 'monthly' | 'annual' | 'lifetime';
   expiresAt: string | null;
-  caps: TierCaps;
+  caps: TierCapsWire;
   subscription: {
     status: SubscriptionStatus;
     autoRenewStatus: boolean;
@@ -28,14 +36,19 @@ meRoutes.get('/', async (c) => {
   if (!deviceId) return problem(c, 401, 'unauthorized', 'Unauthorized', 'no device');
 
   const db = createDb(c.env.DATABASE_URL);
-  const active = await findActiveByDeviceId(db, deviceId);
+  const active = await findActiveProForDevice(
+    db,
+    deviceId,
+    parseDevProAllowList(c.env.DEV_PRO_APPLE_USER_IDS),
+  );
 
   // No active row at all → pure Free.
   if (!active) {
     const body: MeResponse = {
+      isPro: false,
       tier: 'free',
       expiresAt: null,
-      caps: FREE_CAPS,
+      caps: toWireCaps(FREE_CAPS),
       subscription: null,
     };
     return c.json(body);
@@ -53,18 +66,20 @@ meRoutes.get('/', async (c) => {
   const isPro = proStatuses.includes(status);
   if (!isPro) {
     const body: MeResponse = {
+      isPro: false,
       tier: 'free',
       expiresAt: null,
-      caps: FREE_CAPS,
+      caps: toWireCaps(FREE_CAPS),
       subscription: null,
     };
     return c.json(body);
   }
 
   const body: MeResponse = {
+    isPro: true,
     tier,
     expiresAt: active.expiresAt ? active.expiresAt.toISOString() : null,
-    caps: PRO_CAPS,
+    caps: toWireCaps(PRO_CAPS),
     subscription: {
       status,
       autoRenewStatus: active.autoRenewStatus,

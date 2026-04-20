@@ -44,5 +44,12 @@ SHORT_LINK_HOST = "https://fastsha.red"
 PUBLIC_API_HOST = "https://api.fastsha.red"
 R2_BUCKET_NAME = "fastshared"
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
-# Public — matches apple/Config/Shared.xcconfig PRODUCT_BUNDLE_IDENTIFIER.
-APPLE_BUNDLE_ID = "red.fastsha.FastShared"
+# Public — matches apple/Config/Shared.xcconfig PRODUCT_BUNDLE_IDENTIFIER_PREFIX.
+# Apple's "Sign in with Apple" JWT puts this in the aud claim; must be identical
+# to the iOS/macOS app's bundle identifier, otherwise verifyIdentityToken() 401s.
+APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
+# Comma-separated Apple User IDs ("sub" claim) that should always resolve as
+# Pro/lifetime. Use for the founder / internal testers who need the full
+# feature set without a real StoreKit transaction. Not a credential — just an
+# opaque Apple identifier — but keep the list short.
+DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"

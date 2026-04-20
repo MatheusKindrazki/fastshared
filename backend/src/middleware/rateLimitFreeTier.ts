@@ -3,7 +3,7 @@ import type { AppBindings } from '~/env';
 import { createDb } from '~/db/client';
 import { problem } from '~/lib/problem';
 import { FREE_CAPS } from '~/lib/tierCaps';
-import { findActiveByDeviceId } from '~/services/subscriptions';
+import { findActiveProForDevice, parseDevProAllowList } from '~/services/subscriptions';
 import { log } from '~/lib/logger';
 
 const UPGRADE_TARGET = { tier: 'pro' as const, url: 'https://fastsha.red/pricing' };
@@ -29,7 +29,11 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     }
 
     const db = createDb(c.env.DATABASE_URL);
-    const active = await findActiveByDeviceId(db, deviceId).catch((err) => {
+    const active = await findActiveProForDevice(
+      db,
+      deviceId,
+      parseDevProAllowList(c.env.DEV_PRO_APPLE_USER_IDS),
+    ).catch((err) => {
       log.warn({
         msg: 'free_tier_sub_lookup_failed',
         requestId: c.get('requestId'),
@@ -59,7 +63,8 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     }
 
     // 1. Size cap — fail fast, no KV increment.
-    const sizeBytes = typeof payload['sizeBytes'] === 'number' ? (payload['sizeBytes'] as number) : 0;
+    const sizeBytes =
+      typeof payload['sizeBytes'] === 'number' ? (payload['sizeBytes'] as number) : 0;
     const sizeLimitBytes = FREE_CAPS.maxFileSizeMB * 1024 * 1024;
     if (sizeBytes > sizeLimitBytes) {
       return problem(
@@ -79,10 +84,13 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     // 2. Retention clamp (silent). Rewrite the in-flight request so the
     //    downstream handler sees `oneDay` + no custom TTL.
     const retentionPolicy =
-      typeof payload['retentionPolicy'] === 'string' ? (payload['retentionPolicy'] as string) : 'oneDay';
-    const customTtl = typeof payload['customTtlSeconds'] === 'number'
-      ? (payload['customTtlSeconds'] as number)
-      : undefined;
+      typeof payload['retentionPolicy'] === 'string'
+        ? (payload['retentionPolicy'] as string)
+        : 'oneDay';
+    const customTtl =
+      typeof payload['customTtlSeconds'] === 'number'
+        ? (payload['customTtlSeconds'] as number)
+        : undefined;
     const effectiveTtl = ttlSecondsForPolicy(retentionPolicy, customTtl);
     const needsClamp = effectiveTtl === null || effectiveTtl > FREE_TIER_MAX_SECONDS;
     let bodyForDownstream: Record<string, unknown> = payload;
@@ -105,7 +113,10 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     const currentStr = await c.env.RATE_LIMIT.get(kvKey);
     const currentCount = currentStr ? Number(currentStr) : 0;
     const safeCount = Number.isFinite(currentCount) ? currentCount : 0;
-    if (safeCount >= FREE_CAPS.uploadsPerDay) {
+    // `-1` is the "unlimited" sentinel in TierCaps.uploadsPerDay — skip the
+    // gate entirely when the tier has no daily cap, otherwise every request
+    // trivially satisfies `safeCount >= -1` and 402s.
+    if (FREE_CAPS.uploadsPerDay >= 0 && safeCount >= FREE_CAPS.uploadsPerDay) {
       const resetsAt = nextUtcMidnight().toISOString();
       return problem(
         c,

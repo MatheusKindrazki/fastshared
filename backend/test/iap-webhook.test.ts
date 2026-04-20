@@ -136,6 +136,7 @@ function seedSubscription(overrides: Partial<(typeof store.subscriptions)[number
     tokenHash: 'th',
     platform: 'ios',
     appVersion: '0.1.0',
+    userId: null,
   });
   store.subscriptions.push({
     id: crypto.randomUUID(),

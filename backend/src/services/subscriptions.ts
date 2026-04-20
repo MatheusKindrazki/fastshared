@@ -1,7 +1,9 @@
 import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Db } from '~/db/client';
 import {
+  device,
   subscription,
+  user,
   type Subscription,
   type SubscriptionStatus,
   type SubscriptionTier,
@@ -13,16 +15,81 @@ export const PRODUCT_ID_MONTHLY = 'red.fastsha.pro.monthly';
 export const PRODUCT_ID_ANNUAL = 'red.fastsha.pro.annual';
 export const PRODUCT_ID_LIFETIME = 'red.fastsha.pro.lifetime';
 
-export async function findActiveByDeviceId(
-  db: Db,
-  deviceId: string,
-): Promise<Subscription | null> {
+export async function findActiveByDeviceId(db: Db, deviceId: string): Promise<Subscription | null> {
   const rows = await db
     .select()
     .from(subscription)
     .where(and(eq(subscription.deviceId, deviceId), eq(subscription.status, 'active')))
     .limit(1);
   return rows[0] ?? null;
+}
+
+// Pro-override check for developer/internal accounts. Resolves the device's
+// owning user and compares their Apple `sub` to the configured allow-list. If
+// matched, fabricates an in-memory "active lifetime" subscription so every Pro
+// gatekeeper (caps, rate limits, `/v1/me`) sees a single coherent answer
+// without us having to poke rows into the real `subscription` table.
+//
+// Returns `null` on no match — callers should then fall back to the normal
+// DB-backed `findActiveByDeviceId` path.
+export async function findDevProOverride(
+  db: Db,
+  deviceId: string,
+  allowedAppleUserIds: string[],
+): Promise<Subscription | null> {
+  if (allowedAppleUserIds.length === 0) return null;
+  const rows = await db
+    .select({ appleUserId: user.appleUserId })
+    .from(device)
+    .leftJoin(user, eq(device.userId, user.id))
+    .where(eq(device.id, deviceId))
+    .limit(1);
+  const sub = rows[0]?.appleUserId;
+  if (!sub || !allowedAppleUserIds.includes(sub)) return null;
+  // Synthetic row — not persisted. IDs/timestamps are placeholders the
+  // response layer stringifies but no other code branches on.
+  const now = new Date();
+  return {
+    id: '00000000-0000-0000-0000-000000000000',
+    deviceId,
+    appleOriginalTransactionId: `dev-pro:${sub}`,
+    tier: 'lifetime' as SubscriptionTier,
+    status: 'active' as SubscriptionStatus,
+    expiresAt: null,
+    autoRenewStatus: false,
+    latestTransactionId: `dev-pro:${sub}`,
+    rawNotificationPayload: null,
+    createdAt: now,
+    updatedAt: now,
+  } satisfies Subscription;
+}
+
+// Resolve the caller's effective Pro-bearing subscription. Checks the env
+// allow-list first so dev/internal accounts are forever Pro without needing a
+// real StoreKit transaction; falls back to the DB-backed lookup for everyone
+// else. Single entry point for every gatekeeper in the codebase.
+export async function findActiveProForDevice(
+  db: Db,
+  deviceId: string,
+  devProAppleUserIds: string[] = [],
+): Promise<Subscription | null> {
+  const override = await findDevProOverride(db, deviceId, devProAppleUserIds);
+  if (override) return override;
+  return findActiveByDeviceId(db, deviceId);
+}
+
+// Parse the comma-separated env var into a deduped, trimmed list. Empty /
+// missing → empty array so callers can pass directly without null-checking.
+export function parseDevProAllowList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    ),
+  ];
 }
 
 export async function findByOriginalTransactionId(

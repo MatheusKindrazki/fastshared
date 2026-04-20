@@ -19,6 +19,11 @@ export interface Env {
   APP_STORE_CONNECT_ISSUER_ID: string;
   APP_STORE_CONNECT_P8_KEY_BASE64: string;
   APPLE_BUNDLE_ID: string;
+  // Comma-separated Apple User IDs (the `sub` claim on the identity token)
+  // that should bypass the paywall and always resolve as Pro/lifetime.
+  // Optional — absent/empty means no devs overridden. Public (it's just an
+  // opaque Apple sub, not a credential); kept in `[vars]` for traceability.
+  DEV_PRO_APPLE_USER_IDS?: string;
 }
 
 export interface AppVars {

@@ -27,7 +27,11 @@ public enum APIError: Error, Sendable {
     case transport(underlying: String)
     case http(status: Int, problem: Problem?)
     case decoding(underlying: String)
-    case unauthorized
+    /// `HTTP 401 Unauthorized`. `detail` mirrors `Problem.detail` when the
+    /// server supplies one (e.g. `"invalid_identity_token:claim_invalid"` for
+    /// Sign in with Apple), so UI/logs can surface the concrete reason instead
+    /// of a generic "not authorized".
+    case unauthorized(detail: String?)
     case ratelimited(retryAfter: TimeInterval?)
     case validation(field: String, reason: String)
     /// `HTTP 402 Payment Required` — the server refused because the caller is on a
@@ -47,7 +51,10 @@ extension APIError: LocalizedError {
             return "HTTP \(status)"
         case .decoding(let underlying):
             return "Could not decode server response: \(underlying)"
-        case .unauthorized:
+        case .unauthorized(let detail):
+            if let detail, !detail.isEmpty {
+                return "Not authorized: \(detail)"
+            }
             return "Device is not authorized."
         case .ratelimited(let retryAfter):
             if let retryAfter { return "Rate limited; try again in \(Int(retryAfter))s." }
