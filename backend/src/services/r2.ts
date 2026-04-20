@@ -1,7 +1,4 @@
 import {
-  AbortMultipartUploadCommand,
-  CompleteMultipartUploadCommand,
-  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -70,24 +67,20 @@ export async function presignPut(args: PresignPutArgs): Promise<PresignPutResult
 }
 
 // Tier 2: multipart upload. Files > 10 MB are split into 8 MB parts the client
-// PUTs in parallel. These helpers mirror the single-PUT presign shape so the
-// route layer stays symmetric. The 4 S3 ops used are Create/UploadPart(signed)/
-// Complete/Abort — all other multipart housekeeping is the cleanup cron's job.
+// PUTs in parallel. Create/Complete/Abort go through the native R2 binding
+// (no XML deserialization → no DOMParser → works inside Workers runtime).
+// Part PUTs are still S3-signed URLs so the client can upload parallel parts
+// directly without a proxy hop.
 
 export async function createMultipartUpload(
   env: Env,
   key: string,
   contentType: string,
 ): Promise<{ uploadId: string }> {
-  const res = await getClient(env).send(
-    new CreateMultipartUploadCommand({
-      Bucket: env.R2_BUCKET_NAME,
-      Key: key,
-      ContentType: contentType,
-    }),
-  );
-  if (!res.UploadId) throw new Error('R2 CreateMultipartUpload returned no UploadId');
-  return { uploadId: res.UploadId };
+  const mp = await env.R2.createMultipartUpload(key, {
+    httpMetadata: { contentType },
+  });
+  return { uploadId: mp.uploadId };
 }
 
 export async function presignPart(
@@ -111,13 +104,9 @@ export async function completeMultipartUpload(
   uploadId: string,
   parts: Array<{ PartNumber: number; ETag: string }>,
 ): Promise<void> {
-  await getClient(env).send(
-    new CompleteMultipartUploadCommand({
-      Bucket: env.R2_BUCKET_NAME,
-      Key: key,
-      UploadId: uploadId,
-      MultipartUpload: { Parts: parts },
-    }),
+  const mp = env.R2.resumeMultipartUpload(key, uploadId);
+  await mp.complete(
+    parts.map((p) => ({ partNumber: p.PartNumber, etag: p.ETag })),
   );
 }
 
@@ -126,13 +115,8 @@ export async function abortMultipartUpload(
   key: string,
   uploadId: string,
 ): Promise<void> {
-  await getClient(env).send(
-    new AbortMultipartUploadCommand({
-      Bucket: env.R2_BUCKET_NAME,
-      Key: key,
-      UploadId: uploadId,
-    }),
-  );
+  const mp = env.R2.resumeMultipartUpload(key, uploadId);
+  await mp.abort();
 }
 
 export interface PresignGetArgs {
