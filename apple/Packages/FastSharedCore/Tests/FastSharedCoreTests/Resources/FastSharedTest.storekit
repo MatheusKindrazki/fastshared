@@ -13,7 +13,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "dev.kindrazki.fastshared.pro.lifetime",
+      "productID" : "red.fastsha.pro.lifetime",
       "referenceName" : "Pro Lifetime",
       "type" : "NonConsumable"
     }
@@ -46,7 +46,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "dev.kindrazki.fastshared.pro.monthly",
+          "productID" : "red.fastsha.pro.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Pro Monthly",
           "subscriptionGroupID" : "FA57574A-G001-G001-G001-FA57574AG001",
@@ -67,7 +67,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "dev.kindrazki.fastshared.pro.annual",
+          "productID" : "red.fastsha.pro.annual",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Pro Annual",
           "subscriptionGroupID" : "FA57574A-G001-G001-G001-FA57574AG001",

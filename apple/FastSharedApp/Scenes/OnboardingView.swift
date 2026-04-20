@@ -5,194 +5,192 @@ import FastSharedCore
 import UIKit
 #endif
 
-/// Single-page declarative onboarding, per `design/screens.jsx` → `Onboarding()`.
+/// Single-page declarative onboarding — "Friendly" redesign v2.
 ///
-/// The layout: a blurred amber sphere in the top-right backdrop, a heavy
-/// display headline split across four lines, a body paragraph, a three-step
-/// mono ledger ("01 SHARE / 02 PICK / 03 PASTE"), and an amber CTA block.
+/// Layout: warm off-white ground, centered hero mark + headline, three
+/// step cards, and a large violet CTA footer that stays pinned at the
+/// bottom of the safe area.
 struct OnboardingView: View {
     let onComplete: () -> Void
 
     @Environment(\.apiClient) private var apiClient
+    @Environment(\.colorScheme) private var colorScheme
+
     @State private var isProvisioning: Bool = false
     @State private var errorMessage: String?
     @State private var startedPulse: Int = 0
 
+    // MARK: - Resolved tokens
+
+    private var groundColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
+    }
+    private var textColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
+    }
+    private var textDimColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
+    }
+    private var textFaintColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextFaintDark : BrandPalette.friendlyTextFaint
+    }
+    private var cardBgColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
+    }
+    private var lineColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
+    }
+
+    // MARK: - Body
+
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // WHY: the brand ground is near-black, which on a device with
-            // physical dark bezels (iPhone 17 Pro Max notch + home indicator
-            // area) makes the top and bottom of the screen read as letterbox
-            // rather than as a full-bleed canvas. Two soft radial washes
-            // push life into those edges — amber glow from the sphere's
-            // origin at the top-right, violet ambient from bottom-left —
-            // while the base ground still anchors the overall darkness.
-            BrandPalette.ground
-                .ignoresSafeArea()
-
-            RadialGradient(
-                colors: [BrandPalette.amberAccent.hot.opacity(0.22), .clear],
-                center: .init(x: 0.9, y: 0.08),
-                startRadius: 0,
-                endRadius: 620
-            )
-            .ignoresSafeArea()
-            .blendMode(.screen)
-            .allowsHitTesting(false)
-
-            RadialGradient(
-                colors: [Color(red: 0.23, green: 0.11, blue: 0.40).opacity(0.55), .clear],
-                center: .init(x: 0.1, y: 0.95),
-                startRadius: 0,
-                endRadius: 700
-            )
-            .ignoresSafeArea()
-            .blendMode(.screen)
-            .allowsHitTesting(false)
-
-            // Ambient plane-arc — framed hero moment bleeding into the top-right
-            // corner, per v3 `Onboarding()` (design/screens.jsx). The mark itself
-            // ships with its own ambient glow; we add a little extra blur + opacity
-            // so it reads as decorative backdrop rather than hero focus.
-            PlaneArcMark(size: 160, framed: true, ambient: true)
-                .opacity(0.5)
-                .blur(radius: 12)
-                .offset(x: 180, y: -40)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-
-            GeometryReader { geo in
+        GeometryReader { geo in
+            ScrollView {
                 VStack(spacing: 0) {
-                    header
-                        .padding(.horizontal, 28)
-                        .padding(.top, 40)
+                    heroBlock
+                        .padding(.top, 28)
+                        .padding(.bottom, 36)
+                        .padding(.horizontal, 24)
 
-                    Spacer(minLength: 0)
+                    stepsBlock
+                        .padding(.horizontal, 24)
 
-                    ledger
-                        .padding(.horizontal, 28)
+                    Spacer(minLength: 24)
 
-                    Spacer(minLength: 16)
-
-                    cta
-                        .padding(.horizontal, 22)
-                        .padding(.bottom, max(32, geo.safeAreaInsets.bottom))
+                    Color.clear.frame(height: 1)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // Ensure the scroll content is always at least tall enough for
+                // the footer to be pushed to the bottom.
+                .frame(minHeight: geo.size.height - footerHeight(geo: geo), alignment: .top)
+            }
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+
+            // Footer pinned over scroll content
+            VStack {
+                Spacer()
+                footerBlock(geo: geo)
             }
         }
-        .preferredColorScheme(.dark)
-        .foregroundStyle(BrandPalette.text)
+        .background(groundColor.ignoresSafeArea())
+        .foregroundStyle(textColor)
         #if os(iOS)
         .sensoryFeedback(.success, trigger: startedPulse)
         #endif
     }
 
-    // MARK: - Sections
+    // MARK: - Hero
 
-    private var header: some View {
-        let accent = BrandPalette.amberAccent
-        return VStack(alignment: .leading, spacing: 22) {
-            Mono("fastshared · v1", color: accent.hot)
+    private var heroBlock: some View {
+        VStack(spacing: 20) {
+            PlaneArcMark(size: 88, ambient: true)
+                .accessibilityHidden(true)
 
-            // Display headline — 58pt / -0.045em tracking / 0.92 line height.
-            (
-                Text("Share\nanything.\n")
-                    .foregroundStyle(BrandPalette.text)
-                + Text("Vanishes\n")
-                    .foregroundStyle(accent.hot)
-                + Text("on schedule.")
-                    .foregroundStyle(BrandPalette.text)
-            )
-            .font(.system(size: 58, weight: .bold))
-            .tracking(-2.6)
-            .lineSpacing(-6)
-            .fixedSize(horizontal: false, vertical: true)
+            Text("Share files that don't stick around.")
+                .font(.system(size: 32, weight: .bold))
+                .tracking(-0.03 * 32)
+                .lineSpacing(0.1 * 32)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(textColor)
+                .lineLimit(2)
 
-            Text("From the share sheet, Action Button, or drag onto the dock — FastShared uploads in the background, copies a temporary link, and deletes the file when time's up.")
-                .font(.system(size: 16, weight: .regular))
-                .lineSpacing(4)
-                .foregroundStyle(BrandPalette.textDim)
-                .frame(maxWidth: 320, alignment: .leading)
+            Text("Fast, temporary links. No accounts, no clutter.")
+                .font(.system(size: 15))
+                .foregroundStyle(textDimColor)
+                .lineSpacing(1.5)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+        }
+        .frame(maxWidth: .infinity)
+    }
 
+    // MARK: - Step cards
+
+    private let steps: [(emoji: String, title: String, body: String)] = [
+        ("📤", "Share like you always do", "From Photos, Files, or anywhere with the share sheet."),
+        ("🔗", "We create a link, you copy it", "Auto-copied. Paste in chat, email, anywhere."),
+        ("✨", "It disappears on schedule", "Default: 24 hours. Change it any time, or stop it yourself."),
+    ]
+
+    private var stepsBlock: some View {
+        VStack(spacing: 14) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
+                stepCard(emoji: step.emoji, title: step.title, body: step.body)
+            }
+        }
+    }
+
+    private func stepCard(emoji: String, title: String, body: String) -> some View {
+        HStack(spacing: 14) {
+            // Icon tile
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(BrandPalette.accentHot.opacity(0.12))
+                    .frame(width: 44, height: 44)
+                Text(emoji)
+                    .font(.system(size: 22))
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(textColor)
+                Text(body)
+                    .font(.system(size: 13))
+                    .foregroundStyle(textDimColor)
+                    .lineSpacing(1.45)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(cardBgColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(lineColor, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Footer
+
+    private func footerHeight(geo: GeometryProxy) -> CGFloat {
+        // Approximate height: button ~52 + microcopy ~20 + margin top 14 + padding top 24 + bottom safe area
+        return 52 + 20 + 14 + 24 + 30 + max(geo.safeAreaInsets.bottom, 0)
+    }
+
+    private func footerBlock(geo: GeometryProxy) -> some View {
+        VStack(spacing: 14) {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
-                    .foregroundStyle(BrandPalette.amberAccent.fade)
-                    .padding(.top, 4)
+                    .foregroundStyle(BrandPalette.urgencyCritical)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
 
-    private var ledger: some View {
-        let accent = BrandPalette.amberAccent
-        let steps: [(String, String, String)] = [
-            ("01", "SHARE", "any file, anywhere"),
-            ("02", "PICK", "1h · 24h · 1w · 1mo"),
-            ("03", "PASTE", "link lands in clipboard"),
-        ]
-        return VStack(spacing: 0) {
-            ForEach(Array(steps.enumerated()), id: \.offset) { idx, step in
-                HStack(spacing: 14) {
-                    // Big amber numeral
-                    Text(step.0)
-                        .font(.system(size: 28, weight: .medium, design: .monospaced))
-                        .tracking(-1.0)
-                        .foregroundStyle(accent.hot)
-                        .frame(width: 52, alignment: .leading)
-
-                    // Headline + sub
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(step.1)
-                            .font(.system(size: 15, weight: .semibold))
-                            .tracking(-0.2)
-                            .foregroundStyle(BrandPalette.text)
-                        Text(step.2)
-                            .font(.system(size: 11, weight: .regular, design: .monospaced))
-                            .foregroundStyle(BrandPalette.textFaint)
-                    }
-
-                    Spacer(minLength: 0)
-
-                    // Amber progress tick (fades with index).
-                    Rectangle()
-                        .fill(accent.hot)
-                        .frame(width: 32, height: 2)
-                        .opacity(0.2 + Double(idx) * 0.3)
-                }
-                .padding(.vertical, 14)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(idx == 0 ? BrandPalette.lineStrong : BrandPalette.line)
-                        .frame(height: 1)
-                }
-            }
-        }
-    }
-
-    private var cta: some View {
-        let accent = BrandPalette.amberAccent
-        return VStack(spacing: 14) {
             Button {
                 Task { await provision() }
             } label: {
                 HStack {
                     if isProvisioning {
-                        ProgressView().tint(Color(red: 0.07, green: 0.02, blue: 0.04))
+                        ProgressView()
+                            .tint(colorScheme == .dark ? BrandPalette.friendlyTextDark : Color.white)
+                            .scaleEffect(0.85)
                     }
-                    Text(isProvisioning ? "PROVISIONING" : "GET STARTED")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .tracking(1.8)
-                    Spacer()
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .bold))
+                    Text(isProvisioning ? "Setting up…" : "Get started →")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(colorScheme == .dark ? BrandPalette.friendlyText : Color.white)
                 }
-                .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 18)
                 .frame(maxWidth: .infinity)
-                .background(accent.hot, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.vertical, 16)
+                .padding(.horizontal, 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(BrandPalette.accentHot)
+                )
             }
             .buttonStyle(.plain)
             .disabled(isProvisioning)
@@ -200,9 +198,26 @@ struct OnboardingView: View {
             .keyboardShortcut(.defaultAction)
             #endif
 
-            Mono("no account · no sign-in · no trace",
-                 size: 10, track: 1.4, color: BrandPalette.textFaint)
+            Text("No sign-up needed. Works offline-first.")
+                .font(.system(size: 12))
+                .foregroundStyle(textFaintColor)
+                .multilineTextAlignment(.center)
         }
+        .padding(.top, 24)
+        .padding(.horizontal, 24)
+        .padding(.bottom, max(30, geo.safeAreaInsets.bottom + 8))
+        .background(
+            // Gradient fade from transparent ground at top to opaque at bottom
+            LinearGradient(
+                stops: [
+                    .init(color: groundColor.opacity(0), location: 0),
+                    .init(color: groundColor, location: 0.35),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
     }
 
     // MARK: - Provisioning
@@ -235,6 +250,12 @@ struct OnboardingView: View {
     }
 }
 
-#Preview {
+#Preview("Light") {
     OnboardingView(onComplete: {})
+        .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    OnboardingView(onComplete: {})
+        .preferredColorScheme(.dark)
 }

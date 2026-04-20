@@ -79,6 +79,14 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # WHY: the share extension hands off to the main app via this scheme so
+        # the Live Activity can be created by the process that owns the widget
+        # descriptors. Without registering the scheme here, `NSExtensionContext.open`
+        # fails with `The operation couldn't be completed. (error 1.)`.
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.kindrazki.fastshared
+            CFBundleURLSchemes:
+              - fastshared
     settings:
       base:
         PRODUCT_NAME: FastShared
@@ -158,6 +166,11 @@ targets:
         CFBundleDisplayName: FastShared Live Activity
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # WHY: the widget target itself has to declare Live Activity support,
+        # not only the host app. Without this `Activity<...>.request` from the
+        # host/extension succeeds to the OS but the system never routes
+        # content updates to this widget — the Dynamic Island stays empty.
+        NSSupportsLiveActivities: true
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

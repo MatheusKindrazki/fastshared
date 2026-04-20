@@ -4,143 +4,159 @@ import UIKit
 import FastSharedCore
 
 /// Soft nudge that slides in from the top of the hub when the user takes a
-/// screenshot. 10s auto-dismiss. Tap Upload to feed it into the pipeline;
-/// tap the × to hide. Layout ported from `design/screens.jsx` →
-/// `ScreenshotBanner()`.
+/// screenshot. 10s auto-dismiss. Tap "Share it →" to feed it into the pipeline;
+/// tap Dismiss to hide. Layout matches the Friendly redesign spec.
 @MainActor
 struct ScreenshotBanner: View {
     let pending: PendingScreenshot
     let onUpload: () -> Void
     let onDismiss: () -> Void
 
-    // WHY: `Date.now` captured at render instantiation gives the TimelineView a stable origin for
-    // the 10-second countdown without needing an external clock.
-    @State private var shownAt: Date = .now
+    @State private var drainProgress: Double = 1.0
     @State private var uploadTick: Int = 0
     @State private var dismissTick: Int = 0
 
-    private let lifetime: TimeInterval = 10
+    private let autoTimeoutDuration: Double = 10.0
 
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
-            let elapsed = max(0, ctx.date.timeIntervalSince(shownAt))
-            let remainingFraction = max(0, min(1, (lifetime - elapsed) / lifetime))
+    @Environment(\.colorScheme) private var colorScheme
 
-            content(remainingFraction: remainingFraction)
-                .onChange(of: elapsed) { _, newValue in
-                    if newValue >= lifetime {
-                        onDismiss()
-                    }
-                }
-        }
-        .sensoryFeedback(.impact(weight: .medium), trigger: uploadTick)
-        .sensoryFeedback(.impact(weight: .light), trigger: dismissTick)
+    // MARK: - Theme helpers
+
+    private var canvasColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
+    }
+    private var textColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
+    }
+    private var textDimColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
+    }
+    private var lineColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
     }
 
-    @ViewBuilder
-    private func content(remainingFraction: Double) -> some View {
-        let accent = BrandPalette.amberAccent
-
+    var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 12) {
+            // Top row
+            HStack(spacing: 12) {
                 thumbnail
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Screenshot ready")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(BrandPalette.text)
+                    Text("Share this screenshot?")
+                        .font(.system(size: 14, weight: .bold))
+                        .tracking(-14 * 0.01)
+                        .foregroundStyle(textColor)
                         .lineLimit(1)
-                    Text("TAP UPLOAD · AUTO-HIDE 10S")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .tracking(1.2)
-                        .foregroundStyle(accent.hot)
-                        .lineLimit(1)
+                    Text("One tap creates a 24-hour link")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(textDimColor)
                 }
                 Spacer(minLength: 6)
-                uploadButton
-                dismissButton
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
 
-            // Drain rail — amber fills from left and shrinks as the 10s countdown progresses.
+            // Button row
+            HStack(spacing: 8) {
+                // Dismiss button
+                Button(action: dismiss) {
+                    Text("Dismiss")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(textDimColor)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(lineColor, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                // Share button (wider)
+                Button(action: upload) {
+                    Text("Share it →")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color(red: 26/255, green: 15/255, blue: 56/255))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .background(BrandPalette.accentHot, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.top, 12)
+
+            // Drain rail
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(BrandPalette.line)
-                    Rectangle()
-                        .fill(accent.hot)
-                        .frame(width: geo.size.width * remainingFraction)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(lineColor)
+                        .frame(height: 3)
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(BrandPalette.accentHot)
+                        .frame(width: geo.size.width * CGFloat(drainProgress), height: 3)
                 }
             }
-            .frame(height: 2)
+            .frame(height: 3)
+            .padding(.top, 12)
         }
+        .padding(16)
+        .frame(maxWidth: 360)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(BrandPalette.surface1.opacity(0.92))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(canvasColor)
+                .shadow(color: Color(red: 33/255, green: 18/255, blue: 68/255).opacity(0.08), radius: 16, x: 0, y: 4)
+                .shadow(color: Color(red: 33/255, green: 18/255, blue: 68/255).opacity(0.06), radius: 48, x: 0, y: 16)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(BrandPalette.lineStrong, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(lineColor, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.35), radius: 20, y: 12)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .sensoryFeedback(.impact(weight: .medium), trigger: uploadTick)
+        .sensoryFeedback(.impact(weight: .light), trigger: dismissTick)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Screenshot ready to share")
         .accessibilityAddTraits(.isButton)
+        .onAppear {
+            // Kick off the drain animation immediately
+            withAnimation(.linear(duration: autoTimeoutDuration)) {
+                drainProgress = 0.0
+            }
+            // Auto-dismiss after timeout
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(autoTimeoutDuration * 1_000_000_000))
+                onDismiss()
+            }
+        }
     }
 
+    // MARK: - Thumbnail
+
     private var thumbnail: some View {
-        let accent = BrandPalette.amberAccent
-        return Group {
+        Group {
             if let image = UIImage(contentsOfFile: pending.url.path) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
             } else {
-                LinearGradient(
-                    colors: [BrandPalette.surface1, BrandPalette.surface2],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                .overlay(
-                    Image(systemName: "photo")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(accent.hot)
-                )
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(BrandPalette.accentHot.opacity(0.25))
+                    .overlay(
+                        Text("📸")
+                            .font(.system(size: 20))
+                    )
             }
         }
-        .frame(width: 52, height: 52)
+        .frame(width: 44, height: 58)
         .clipped()
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(accent.hot.opacity(0.20), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(BrandPalette.accentHot.opacity(0.40), lineWidth: 1)
         )
     }
 
-    private var uploadButton: some View {
-        let accent = BrandPalette.amberAccent
-        return Button(action: upload) {
-            Text("UPLOAD")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .tracking(1.4)
-                .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(accent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var dismissButton: some View {
-        Button(action: dismiss) {
-            Image(systemName: "xmark")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.textDim)
-                .padding(8)
-        }
-        .buttonStyle(.plain)
-    }
+    // MARK: - Actions
 
     private func upload() {
         uploadTick &+= 1

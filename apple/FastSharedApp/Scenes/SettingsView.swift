@@ -1,17 +1,21 @@
 import SwiftUI
 import FastSharedCore
 
-/// Settings — `design/screens.jsx` → `Settings()`.
+/// Settings — pixel-perfect redesign.
 ///
-/// Mono numbered section headers ("01 · sharing", "02 · backend", "03 · capture"),
-/// 4-up retention pill picker, readonly metadata rows for the backend section,
-/// amber-filled capture toggles, and a destructive "SIGN OUT DEVICE" button.
+/// Sections: Sharing defaults · Quick share · This device · Danger zone.
+/// Each section uses a card (bg paper, border 1px line, cornerRadius 20).
+/// Rows have 14×16 padding; non-last rows have a 0.5pt bottom divider.
 struct SettingsView: View {
     @Environment(\.subscriptionStore) private var subscriptionStore
     @Environment(\.paywallCoordinator) private var paywallCoordinator
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var deviceIdSuffix: String = "------"
     @State private var confirmSignOut: Bool = false
+    @State private var confirmAppleSignOut: Bool = false
+    @State private var showSignInSheet: Bool = false
+    @State private var authRefreshToken: Int = 0
     @State private var defaultRetention: RetentionPolicy = RetentionPolicy.default
     @State private var screenshotBannerOn: Bool = true
     @State private var actionButtonOn: Bool = true
@@ -19,58 +23,285 @@ struct SettingsView: View {
     @State private var cloudSyncOn: Bool = true
     @State private var snapshot: SubscriptionSnapshot = .free
     @State private var usageCount: Int = 0
+    @State private var copyLinkAuto: Bool = true
+    @State private var notifyOnOpen: Bool = false
+    #if DEBUG
+    @State private var devUnlimitedCaps: Bool = DevOverrides.unlimitedFreeCaps
+    #endif
 
     private let appGroupDefaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
     private let retentionKey = "default_retention_policy"
     private let cloudSyncKey = "cloud_sync_enabled_v1"
 
+    // MARK: - Theme helpers
+
+    private var ground: Color {
+        colorScheme == .dark
+            ? BrandPalette.friendlyGroundDark
+            : BrandPalette.friendlyGround
+    }
+    private var paper: Color {
+        colorScheme == .dark
+            ? BrandPalette.friendlyCanvasDark
+            : .white
+    }
+    private var textPrimary: Color {
+        colorScheme == .dark
+            ? BrandPalette.friendlyTextDark
+            : BrandPalette.friendlyText
+    }
+    private var textDim: Color {
+        colorScheme == .dark
+            ? BrandPalette.friendlyTextDimDark
+            : BrandPalette.friendlyTextDim
+    }
+    private var textFaint: Color {
+        colorScheme == .dark
+            ? BrandPalette.friendlyTextFaintDark
+            : BrandPalette.friendlyTextFaint
+    }
+    private var line: Color {
+        colorScheme == .dark
+            ? BrandPalette.friendlyLineDark
+            : BrandPalette.friendlyLine
+    }
+
+    // MARK: - Body
+
     var body: some View {
         ZStack {
-            BrandPalette.ground.ignoresSafeArea()
+            ground.ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    crumb
-                        .padding(.top, 16)
+            VStack(alignment: .leading, spacing: 0) {
+                // Title block
+                Text("Settings")
+                    .font(.system(size: 28, weight: .bold))
+                    .kerning(-0.025 * 28)
+                    .foregroundStyle(textPrimary)
+                    .padding(.top, 8)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 14)
 
-                    Text("Settings")
-                        .font(.system(size: 44, weight: .bold))
-                        .tracking(-1.8)
-                        .foregroundStyle(BrandPalette.text)
-                        .padding(.top, 18)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 24) {
+                        // 0. Account — Sign in with Apple upgrade path
+                        accountSection
+                            .id(authRefreshToken) // rebuild after sign-out
 
-                    sharingSection
-                        .padding(.top, 28)
+                        // 1. Sharing defaults
+                        SettingsSection(
+                            header: "Sharing defaults",
+                            textDim: textDim,
+                            paper: paper,
+                            line: line
+                        ) {
+                            SettingsRow(
+                                label: "Default expiration",
+                                value: defaultRetention.displayName,
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: true,
+                                action: nil
+                            )
+                            SettingsRow(
+                                label: "Copy link automatically",
+                                value: copyLinkAuto ? "On" : "Off",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: true,
+                                action: nil
+                            )
+                            SettingsRow(
+                                label: "Notify me on open",
+                                value: notifyOnOpen ? "On" : "Off",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: false,
+                                action: nil
+                            )
+                        }
 
-                    usageSection
-                        .padding(.top, 24)
+                        // 2. Quick share
+                        SettingsSection(
+                            header: "Quick share",
+                            textDim: textDim,
+                            paper: paper,
+                            line: line
+                        ) {
+                            SettingsRow(
+                                label: "Share sheet",
+                                value: "Enabled",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: true,
+                                action: nil
+                            )
+                            SettingsRow(
+                                label: "Screenshot shortcut",
+                                value: screenshotBannerOn ? "On" : "Off",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: true,
+                                action: nil
+                            )
+                            SettingsRow(
+                                label: "Action button",
+                                value: actionButtonOn ? "FastShared" : "Off",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: false,
+                                action: nil
+                            )
+                        }
 
-                    proSection
-                        .padding(.top, 24)
+                        // 3. This device
+                        SettingsSection(
+                            header: "This device",
+                            textDim: textDim,
+                            paper: paper,
+                            line: line
+                        ) {
+                            SettingsRow(
+                                label: "Device name",
+                                value: "\(platformTag) ·  ••••\(deviceIdSuffix)",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: true,
+                                action: nil
+                            )
+                            SettingsRow(
+                                label: "Server",
+                                value: AppGroupConfig.shortLinkHost.host ?? "fastsha.red",
+                                isDestructive: false,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: false,
+                                action: nil
+                            )
+                        }
 
-                    backendSection
-                        .padding(.top, 24)
+                        // 4. Danger zone
+                        SettingsSection(
+                            header: "Danger zone",
+                            textDim: textDim,
+                            paper: paper,
+                            line: line
+                        ) {
+                            SettingsRow(
+                                label: "Stop all active shares",
+                                value: nil,
+                                isDestructive: true,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: true,
+                                action: nil
+                            )
+                            SettingsRow(
+                                label: "Reset this device",
+                                value: nil,
+                                isDestructive: true,
+                                hasChevron: true,
+                                textPrimary: textPrimary,
+                                textDim: textDim,
+                                textFaint: textFaint,
+                                line: line,
+                                showDivider: false,
+                                action: { confirmSignOut = true }
+                            )
+                        }
 
-                    captureSection
-                        .padding(.top, 24)
+                        // Pro / Sync row (preserved from original)
+                        proSyncSection
 
-                    signOutButton
-                        .padding(.top, 28)
+                        // Usage section (preserved from original)
+                        usageSectionView
 
-                    Color.clear.frame(height: 80)
+                        #if DEBUG
+                        // Developer — DEBUG builds only. Toggles the dev bypass
+                        // for free-tier caps (daily count, file size, retention).
+                        SettingsSection(
+                            header: "Developer",
+                            textDim: textDim,
+                            paper: paper,
+                            line: line
+                        ) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Unlimited free uploads")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(textPrimary)
+                                    Text("DEBUG: skip all free-tier gates so you can test every flow.")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(textDim)
+                                }
+                                Spacer()
+                                Toggle("", isOn: $devUnlimitedCaps)
+                                    .labelsHidden()
+                                    .tint(BrandPalette.accent.hot)
+                                    .onChange(of: devUnlimitedCaps) { _, new in
+                                        DevOverrides.setUnlimitedFreeCaps(new)
+                                    }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                        }
+                        #endif
+
+                        // Footer
+                        Text("FastShared · \(appVersion)")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(textFaint)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 10)
+                            .padding(.bottom, 20)
+                    }
+                    .padding(.top, 4)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal, 24)
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
         }
-        .preferredColorScheme(.dark)
-        .foregroundStyle(BrandPalette.text)
+        .foregroundStyle(textPrimary)
         .navigationTitle("")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(BrandPalette.ground, for: .navigationBar)
+        .toolbarBackground(ground, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         #endif
         .task {
             await loadDeviceId()
@@ -92,101 +323,277 @@ struct SettingsView: View {
         } message: {
             Text("You will lose access to history on this device until you sign in again.")
         }
-    }
-
-    // MARK: - Chrome
-
-    private var crumb: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "chevron.left")
-                .font(.system(size: 12, weight: .semibold))
-            Text("MANIFEST")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .tracking(1.6)
-        }
-        .foregroundStyle(BrandPalette.textDim)
-    }
-
-    // MARK: - Sections
-
-    private var sharingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Mono("01 · sharing", color: BrandPalette.amberAccent.hot)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Default retention")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(BrandPalette.text)
-                Text("applies in share sheet and screenshot banner")
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(BrandPalette.textFaint)
-
-                retentionPicker
-                    .padding(.top, 8)
+        .confirmationDialog("Sign out of FastShared?", isPresented: $confirmAppleSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) {
+                Task { await appleSignOut() }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(BrandPalette.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(BrandPalette.line, lineWidth: 1)
-                    )
-            )
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your Apple account will be disconnected on this device. Your shares stay where they are.")
+        }
+        .sheet(isPresented: $showSignInSheet) {
+            SignInView(onComplete: {
+                showSignInSheet = false
+                authRefreshToken &+= 1 // force section rebuild with fresh AuthState
+            })
         }
     }
 
-    private var retentionPicker: some View {
-        GatedRetentionPicker(
-            selection: Binding(
-                get: { defaultRetention },
-                set: { policy in
-                    defaultRetention = policy
-                    appGroupDefaults?.set(policy.rawValue, forKey: retentionKey)
-                }
-            ),
-            tier: currentTier,
-            onPaywall: { trigger in
-                paywallCoordinator.present(trigger)
-            }
-        )
+    // MARK: - Account section
+
+    /// The auth-mode reading is wrapped in a computed property so it reruns
+    /// after `authRefreshToken` flips (SwiftUI re-reads body). `AuthState`
+    /// is UserDefaults-backed and not Observable, so we force invalidation
+    /// via the `.id(authRefreshToken)` modifier on the section view.
+    private var accountMode: AuthState.Mode? {
+        _ = authRefreshToken
+        return AuthState.currentMode
     }
 
-    private var currentTier: Tier {
-        snapshot.isPro ? .pro(snapshot.tier ?? .monthly) : .free
-    }
-
-    // MARK: - Usage (Part 6 — B6.2)
-
-    /// "Uploads today" row. For Free tier renders `"2 / 3"`; for Pro renders
-    /// `"47 / ∞"` via the SF Symbol so Dynamic Type + RTL both render correctly.
-    /// Reset time uses local midnight even though the counter is UTC-keyed —
-    /// the UI value is a human convenience; the counter is tz-safe.
-    private var usageSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Mono("01.5 · usage", color: BrandPalette.amberAccent.hot)
-
-            TimelineView(.periodic(from: .now, by: 60)) { timeline in
-                VStack(spacing: 0) {
-                    usageRow(now: timeline.date)
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(BrandPalette.paper)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(BrandPalette.line, lineWidth: 1)
-                        )
-                )
+    @ViewBuilder
+    private var accountSection: some View {
+        let mode = accountMode
+        SettingsSection(
+            header: "Account",
+            textDim: textDim,
+            paper: paper,
+            line: line
+        ) {
+            switch mode {
+            case .apple:
+                appleAccountRows
+            case .guest, .none:
+                guestAccountRows
             }
         }
     }
 
     @ViewBuilder
-    private func usageRow(now: Date) -> some View {
-        let formatter = DateFormatter()
-        let _ = formatter.dateFormat = "h:mm a"
+    private var guestAccountRows: some View {
+        // Row 1 — status
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Not signed in")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(textPrimary)
+                Text("Sync off — your shares live only on this device.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(textDim)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+
+        Rectangle()
+            .fill(line)
+            .frame(height: 0.5)
+            .padding(.leading, 16)
+
+        // Row 2 — Sign in (accent)
+        Button {
+            showSignInSheet = true
+        } label: {
+            HStack {
+                Text("Sign in with Apple")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(BrandPalette.accentHot)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(textFaint)
+                    .padding(.leading, 4)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var appleAccountRows: some View {
+        // Row 1 — header + name/email
+        let identityLabel: String = authFullName ?? authEmail ?? "Apple account"
+        VStack(alignment: .leading, spacing: 4) {
+            Text("SIGNED IN AS")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.5)
+                .foregroundStyle(textFaint)
+            Text(identityLabel)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+
+        Rectangle()
+            .fill(line)
+            .frame(height: 0.5)
+            .padding(.leading, 16)
+
+        // Row 2 — Apple ID truncated prefix
+        HStack {
+            Text("Apple ID")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(textPrimary)
+            Spacer()
+            Text(truncatedAppleUserId)
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(textDim)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+
+        Rectangle()
+            .fill(line)
+            .frame(height: 0.5)
+            .padding(.leading, 16)
+
+        // Row 3 — Sign out (destructive)
+        Button {
+            confirmAppleSignOut = true
+        } label: {
+            HStack {
+                Text("Sign out")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(BrandPalette.urgencyCritical)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(textFaint)
+                    .padding(.leading, 4)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Auth read helpers
+    //
+    // NOTE: If the parallel agent has exposed `AuthState.fullName`,
+    // `AuthState.email`, and `AuthState.appleUserId` as public static
+    // getters, prefer those. Until then — or as a safe fallback if those
+    // accessors aren't present — we read the same UserDefaults keys that
+    // `AuthState.markSignedInOrGuest` writes.
+    private var authDefaults: UserDefaults? {
+        UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
+    }
+    private var authFullName: String? {
+        authDefaults?.string(forKey: AuthState.appleNameKey)
+    }
+    private var authEmail: String? {
+        authDefaults?.string(forKey: AuthState.appleEmailKey)
+    }
+    private var authAppleUserId: String? {
+        authDefaults?.string(forKey: AuthState.appleUserIdKey)
+    }
+    private var truncatedAppleUserId: String {
+        guard let id = authAppleUserId, !id.isEmpty else { return "—" }
+        if id.count <= 10 { return id }
+        return String(id.prefix(10)) + "…"
+    }
+
+    /// Apple-sign-out handler. Flips AuthState back to nil (so the gate can
+    /// re-prompt on next launch if the app decides to), clears the device
+    /// token so the account is fully disconnected on this device, and bumps
+    /// the refresh token so the UI rebuilds the Account section in-place.
+    ///
+    /// TODO: once `tokenStore` is available via an `@Environment` value, use
+    /// the injected instance instead of instantiating `DeviceTokenStore`
+    /// locally here.
+    private func appleSignOut() async {
+        AuthState.reset()
+        let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
+        let tokenStore = DeviceTokenStore(keychain: keychain)
+        try? await tokenStore.clear()
+        await MainActor.run {
+            authRefreshToken &+= 1
+            deviceIdSuffix = "------"
+        }
+    }
+
+    // MARK: - Pro sync section (preserved)
+
+    private var proSyncSection: some View {
+        SettingsSection(
+            header: "Pro · Sync",
+            textDim: textDim,
+            paper: paper,
+            line: line
+        ) {
+            let isPro = snapshot.isPro && snapshot.caps.allowsCloudSync
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Sync across devices")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(textPrimary)
+                        if !isPro {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(textDim)
+                        }
+                    }
+                    Text(isPro
+                         ? "Mirrors link history to your private iCloud."
+                         : "Pro only. Mirrors link history to your iCloud.")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(textFaint)
+                }
+                Spacer()
+                FriendlyToggle(isOn: Binding(
+                    get: { cloudSyncOn && isPro },
+                    set: { newValue in
+                        if isPro {
+                            cloudSyncOn = newValue
+                            appGroupDefaults?.set(newValue, forKey: cloudSyncKey)
+                        }
+                    }
+                ))
+                .disabled(!isPro)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            .overlay {
+                if !isPro {
+                    Button {
+                        paywallCoordinator.present(.cloudSyncRequested)
+                    } label: {
+                        Color.clear
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Sync across devices — Pro only")
+                    .accessibilityHint("Opens the Pro upgrade screen")
+                }
+            }
+        }
+    }
+
+    // MARK: - Usage section (preserved)
+
+    private var usageSectionView: some View {
+        SettingsSection(
+            header: "Usage",
+            textDim: textDim,
+            paper: paper,
+            line: line
+        ) {
+            TimelineView(.periodic(from: .now, by: 60)) { timeline in
+                usageRowContent(now: timeline.date)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func usageRowContent(now: Date) -> some View {
         let midnight = Calendar.current.nextDate(after: now,
                                                  matching: DateComponents(hour: 0, minute: 0),
                                                  matchingPolicy: .strict)
@@ -194,24 +601,24 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Uploads today")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(BrandPalette.text)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(textPrimary)
                 Spacer()
                 HStack(spacing: 4) {
                     Text("\(usageCount)")
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(BrandPalette.text)
+                        .foregroundStyle(textPrimary)
                     Text("/")
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(BrandPalette.textFaint)
+                        .foregroundStyle(textFaint)
                     if let cap = snapshot.caps.dailyUploadLimit {
                         Text("\(cap)")
                             .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundStyle(BrandPalette.textDim)
+                            .foregroundStyle(textDim)
                     } else {
                         Image(systemName: "infinity")
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(BrandPalette.amberAccent.hot)
+                            .foregroundStyle(BrandPalette.accentHot)
                             .accessibilityLabel("unlimited")
                     }
                 }
@@ -219,194 +626,14 @@ struct SettingsView: View {
             if let midnight {
                 Text("Resets at \(midnight.formatted(.dateTime.hour().minute()))")
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(BrandPalette.textFaint)
+                    .foregroundStyle(textFaint)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
 
-    // MARK: - Pro section (B3.3)
-
-    private var proSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Mono("01.7 · pro", color: BrandPalette.amberAccent.hot)
-
-            VStack(spacing: 0) {
-                cloudSyncRow
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(BrandPalette.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(BrandPalette.line, lineWidth: 1)
-                    )
-            )
-        }
-    }
-
-    private var cloudSyncRow: some View {
-        let isPro = snapshot.isPro && snapshot.caps.allowsCloudSync
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text("Sync across devices")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(BrandPalette.text)
-                    if !isPro {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(BrandPalette.textDim)
-                    }
-                }
-                Text(isPro
-                     ? "Mirrors link history to your private iCloud."
-                     : "Pro-only. Mirrors link history to your private iCloud.")
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(BrandPalette.textFaint)
-            }
-            Spacer()
-            AmberToggle(isOn: Binding(
-                get: { cloudSyncOn && isPro },
-                set: { newValue in
-                    if isPro {
-                        cloudSyncOn = newValue
-                        appGroupDefaults?.set(newValue, forKey: cloudSyncKey)
-                    }
-                }
-            ))
-            .disabled(!isPro)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .contentShape(Rectangle())
-        .overlay {
-            // WHY: disabled SwiftUI controls don't accept hit tests; a full-row
-            // transparent button catches taps so Free users land in the paywall
-            // instead of silently bouncing off the locked toggle.
-            if !isPro {
-                Button {
-                    paywallCoordinator.present(.cloudSyncRequested)
-                } label: {
-                    Color.clear
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sync across devices — Pro only")
-                .accessibilityHint("Opens the Pro upgrade screen")
-            }
-        }
-    }
-
-    private func loadCloudSync() {
-        // Default ON for Pro; only respect the stored value if explicitly set.
-        if let stored = appGroupDefaults?.object(forKey: cloudSyncKey) as? Bool {
-            cloudSyncOn = stored
-        } else {
-            cloudSyncOn = true
-        }
-    }
-
-    private var backendSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Mono("02 · backend", color: BrandPalette.amberAccent.hot)
-
-            let rows: [(String, String)] = [
-                ("API", AppGroupConfig.apiBaseURL.host ?? AppGroupConfig.apiBaseURL.absoluteString),
-                ("SHORT", AppGroupConfig.shortLinkHost.host ?? AppGroupConfig.shortLinkHost.absoluteString),
-                ("DEVICE", "\(platformTag) · ••••\(deviceIdSuffix)"),
-                ("VERSION", appVersion),
-            ]
-
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
-                    HStack {
-                        Mono(row.0, size: 10, color: BrandPalette.textFaint)
-                            .frame(width: 80, alignment: .leading)
-                        Text(row.1)
-                            .font(.system(size: 12, weight: .regular, design: .monospaced))
-                            .foregroundStyle(BrandPalette.text)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .overlay(alignment: .bottom) {
-                        if idx < rows.count - 1 {
-                            Rectangle().fill(BrandPalette.line).frame(height: 1)
-                        }
-                    }
-                }
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(BrandPalette.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(BrandPalette.line, lineWidth: 1)
-                    )
-            )
-        }
-    }
-
-    private var captureSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Mono("03 · capture", color: BrandPalette.amberAccent.hot)
-
-            VStack(spacing: 0) {
-                toggleRow(title: "Screenshot banner", on: $screenshotBannerOn, showDivider: true)
-                toggleRow(title: "Action Button",     on: $actionButtonOn,      showDivider: true)
-                toggleRow(title: "Back Tap (double)", on: $backTapOn,           showDivider: false)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(BrandPalette.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(BrandPalette.line, lineWidth: 1)
-                    )
-            )
-        }
-    }
-
-    private func toggleRow(title: String, on: Binding<Bool>, showDivider: Bool) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(BrandPalette.text)
-            Spacer()
-            AmberToggle(isOn: on)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .overlay(alignment: .bottom) {
-            if showDivider {
-                Rectangle().fill(BrandPalette.line).frame(height: 1)
-            }
-        }
-    }
-
-    private var signOutButton: some View {
-        let accent = BrandPalette.amberAccent
-        return Button {
-            confirmSignOut = true
-        } label: {
-            Text("SIGN OUT DEVICE")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .tracking(1.6)
-                .foregroundStyle(accent.fade)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(accent.fade.opacity(0.27), lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - State
+    // MARK: - State helpers
 
     private var platformTag: String {
         #if os(iOS)
@@ -419,7 +646,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
         return "\(short) (\(build))"
     }
@@ -442,6 +669,14 @@ struct SettingsView: View {
         }
     }
 
+    private func loadCloudSync() {
+        if let stored = appGroupDefaults?.object(forKey: cloudSyncKey) as? Bool {
+            cloudSyncOn = stored
+        } else {
+            cloudSyncOn = true
+        }
+    }
+
     private func signOut() async {
         let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
         let tokenStore = DeviceTokenStore(keychain: keychain)
@@ -450,14 +685,107 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Supporting atoms
+// MARK: - SettingsSection
 
-/// Amber-filled toggle matching the redesign's pill style.
-private struct AmberToggle: View {
+private struct SettingsSection<Content: View>: View {
+    let header: String
+    let textDim: Color
+    let paper: Color
+    let line: Color
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(header.uppercased())
+                .font(.system(size: 12, weight: .bold))
+                .tracking(0.6)
+                .foregroundStyle(textDim)
+                .padding(.leading, 6)
+                .padding(.bottom, 8)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(paper)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(line, lineWidth: 1)
+                    )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+}
+
+// MARK: - SettingsRow
+
+private struct SettingsRow: View {
+    let label: String
+    let value: String?
+    let isDestructive: Bool
+    let hasChevron: Bool
+    let textPrimary: Color
+    let textDim: Color
+    let textFaint: Color
+    let line: Color
+    let showDivider: Bool
+    let action: (() -> Void)?
+
+    var body: some View {
+        let labelColor = isDestructive ? BrandPalette.urgencyCritical : textPrimary
+        VStack(spacing: 0) {
+            Group {
+                if let action {
+                    Button(action: action) {
+                        rowContent(labelColor: labelColor)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    rowContent(labelColor: labelColor)
+                }
+            }
+
+            if showDivider {
+                Rectangle()
+                    .fill(line)
+                    .frame(height: 0.5)
+                    .padding(.leading, 16)
+            }
+        }
+    }
+
+    private func rowContent(labelColor: Color) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(labelColor)
+            Spacer()
+            if let value {
+                Text(value)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(textDim)
+                    .lineLimit(1)
+            }
+            if hasChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(textFaint)
+                    .padding(.leading, 4)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+}
+
+// MARK: - FriendlyToggle (violet accent, replaces AmberToggle for redesign)
+
+private struct FriendlyToggle: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        let accent = BrandPalette.amberAccent
         Button {
             withAnimation(.spring(duration: 0.28, bounce: 0.2)) {
                 isOn.toggle()
@@ -465,14 +793,14 @@ private struct AmberToggle: View {
         } label: {
             ZStack {
                 Capsule()
-                    .fill(isOn ? accent.hot : BrandPalette.line)
+                    .fill(isOn ? BrandPalette.accentHot : BrandPalette.friendlyLine)
                     .frame(width: 42, height: 25)
                 HStack {
                     if isOn { Spacer() }
                     Circle()
                         .fill(Color.white)
                         .frame(width: 21, height: 21)
-                        .shadow(color: .black.opacity(0.3), radius: 1, y: 1)
+                        .shadow(color: .black.opacity(0.2), radius: 1, y: 1)
                     if !isOn { Spacer() }
                 }
                 .frame(width: 42, height: 25)
@@ -483,10 +811,9 @@ private struct AmberToggle: View {
     }
 }
 
-// MARK: - RetentionPolicy shortLabel for the 4-up picker
+// MARK: - RetentionPolicy shortLabel
 
 private extension RetentionPolicy {
-    /// Compact mono label used in the 4-up retention picker (1h / 24h / 1w / 1mo).
     var shortLabel: String {
         switch self {
         case .oneHour: return "1h"

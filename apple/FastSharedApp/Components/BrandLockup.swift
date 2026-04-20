@@ -17,6 +17,16 @@ struct BrandLockup: View {
     /// Font size of the `fastshared.` wordmark in points.
     var textSize: CGFloat = 15
 
+    // WHY: `BrandPalette.text` is the dark-theme ink (near-white) — perfect on
+    // `.ground` / `.groundDark`, but invisible on the Friendly light surface
+    // (`#fbf8f1`). The wordmark needs to follow the scheme: dark ink on light,
+    // bright ink on dark. We resolve against the ambient scheme at render.
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var wordmarkColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
+    }
+
     var body: some View {
         let accent = BrandPalette.amberAccent
         HStack(spacing: 8) {
@@ -25,7 +35,7 @@ struct BrandLockup: View {
 
             (
                 Text("fastshared")
-                    .foregroundStyle(BrandPalette.text)
+                    .foregroundStyle(wordmarkColor)
                 + Text(".")
                     .foregroundStyle(accent.hot)
             )

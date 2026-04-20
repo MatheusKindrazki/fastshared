@@ -13,9 +13,9 @@ public enum ProTier: String, Sendable, Codable, CaseIterable {
     /// Canonical App Store Connect product identifier.
     public var productID: String {
         switch self {
-        case .monthly:  return "dev.kindrazki.fastshared.pro.monthly"
-        case .annual:   return "dev.kindrazki.fastshared.pro.annual"
-        case .lifetime: return "dev.kindrazki.fastshared.pro.lifetime"
+        case .monthly:  return "red.fastsha.pro.monthly"
+        case .annual:   return "red.fastsha.pro.annual"
+        case .lifetime: return "red.fastsha.pro.lifetime"
         }
     }
 }

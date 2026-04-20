@@ -68,8 +68,11 @@ public enum LastScreenshotFetcher {
 
     // MARK: - Authorization
 
-    // WHY: `.readWrite` is overkill — we never write to the Photos library, only read the most recent asset.
-    // `.limited` still grants read access to the user's selection, so we treat it as success.
+    // WHY: `.readWrite` is required — PHPhotoLibrary has exactly two access
+    // levels, `.addOnly` (write-only, no fetchAssets) and `.readWrite`. We
+    // need to *read* the newest screenshot asset, so `.readWrite` is the
+    // minimum viable scope. `.limited` still grants read access to the
+    // user's selection, so we treat it as success too.
     private static func ensureAuthorization() async throws {
         let current = PHPhotoLibrary.authorizationStatus(for: .readWrite)
         switch current {

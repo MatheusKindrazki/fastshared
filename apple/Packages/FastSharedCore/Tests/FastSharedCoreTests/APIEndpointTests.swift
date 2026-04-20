@@ -100,9 +100,15 @@ final class APIEndpointTests: XCTestCase {
         XCTAssertEqual(decoded.retentionPolicy, "oneHour")
         XCTAssertNil(decoded.deduped)
         let upload = try XCTUnwrap(decoded.upload)
-        XCTAssertEqual(upload.method, "PUT")
-        XCTAssertEqual(upload.headers["content-type"], "image/png")
-        XCTAssertEqual(upload.headers["content-length"], "68")
+        // Legacy payload with no `mode` discriminator decodes as .single for
+        // backward compatibility (Tier 2 contract).
+        guard case .single(let single) = upload else {
+            XCTFail("expected .single for legacy payload, got \(upload)")
+            return
+        }
+        XCTAssertEqual(single.method, "PUT")
+        XCTAssertEqual(single.headers["content-type"], "image/png")
+        XCTAssertEqual(single.headers["content-length"], "68")
     }
 
     func test_presignResponse_decodes_live_backend_dedup_path() throws {

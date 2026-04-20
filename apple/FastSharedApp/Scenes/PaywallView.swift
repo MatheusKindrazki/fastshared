@@ -28,6 +28,12 @@ struct PaywallView: View {
     @State private var purchasing: String?
     @State private var restoring: Bool = false
     @State private var banner: Banner?
+    // Diagnostic — flips true once the initial refreshProducts round-trips,
+    // and `loadError` captures whatever StoreKit reported. Lets us show a
+    // concrete empty state (with the real reason) instead of a forever
+    // skeleton when ASC isn't returning products.
+    @State private var didAttemptLoad: Bool = false
+    @State private var loadError: String?
 
     private enum Banner: Equatable {
         case pending
@@ -59,7 +65,6 @@ struct PaywallView: View {
                     .padding()
             }
         }
-        .preferredColorScheme(.dark)
         .foregroundStyle(BrandPalette.text)
         #if os(iOS)
         .presentationDetents([.large])
@@ -76,6 +81,22 @@ struct PaywallView: View {
                     handlePurchaseSuccess()
                 }
             }
+        }
+        // WHY: kick an explicit product refresh on paywall open. The app-init
+        // refresh may have fired before the network was ready or before ASC
+        // had the products live; re-running here gives the user a retry
+        // surface AND flips `didAttemptLoad` so the UI can stop showing a
+        // skeleton forever when the catalog is legitimately empty.
+        .task {
+            do {
+                try await subscriptionStore.refreshProducts()
+                loadError = nil
+            } catch {
+                loadError = (error as? LocalizedError)?.errorDescription
+                    ?? String(describing: error)
+            }
+            snapshot = await subscriptionStore.currentSnapshot()
+            didAttemptLoad = true
         }
     }
 
@@ -202,18 +223,68 @@ struct PaywallView: View {
     // MARK: - Tier cards
 
     private var tierCards: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(ProTier.allCases, id: \.self) { tier in
-                    card(for: tier)
-                }
+        VStack(spacing: 12) {
+            if didAttemptLoad && snapshot.products.isEmpty {
+                productsUnavailableCard
             }
-            VStack(spacing: 12) {
-                ForEach(ProTier.allCases, id: \.self) { tier in
-                    card(for: tier)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(ProTier.allCases, id: \.self) { tier in
+                        card(for: tier)
+                    }
+                }
+                VStack(spacing: 12) {
+                    ForEach(ProTier.allCases, id: \.self) { tier in
+                        card(for: tier)
+                    }
                 }
             }
         }
+    }
+
+    /// Shown inline above the tier cards when StoreKit returned zero products
+    /// — makes the "silent skeleton" state diagnosable without the Console.
+    private var productsUnavailableCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(BrandPalette.urgencyCritical)
+                Text("Pro products aren't available yet")
+                    .font(.system(size: 15, weight: .semibold))
+            }
+            Text(loadError
+                 ?? "StoreKit returned 0 of 3 products for this App Store account. Usually means the Paid Apps Agreement is pending, the product IDs in App Store Connect don't match, or the catalog hasn't propagated yet (5–30 min after save).")
+                .font(.system(size: 13))
+                .foregroundStyle(BrandPalette.textDim)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Expecting: red.fastsha.pro.monthly, .annual, .lifetime")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(BrandPalette.textFaint)
+            Button {
+                Task {
+                    didAttemptLoad = false
+                    do { try await subscriptionStore.refreshProducts(); loadError = nil }
+                    catch { loadError = (error as? LocalizedError)?.errorDescription ?? String(describing: error) }
+                    snapshot = await subscriptionStore.currentSnapshot()
+                    didAttemptLoad = true
+                }
+            } label: {
+                Text("Try again")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(BrandPalette.accentHot)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(BrandPalette.urgencyCritical.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(BrandPalette.urgencyCritical.opacity(0.35), lineWidth: 1)
+                )
+        )
     }
 
     @ViewBuilder

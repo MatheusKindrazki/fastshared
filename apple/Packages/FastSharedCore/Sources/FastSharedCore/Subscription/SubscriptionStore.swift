@@ -203,8 +203,15 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
         }
 
         guard let tx = latest else {
-            // No active entitlement — authoritative free state.
-            applyFree(reason: "no-entitlements")
+            // No StoreKit entitlement yet — but the server may still mark us
+            // as Pro through the DEV_PRO_APPLE_USER_IDS override or through a
+            // fallback subscription row that was never observed here (e.g.
+            // reinstalled device that hasn't replayed its receipts yet).
+            // Consult `/v1/me` first; only drop to Free if the server agrees.
+            await refreshMe()
+            if !snapshot.isPro {
+                applyFree(reason: "no-entitlements")
+            }
             return
         }
 
