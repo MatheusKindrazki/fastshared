@@ -15,10 +15,10 @@ struct FastSharedUploadLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ExpandedLeading(attributes: context.attributes)
+                    ExpandedLeading(attributes: context.attributes, state: context.state)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    RetentionBadge(text: context.attributes.retentionBadge)
+                    ExpandedTrailing(state: context.state, attributes: context.attributes)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ExpandedBottom(attributes: context.attributes, state: context.state)
@@ -31,7 +31,7 @@ struct FastSharedUploadLiveActivity: Widget {
                 MinimalView(state: context.state)
             }
             .widgetURL(URL(string: "fastshared://jobs/\(context.attributes.clientJobId.uuidString)"))
-            .keylineTint(BrandPalette.amberAccent.hot)
+            .keylineTint(FriendlyPalette.accentHot)
         }
     }
 }
@@ -44,11 +44,7 @@ private struct LockScreenView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            // v3 lock-screen hero — Plane + Arc sits in place of the old halo
-            // glyph during uploading/completed. For `.failed` we fall back to
-            // the triangle warning since the mark alone doesn't read as error.
-            LockHero(state: state)
-                .frame(width: 44, height: 44)
+            LockFileChip(contentType: attributes.contentType, size: 48)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(attributes.filename)
@@ -57,7 +53,7 @@ private struct LockScreenView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 4)
-                    RetentionBadge(text: attributes.retentionBadge)
+                    LARetentionBadge(text: attributes.retentionBadge)
                 }
                 lockBody
             }
@@ -73,26 +69,36 @@ private struct LockScreenView: View {
         switch state.phase {
         case .uploading:
             VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: max(0, min(1, state.progress)))
-                    .progressViewStyle(.linear)
-                    .tint(BrandPalette.amberAccent.hot)
+                // Progress bar: track 6pt, radius 3, fill accentHot
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(Color.white.opacity(0.15))
+                            .frame(height: 5)
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(FriendlyPalette.accentHot)
+                            .frame(width: geo.size.width * CGFloat(max(0, min(1, state.progress))), height: 5)
+                    }
+                }
+                .frame(height: 5)
+
                 HStack {
                     Text(byteCountText(sent: state.bytesSent, total: state.bytesTotal))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.text.opacity(0.65))
+                        .foregroundStyle(BrandPalette.text.opacity(0.60))
                     Spacer()
                     Text("\(Int((state.progress * 100).rounded()))%")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(BrandPalette.amberAccent.hot)
+                        .foregroundStyle(FriendlyPalette.accentHot)
                 }
             }
         case .completed:
-            if let shortUrl = state.shortUrl, let url = URL(string: shortUrl) {
+            if let shortUrl = state.shortUrl {
                 HStack(spacing: 6) {
-                    Image(systemName: "link")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(BrandPalette.amberAccent.hot)
-                    Text(url.host.map { "\($0)\(url.path)" } ?? shortUrl)
+                    Text("✓")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(FriendlyPalette.successGreen)
+                    Text(shortUrl)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(BrandPalette.text)
                         .lineLimit(1)
@@ -101,16 +107,27 @@ private struct LockScreenView: View {
                     if let expiresAt = state.expiresAt {
                         Text(expiresAt, style: .timer)
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundStyle(BrandPalette.amberAccent.dust)
+                            .foregroundStyle(FriendlyPalette.accentSoft)
                             .multilineTextAlignment(.trailing)
                     }
+                }
+            } else {
+                HStack(spacing: 6) {
+                    Text("✓")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(FriendlyPalette.successGreen)
+                    Text("Link copied")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(BrandPalette.text)
+                    Spacer()
+                    LARetentionBadge(text: attributes.retentionBadge)
                 }
             }
         case .failed:
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(BrandPalette.amberAccent.fade)
+                    .foregroundStyle(FriendlyPalette.UrgencyTier.critical.text)
                 Text(state.errorReason ?? "Upload failed")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(BrandPalette.text.opacity(0.85))
@@ -120,23 +137,67 @@ private struct LockScreenView: View {
     }
 }
 
-// MARK: - Dynamic Island regions
+// MARK: - Dynamic Island: Expanded regions
+
+// WHY: the Dynamic Island's expanded region is split into three slots —
+// leading, trailing, and bottom. Apple sizes leading and trailing around the
+// TrueDepth camera cutout, so anything we cram in leading (chip + filename +
+// progress) gets compressed to the point of rendering as a grey blob. We keep
+// leading to a single 40–44 pt icon and push filename / progress into the
+// full-width `ExpandedBottom` where there's breathing room.
 
 private struct ExpandedLeading: View {
     let attributes: FastSharedActivityAttributes
+    let state: FastSharedActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 8) {
-            // v3 expanded leading — compact Plane + Arc glyph replaces the
-            // paperplane SF Symbol. The mark itself carries the brand signal;
-            // 18pt matches the density of the adjacent text.
-            LAPlaneArc(size: 18)
-                .accessibilityHidden(true)
-            Text(attributes.filename)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(BrandPalette.text)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        switch state.phase {
+        case .uploading:
+            LAFileChip(contentType: attributes.contentType, size: 40)
+                .padding(.leading, 4)
+
+        case .completed:
+            ZStack {
+                Circle()
+                    .fill(FriendlyPalette.successGreen)
+                    .frame(width: 36, height: 36)
+                Text("✓")
+                    .font(.system(size: 16, weight: .heavy))
+                    .foregroundStyle(.white)
+            }
+            .padding(.leading, 4)
+
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(FriendlyPalette.UrgencyTier.critical.text)
+                .padding(.leading, 4)
+        }
+    }
+}
+
+private struct ExpandedTrailing: View {
+    let state: FastSharedActivityAttributes.ContentState
+    let attributes: FastSharedActivityAttributes
+
+    var body: some View {
+        switch state.phase {
+        case .uploading:
+            Text("\(Int((state.progress * 100).rounded()))%")
+                .font(.system(size: 22, weight: .bold).monospacedDigit())
+                .foregroundStyle(FriendlyPalette.accentHot)
+                .contentTransition(.numericText())
+                .padding(.trailing, 4)
+
+        case .completed:
+            LARetentionBadge(text: attributes.retentionBadge)
+                .padding(.trailing, 4)
+
+        case .failed:
+            Image(systemName: "arrow.clockwise.circle")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(FriendlyPalette.accentHot)
+                .padding(.trailing, 4)
         }
     }
 }
@@ -148,81 +209,81 @@ private struct ExpandedBottom: View {
     var body: some View {
         switch state.phase {
         case .uploading:
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: max(0, min(1, state.progress)))
-                    .progressViewStyle(.linear)
-                    .tint(BrandPalette.amberAccent.hot)
-                HStack {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(attributes.filename)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 8)
                     Text(byteCountText(sent: state.bytesSent, total: state.bytesTotal))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(BrandPalette.text.opacity(0.7))
-                    Spacer()
-                    Text("\(Int((state.progress * 100).rounded()))%")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(BrandPalette.amberAccent.hot)
+                        .foregroundStyle(Color.white.opacity(0.60))
                 }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(Color.white.opacity(0.15))
+                            .frame(height: 6)
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(FriendlyPalette.accentHot)
+                            .frame(
+                                width: max(6, geo.size.width * CGFloat(max(0, min(1, state.progress)))),
+                                height: 6
+                            )
+                    }
+                }
+                .frame(height: 6)
             }
-            .padding(.top, 2)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
+
         case .completed:
-            VStack(alignment: .leading, spacing: 6) {
-                if let shortUrl = state.shortUrl {
-                    Link(destination: URL(string: shortUrl) ?? URL(string: "https://fastsha.red")!) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "link")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(shortUrl)
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        .foregroundStyle(BrandPalette.ground)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(BrandPalette.surface0)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .strokeBorder(BrandPalette.arc, lineWidth: 1)
-                                )
-                        )
-                    }
-                }
-                if let expiresAt = state.expiresAt {
-                    HStack(spacing: 4) {
-                        Image(systemName: "timer")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(BrandPalette.amberAccent.fade)
-                        Text("expires in ")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(BrandPalette.text.opacity(0.6))
+            if let shortUrl = state.shortUrl {
+                HStack(spacing: 8) {
+                    Image(systemName: "link")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(FriendlyPalette.accentHot)
+                    Text(shortUrl)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    if let expiresAt = state.expiresAt {
                         Text(expiresAt, style: .timer)
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(BrandPalette.amberAccent.dust)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(FriendlyPalette.accentSoft)
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 6)
             }
-            .padding(.top, 2)
+
         case .failed:
             HStack(spacing: 8) {
                 Text(state.errorReason ?? "Upload failed")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(BrandPalette.text.opacity(0.85))
+                    .foregroundStyle(Color.white.opacity(0.85))
                     .lineLimit(2)
                 Spacer()
                 Link(destination: URL(string: "fastshared://jobs/\(attributes.clientJobId.uuidString)")!) {
                     Text("Retry")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(BrandPalette.text)
+                        .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(BrandPalette.amberAccent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
-            .padding(.top, 2)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
         }
     }
 }
+
+// MARK: - Dynamic Island: Compact & Minimal
 
 private struct CompactLeadingView: View {
     let state: FastSharedActivityAttributes.ContentState
@@ -230,32 +291,39 @@ private struct CompactLeadingView: View {
     var body: some View {
         switch state.phase {
         case .uploading:
-            // v3 compact leading while uploading — plane+arc mark with a
-            // subtle ring overlay showing progress. The mark carries the
-            // brand; the thin ring is functional.
-            ZStack {
-                LAPlaneArc(size: 18)
-                Circle()
-                    .trim(from: 0, to: max(0.04, min(1, state.progress)))
-                    .stroke(
-                        BrandPalette.amberAccent.hot.opacity(0.85),
-                        style: StrokeStyle(lineWidth: 1.6, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: 18, height: 18)
+            // Ring progress + percent
+            HStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .stroke(FriendlyPalette.accentHot.opacity(0.25), lineWidth: 2.5)
+                        .frame(width: 20, height: 20)
+                    Circle()
+                        .trim(from: 0, to: max(0.04, min(1, state.progress)))
+                        .stroke(FriendlyPalette.accentHot, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 20, height: 20)
+                }
+
+                Text("\(Int((state.progress * 100).rounded()))%")
+                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(FriendlyPalette.accentHot)
+                    .contentTransition(.numericText())
             }
-            .frame(width: 18, height: 18)
+
         case .completed:
             ZStack {
-                Circle().fill(BrandPalette.amberAccent.hot)
-                    .frame(width: 18, height: 18)
+                Circle()
+                    .fill(FriendlyPalette.successGreen)
+                    .frame(width: 20, height: 20)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundStyle(Color.white)
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(.white)
             }
+
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(BrandPalette.amberAccent.fade)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(FriendlyPalette.UrgencyTier.critical.text)
         }
     }
 }
@@ -266,28 +334,20 @@ private struct CompactTrailingView: View {
     var body: some View {
         switch state.phase {
         case .uploading:
-            Text("\(Int((state.progress * 100).rounded()))%")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(BrandPalette.amberAccent.hot)
-                .contentTransition(.numericText())
-        case .completed:
-            Text(slug(from: state.shortUrl))
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(BrandPalette.amberAccent.dust)
-                .lineLimit(1)
-        case .failed:
-            Text("FAILED")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .tracking(1.2)
-                .foregroundStyle(BrandPalette.amberAccent.fade)
-        }
-    }
+            // File type emoji (14pt) on right
+            Text("📎")
+                .font(.system(size: 14))
 
-    private func slug(from urlString: String?) -> String {
-        guard let urlString, let url = URL(string: urlString) else { return "" }
-        let path = url.path
-        if path.isEmpty || path == "/" { return url.host ?? "" }
-        return path.hasPrefix("/") ? path : "/\(path)"
+        case .completed:
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(FriendlyPalette.successGreen)
+
+        case .failed:
+            Text("!")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(FriendlyPalette.UrgencyTier.critical.text)
+        }
     }
 }
 
@@ -297,59 +357,78 @@ private struct MinimalView: View {
     var body: some View {
         switch state.phase {
         case .uploading:
-            AmberRing(progress: state.progress)
-                .frame(width: 16, height: 16)
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(FriendlyPalette.accentHot)
         case .completed:
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundStyle(BrandPalette.amberAccent.hot)
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(FriendlyPalette.successGreen)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(BrandPalette.amberAccent.fade)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(FriendlyPalette.UrgencyTier.critical.text)
         }
     }
 }
 
 // MARK: - Shared parts
 
-/// Lock-screen hero composition — v3 Plane + Arc sits in a 44pt tile during
-/// uploading (with a functional ring overlay) and completed. Failure falls
-/// back to the triangle warning against a coral wash.
-private struct LockHero: View {
-    let state: FastSharedActivityAttributes.ContentState
+/// 56×56 (or configurable) file chip for the Dynamic Island expanded view.
+private struct LAFileChip: View {
+    let contentType: String
+    var size: CGFloat = 56
 
     var body: some View {
-        ZStack {
-            switch state.phase {
-            case .uploading:
-                LAPlaneArc(size: 44)
-                Circle()
-                    .trim(from: 0, to: max(0.02, min(1, state.progress)))
-                    .stroke(
-                        BrandPalette.amberAccent.hot,
-                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .padding(2)
-            case .completed:
-                LAPlaneArc(size: 44)
-            case .failed:
-                Circle().fill(BrandPalette.amberAccent.fade.opacity(0.2))
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 22, weight: .regular))
-                    .foregroundStyle(BrandPalette.amberAccent.fade)
-            }
-        }
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(FriendlyPalette.accentHot.opacity(0.20))
+            .frame(width: size, height: size)
+            .overlay(
+                Text(fileEmoji)
+                    .font(.system(size: 24))
+            )
+    }
+
+    private var fileEmoji: String {
+        if contentType.hasPrefix("image/") { return "🖼️" }
+        if contentType.hasPrefix("video/") { return "🎬" }
+        if contentType.hasPrefix("audio/") { return "🎵" }
+        if contentType == "application/pdf" { return "📄" }
+        return "📎"
+    }
+}
+
+/// 48×48 file chip for lock screen view.
+private struct LockFileChip: View {
+    let contentType: String
+    var size: CGFloat = 48
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(FriendlyPalette.accentHot.opacity(0.20))
+            .frame(width: size, height: size)
+            .overlay(
+                Text(fileEmoji)
+                    .font(.system(size: 20))
+            )
+    }
+
+    private var fileEmoji: String {
+        if contentType.hasPrefix("image/") { return "🖼️" }
+        if contentType.hasPrefix("video/") { return "🎬" }
+        if contentType.hasPrefix("audio/") { return "🎵" }
+        if contentType == "application/pdf" { return "📄" }
+        return "📎"
     }
 }
 
 /// Plane+Arc mark — inline re-declaration for the Live Activity target
-/// (widget extensions can't link the app-target `PlaneArcMark`). Same
-/// viewBox-140 coordinates, same dart path, same gradient stops.
+/// (widget extensions can't link the app-target `PlaneArcMark`).
 private struct LAPlaneArc: View {
     var size: CGFloat = 44
 
     var body: some View {
-        let a = BrandPalette.amberAccent
+        let a = BrandPalette.violetAccent
         let arcStrokeWidth = size * (9.0 / 140.0)
 
         ZStack {
@@ -409,32 +488,17 @@ private struct LAArcPath: Shape {
     }
 }
 
-private struct RetentionBadge: View {
+/// Retention badge pill — violet accentHot background.
+private struct LARetentionBadge: View {
     let text: String
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-            .foregroundStyle(BrandPalette.text)
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .foregroundStyle(.white)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(BrandPalette.amberAccent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-/// Compact amber progress ring — same visual language as the share extension success hero.
-private struct AmberRing: View {
-    let progress: Double
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(BrandPalette.amberAccent.hot.opacity(0.25), lineWidth: 2.5)
-            Circle()
-                .trim(from: 0, to: max(0.04, min(1, progress)))
-                .stroke(BrandPalette.arc, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
+            .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

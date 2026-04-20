@@ -21,6 +21,9 @@ public final class UploadJobEntity {
     public var retentionPolicy: String
     public var expiresAt: Date?
     public var deleteAfter: Date?
+    // Tier 1: persisted so the "don't re-copy at /complete" guard survives
+    // crashes between presign copy and task completion.
+    public var linkAlreadyCopied: Bool = false
 
     public init(clientJobId: UUID,
                 status: UploadJobStatus,
@@ -39,7 +42,8 @@ public final class UploadJobEntity {
                 stagedRelativePath: String,
                 retentionPolicy: String = RetentionPolicy.default.rawValue,
                 expiresAt: Date? = nil,
-                deleteAfter: Date? = nil) {
+                deleteAfter: Date? = nil,
+                linkAlreadyCopied: Bool = false) {
         self.clientJobId = clientJobId
         self.statusRaw = status.rawValue
         self.progress = progress
@@ -58,6 +62,7 @@ public final class UploadJobEntity {
         self.retentionPolicy = retentionPolicy
         self.expiresAt = expiresAt
         self.deleteAfter = deleteAfter
+        self.linkAlreadyCopied = linkAlreadyCopied
     }
 
     public var status: UploadJobStatus {
@@ -83,7 +88,8 @@ public final class UploadJobEntity {
                   stagedRelativePath: stagedRelativePath,
                   retentionPolicy: RetentionPolicy(rawValue: retentionPolicy) ?? .default,
                   expiresAt: expiresAt,
-                  deleteAfter: deleteAfter)
+                  deleteAfter: deleteAfter,
+                  linkAlreadyCopied: linkAlreadyCopied)
     }
 }
 

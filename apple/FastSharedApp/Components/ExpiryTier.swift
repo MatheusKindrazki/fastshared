@@ -52,6 +52,45 @@ enum ExpiryTier: Int, CaseIterable, Hashable, Comparable {
         case .later, .forever:               return a.soft
         }
     }
+
+    /// Maps a domain-side `ExpiryTier` (6 cases) to the design-side
+    /// `FriendlyPalette.UrgencyTier` (4 cases) so urgency colors come from
+    /// the single token source. The two enums intentionally have different
+    /// granularity: the domain tier resolves a specific time bucket; the
+    /// design tier resolves a visual treatment.
+    private var paletteTier: FriendlyPalette.UrgencyTier {
+        switch self {
+        case .underOneMinute:                            return .critical
+        case .underOneHour, .underSixHours, .underOneDay: return .warning
+        case .later:                                      return .normal
+        case .forever:                                    return .calm
+        }
+    }
+
+    /// Semantic urgency color driven by the static urgency palette.
+    /// Stays constant regardless of accent theme — use this for countdown rings
+    /// and urgency badges.
+    var urgencyColor: Color { paletteTier.text }
+
+    /// Urgency background color for light backgrounds.
+    var urgencyBgLight: Color { paletteTier.bg(.light) }
+
+    /// Urgency background color for dark backgrounds.
+    var urgencyBgDark: Color { paletteTier.bg(.dark) }
+
+    /// Short human-readable urgency label for badges and row subtitles.
+    var urgencyLabel: String {
+        switch self {
+        case .underOneMinute:
+            return "Expires soon"
+        case .underOneHour, .underSixHours, .underOneDay:
+            return "Expires today"
+        case .later:
+            return "Active"
+        case .forever:
+            return "Plenty of time"
+        }
+    }
 }
 
 enum ExpiryFormatter {

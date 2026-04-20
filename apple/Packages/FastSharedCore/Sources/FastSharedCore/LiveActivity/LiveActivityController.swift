@@ -23,6 +23,60 @@ public actor LiveActivityController {
 
     public init() {}
 
+    /// Starts the Live Activity immediately when the host process has access
+    /// to the widget descriptors (the main app), or defers the request into an
+    /// App Group queue when called from a sandboxed extension (share ext,
+    /// where `Activity.request` returns but the system has no descriptor to
+    /// render — the card never appears on the Dynamic Island). The main app
+    /// drains the queue via `drainPendingStarts()` during launch or when
+    /// `handleEventsForBackgroundURLSession` wakes it up.
+    @discardableResult
+    public func startOrDefer(clientJobId: UUID,
+                             filename: String,
+                             contentType: String,
+                             retentionPolicy: String,
+                             bytesTotal: Int64) -> String? {
+        if Self.isRunningInAppExtension {
+            Self.enqueuePending(PendingStart(
+                clientJobId: clientJobId,
+                filename: filename,
+                contentType: contentType,
+                retentionPolicy: retentionPolicy,
+                bytesTotal: bytesTotal
+            ))
+            log.info("deferred live activity start for \(clientJobId.uuidString, privacy: .public) (extension — main app will create it)")
+            return nil
+        }
+        return start(
+            clientJobId: clientJobId,
+            filename: filename,
+            contentType: contentType,
+            retentionPolicy: retentionPolicy,
+            progress: 0,
+            bytesTotal: bytesTotal
+        )
+    }
+
+    /// Creates every Live Activity that a share extension deferred. Call this
+    /// from the main app (init + `handleEventsForBackgroundURLSession`). Safe
+    /// to call repeatedly; dequeues entries as it consumes them.
+    public func drainPendingStarts() {
+        let pending = Self.loadPending()
+        guard !pending.isEmpty else { return }
+        Self.clearPending()
+        for req in pending {
+            _ = start(
+                clientJobId: req.clientJobId,
+                filename: req.filename,
+                contentType: req.contentType,
+                retentionPolicy: req.retentionPolicy,
+                progress: 0,
+                bytesTotal: req.bytesTotal
+            )
+        }
+        log.info("drained \(pending.count, privacy: .public) pending live-activity starts")
+    }
+
     @discardableResult
     public func start(clientJobId: UUID,
                       filename: String,
@@ -73,7 +127,7 @@ public actor LiveActivityController {
                                progress: Double,
                                bytesSent: Int64,
                                bytesTotal: Int64) async {
-        guard let activity = activities[clientJobId] else { return }
+        guard let activity = await resolveActivity(clientJobId: clientJobId) else { return }
         let now = Date()
         if let last = lastUpdateAt[clientJobId],
            now.timeIntervalSince(last) < minUpdateInterval,
@@ -96,29 +150,33 @@ public actor LiveActivityController {
     public func finishSuccess(clientJobId: UUID,
                               shortUrl: String,
                               expiresAt: Date) async {
-        guard let activity = activities[clientJobId] else { return }
+        guard let activity = await resolveActivity(clientJobId: clientJobId) else { return }
         let state = FastSharedActivityAttributes.ContentState(phase: .completed,
                                                               progress: 1.0,
                                                               bytesSent: 0,
                                                               bytesTotal: 0,
                                                               shortUrl: shortUrl,
                                                               expiresAt: expiresAt)
+        // WHY: dismissalPolicy is "when does the system discard the card
+        // entirely from the Dynamic Island + lock screen", not "how long is
+        // the link valid". The prior wiring used `expiresAt + 5 min`, which
+        // for a 24h retention meant the finished pill stuck around for a
+        // whole day — the user saw ghost activities for every past upload.
+        // We now dismiss ~30 s after success so the celebration is brief
+        // and the DI is free for the next upload.
+        let dismissAt = Date().addingTimeInterval(30)
         if #available(iOS 16.2, *) {
-            // WHY: staleDate = expiresAt tells the system the link is no longer valid past
-            // expiry; dismissalPolicy keeps the card on-screen for 5 more minutes so the
-            // user gets one last glance before it's gone.
             let content = ActivityContent(state: state, staleDate: expiresAt)
-            await activity.end(content,
-                               dismissalPolicy: .after(expiresAt.addingTimeInterval(300)))
+            await activity.end(content, dismissalPolicy: .after(dismissAt))
         } else {
-            await activity.end(using: state, dismissalPolicy: .after(expiresAt.addingTimeInterval(300)))
+            await activity.end(using: state, dismissalPolicy: .after(dismissAt))
         }
         activities.removeValue(forKey: clientJobId)
         lastUpdateAt.removeValue(forKey: clientJobId)
     }
 
     public func finishFailure(clientJobId: UUID, reason: String) async {
-        guard let activity = activities[clientJobId] else { return }
+        guard let activity = await resolveActivity(clientJobId: clientJobId) else { return }
         let state = FastSharedActivityAttributes.ContentState(phase: .failed,
                                                               progress: 0,
                                                               bytesSent: 0,
@@ -134,6 +192,115 @@ public actor LiveActivityController {
         activities.removeValue(forKey: clientJobId)
         lastUpdateAt.removeValue(forKey: clientJobId)
     }
+
+    /// Ends any Live Activity that is still alive from an earlier run of the
+    /// app. Call this at main-app launch — the previous session could have
+    /// crashed between `start()` and `finishSuccess`, leaving a pill sitting
+    /// at 0% forever on the Dynamic Island. We also catch activities that
+    /// did reach `.completed` but have a stale dismissalPolicy (e.g. bug in
+    /// the old `expiresAt + 5min` code), so historical installs recover on
+    /// upgrade. Idempotent — safe to call repeatedly.
+    public func sweepStaleActivities() async {
+        let all = Activity<FastSharedActivityAttributes>.activities
+        guard !all.isEmpty else { return }
+        let now = Date()
+        var swept = 0
+        for activity in all {
+            // Anything still claiming to be uploading after 10+ minutes is
+            // almost certainly abandoned (Apple background URLSessions that
+            // take that long are rare, and even then the next resume would
+            // re-open a fresh Activity).
+            let state = activity.content.state
+            let isStaleUpload = state.phase == .uploading
+                && activity.content.staleDate.map { $0 < now } != false
+            // Completed/failed pills whose staleDate has passed — finish
+            // draining them so the DI slot is free.
+            let isFinishedStale = (state.phase == .completed || state.phase == .failed)
+                && activity.content.staleDate.map { $0 < now } ?? false
+            if isStaleUpload || isFinishedStale {
+                if #available(iOS 16.2, *) {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                } else {
+                    await activity.end(dismissalPolicy: .immediate)
+                }
+                swept += 1
+            }
+        }
+        if swept > 0 {
+            log.info("swept \(swept, privacy: .public) stale live activities on boot")
+        }
+    }
+
+    // MARK: - Extension detection + pending queue
+
+    /// True when this code is running inside an app extension target (share
+    /// ext, widget, etc.). Live Activity descriptors are only registered with
+    /// the host app's process — from an extension `Activity.request` returns
+    /// a handle but the system has nothing to render, so we defer instead.
+    private static var isRunningInAppExtension: Bool {
+        Bundle.main.bundleURL.pathExtension == "appex"
+    }
+
+    /// Persisted form of a `startOrDefer` call that the share ext couldn't
+    /// honor directly. Main app drains these on next launch / wake.
+    private struct PendingStart: Codable {
+        let clientJobId: UUID
+        let filename: String
+        let contentType: String
+        let retentionPolicy: String
+        let bytesTotal: Int64
+    }
+
+    private static let pendingStartsKey = "liveactivity.pending_starts.v1"
+
+    private static func appGroupDefaults() -> UserDefaults? {
+        UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
+    }
+
+    private static func enqueuePending(_ req: PendingStart) {
+        guard let defaults = appGroupDefaults() else { return }
+        var current = loadPending()
+        current.append(req)
+        if let data = try? JSONEncoder().encode(current) {
+            defaults.set(data, forKey: pendingStartsKey)
+        }
+    }
+
+    private static func loadPending() -> [PendingStart] {
+        guard let defaults = appGroupDefaults(),
+              let data = defaults.data(forKey: pendingStartsKey),
+              let decoded = try? JSONDecoder().decode([PendingStart].self, from: data)
+        else { return [] }
+        return decoded
+    }
+
+    private static func clearPending() {
+        appGroupDefaults()?.removeObject(forKey: pendingStartsKey)
+    }
+
+    // MARK: - Cross-process resolution
+
+    /// Returns the live `Activity` for this job, consulting the in-memory cache
+    /// first and falling back to a system-wide lookup via `Activity.activities`.
+    ///
+    /// WHY: the activity is typically created inside the share extension
+    /// (`UploadService.enqueue → start`). When that process exits, the main
+    /// app's `LiveActivityController.shared` is a fresh actor with an empty
+    /// `activities` dict — the `BackgroundSessionManager` URLSession delegate
+    /// runs in the main app, not the ext, so it would silently no-op on every
+    /// progress tick and the Dynamic Island would never update. Re-querying
+    /// the system list by `attributes.clientJobId` rebuilds the link.
+    private func resolveActivity(clientJobId: UUID) async -> Activity<FastSharedActivityAttributes>? {
+        if let cached = activities[clientJobId] {
+            return cached
+        }
+        for activity in Activity<FastSharedActivityAttributes>.activities
+        where activity.attributes.clientJobId == clientJobId {
+            activities[clientJobId] = activity
+            return activity
+        }
+        return nil
+    }
 }
 
 #else
@@ -143,6 +310,19 @@ public actor LiveActivityController {
     public static let shared = LiveActivityController()
 
     public init() {}
+
+    @discardableResult
+    public func startOrDefer(clientJobId: UUID,
+                             filename: String,
+                             contentType: String,
+                             retentionPolicy: String,
+                             bytesTotal: Int64) -> String? {
+        nil
+    }
+
+    public func drainPendingStarts() {}
+
+    public func sweepStaleActivities() async {}
 
     @discardableResult
     public func start(clientJobId: UUID,

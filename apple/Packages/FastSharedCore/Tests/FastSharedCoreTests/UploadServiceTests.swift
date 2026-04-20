@@ -434,6 +434,16 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         DeviceToken(deviceId: UUID(), token: "mock")
     }
 
+    func signInWithApple(
+        identityToken: String,
+        authorizationCode: String,
+        fullName: String?,
+        email: String?,
+        claimingDeviceToken: String?
+    ) async throws -> SignInResponse {
+        throw APIError.transport(underlying: "unimplemented: signInWithApple")
+    }
+
     func requestUpload(_ request: PresignRequest) async throws -> PresignResponse {
         capturedPresignRequest = request
         if let presignResponse { return presignResponse }
@@ -455,6 +465,8 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     func failUpload(uploadId: String, errorCode: String, message: String?) async throws {
         if let failUploadError { throw failUploadError }
     }
+
+    func abortMultipartUpload(uploadId: String) async throws {}
 
     func fetchHistory(cursor: String?, limit: Int) async throws -> HistoryPage {
         HistoryPage(items: [], nextCursor: nil)
@@ -495,18 +507,22 @@ final class InMemoryKeychain: KeychainStoring, @unchecked Sendable {
 final class RecordingBackgroundScheduler: BackgroundSessionScheduling, @unchecked Sendable {
     struct Scheduled {
         let job: UploadJob
-        let upload: UploadInstruction
+        let upload: UploadInstruction.SingleInstruction
         let fileURL: URL
     }
 
     var scheduled: [Scheduled] = []
 
-    func scheduleUpload(job: UploadJob, upload: UploadInstruction, fileURL: URL) throws {
+    func scheduleUpload(job: UploadJob,
+                        upload: UploadInstruction.SingleInstruction,
+                        fileURL: URL) throws {
         scheduled.append(Scheduled(job: job, upload: upload, fileURL: fileURL))
     }
 
     func attach(completionHandler: @escaping () -> Void, identifier: String) {}
     func bind(orchestrator: UploadOrchestrator, store: SwiftDataStore) {}
+
+    var multipartURLSession: URLSession { .shared }
 }
 
 final class RecordingClipboard: ClipboardProtocol, @unchecked Sendable {

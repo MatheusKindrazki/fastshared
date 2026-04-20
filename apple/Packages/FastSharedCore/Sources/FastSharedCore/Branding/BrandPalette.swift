@@ -150,3 +150,160 @@ public enum BrandPalette {
     /// Old light text — kept (white) for pill backgrounds.
     public static let lightText = Color.white
 }
+
+// MARK: - FriendlyPalette
+//
+// Single source of truth for the Friendly redesign tokens, shared across the
+// app target, share extension, and Live Activity widget. Values mirror
+// `apple/design-system/MASTER.md`. The legacy `BrandPalette` warm-amber-on-ink
+// surface above is retained until Phase 3 deprecation.
+
+private extension Color {
+    /// Hex string parser scoped to FriendlyPalette. Accepts `RRGGBB` or
+    /// `RRGGBBAA` with optional leading `#`. Falls back to opaque black on
+    /// malformed input — token literals are constants, so failure is a coding
+    /// error caught in QA, not a runtime concern.
+    init(friendlyHex hex: String) {
+        var s = hex
+        if s.hasPrefix("#") { s.removeFirst() }
+        var v: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&v)
+        let r, g, b, a: Double
+        switch s.count {
+        case 6:
+            r = Double((v >> 16) & 0xff) / 255.0
+            g = Double((v >> 8)  & 0xff) / 255.0
+            b = Double( v        & 0xff) / 255.0
+            a = 1.0
+        case 8:
+            r = Double((v >> 24) & 0xff) / 255.0
+            g = Double((v >> 16) & 0xff) / 255.0
+            b = Double((v >> 8)  & 0xff) / 255.0
+            a = Double( v        & 0xff) / 255.0
+        default:
+            r = 0; g = 0; b = 0; a = 1
+        }
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: a)
+    }
+}
+
+public enum FriendlyPalette {
+
+    // MARK: Theme-aware surface tokens
+
+    public static func ground(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkGround : lightGround
+    }
+    public static func canvas(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkCanvas : lightCanvas
+    }
+    public static func surface0(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkSurface0 : lightSurface0
+    }
+    public static func surface1(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkSurface1 : lightSurface1
+    }
+    public static func paper(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkPaper : lightPaper
+    }
+    public static func line(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkLine : lightLine
+    }
+    public static func lineStrong(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkLineStrong : lightLineStrong
+    }
+    public static func text(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkText : lightText
+    }
+    public static func textDim(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkTextDim : lightTextDim
+    }
+    public static func textFaint(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? darkTextFaint : lightTextFaint
+    }
+
+    // MARK: Theme-independent accents
+
+    public static let accentHot   = Color(friendlyHex: "ff9f47")
+    public static let accentSoft  = Color(friendlyHex: "ffc487")
+    public static let accentFade  = Color(friendlyHex: "ff4e7c")
+    public static let accentDust  = Color(friendlyHex: "ffe0b8")
+    public static let successGreen = Color(friendlyHex: "22c27a")
+
+    // MARK: Urgency tiers
+
+    public enum UrgencyTier {
+        case critical, warning, normal, calm
+
+        public var text: Color {
+            switch self {
+            case .critical: return Color(friendlyHex: "ff4e7c")
+            case .warning:  return Color(friendlyHex: "ff9f47")
+            case .normal:   return Color(friendlyHex: "9d7aff")
+            case .calm:     return Color(friendlyHex: "6b5fb8")
+            }
+        }
+
+        public func bg(_ scheme: ColorScheme) -> Color {
+            switch (self, scheme) {
+            case (.critical, .dark): return Color(friendlyHex: "3d0f22")
+            case (.critical, _):     return Color(friendlyHex: "fff0f4")
+            case (.warning,  .dark): return Color(friendlyHex: "3d2410")
+            case (.warning,  _):     return Color(friendlyHex: "fff5e8")
+            case (.normal,   .dark): return Color(friendlyHex: "2a1a5e")
+            case (.normal,   _):     return Color(friendlyHex: "f3eeff")
+            case (.calm,     .dark): return Color(friendlyHex: "1f1847")
+            case (.calm,     _):     return Color(friendlyHex: "ece8f7")
+            }
+        }
+    }
+
+    // MARK: Spacing
+
+    public enum Spacing {
+        public static let xs:  CGFloat = 6
+        public static let sm:  CGFloat = 10
+        public static let md:  CGFloat = 16
+        public static let lg:  CGFloat = 24
+        public static let xl:  CGFloat = 32
+        public static let xxl: CGFloat = 48
+    }
+
+    // MARK: Radius
+
+    public enum Radius {
+        public static let sm:   CGFloat = 10
+        public static let md:   CGFloat = 14
+        public static let lg:   CGFloat = 20
+        public static let xl:   CGFloat = 28
+        public static let pill: CGFloat = 999
+    }
+
+    // MARK: Underlying constants
+    //
+    // File-private storage so the theme-aware accessors above don't recompute
+    // per call. Public API stays the `(_:ColorScheme) -> Color` functions —
+    // views must not reach in here directly.
+
+    private static let lightGround       = Color(friendlyHex: "fbf8f1")
+    private static let lightCanvas       = Color(friendlyHex: "ffffff")
+    private static let lightSurface0     = Color(friendlyHex: "f5f1e6")
+    private static let lightSurface1     = Color(friendlyHex: "eae4d4")
+    private static let lightPaper        = Color(friendlyHex: "ffffff")
+    private static let lightLine         = Color(friendlyHex: "211244").opacity(0.08)
+    private static let lightLineStrong   = Color(friendlyHex: "211244").opacity(0.16)
+    private static let lightText         = Color(friendlyHex: "1a0f38")
+    private static let lightTextDim      = Color(friendlyHex: "1a0f38").opacity(0.64)
+    private static let lightTextFaint    = Color(friendlyHex: "1a0f38").opacity(0.40)
+
+    private static let darkGround        = Color(friendlyHex: "0d0625")
+    private static let darkCanvas        = Color(friendlyHex: "140a38")
+    private static let darkSurface0      = Color(friendlyHex: "1a0f4a")
+    private static let darkSurface1      = Color(friendlyHex: "281664")
+    private static let darkPaper         = Color(friendlyHex: "1a0f4a")
+    private static let darkLine          = Color.white.opacity(0.09)
+    private static let darkLineStrong    = Color.white.opacity(0.18)
+    private static let darkText          = Color(friendlyHex: "f7f4ff")
+    private static let darkTextDim       = Color(friendlyHex: "f7f4ff").opacity(0.66)
+    private static let darkTextFaint     = Color(friendlyHex: "f7f4ff").opacity(0.38)
+}

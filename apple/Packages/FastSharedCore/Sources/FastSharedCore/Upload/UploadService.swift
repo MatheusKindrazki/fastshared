@@ -75,16 +75,21 @@ public actor UploadService: UploadServiceProtocol {
 
         do {
             try await repository.updateStatus(clientJobId: job.clientJobId, status: .presigning)
-            let sha = try await SHA256Streamer.hash(fileAt: stagedURL)
+            // Hash and presign run concurrently; sha256 is sent at /complete.
+            // Trade: first upload of a new hash skips server-side dedup fast-path.
+            async let hashFuture = SHA256Streamer.hash(fileAt: stagedURL)
+            async let presignFuture = apiClient.requestUpload(PresignRequest(
+                clientJobId: job.clientJobId,
+                contentType: contentType,
+                sizeBytes: size,
+                sha256: nil,
+                originalFilename: originalFilename,
+                retentionPolicy: retentionPolicy.rawValue,
+                customTtlSeconds: nil
+            ))
+            let (sha, presign) = try await (hashFuture, presignFuture)
             job.sha256 = sha
-            let request = PresignRequest(clientJobId: job.clientJobId,
-                                         contentType: contentType,
-                                         sizeBytes: size,
-                                         sha256: sha,
-                                         originalFilename: originalFilename,
-                                         retentionPolicy: retentionPolicy.rawValue,
-                                         customTtlSeconds: nil)
-            let presign = try await apiClient.requestUpload(request)
+            try await repository.setSha256(clientJobId: job.clientJobId, sha256: sha)
 
             // WHY: the dedup response is disjoint from the happy path — it carries no
             // uploadId or upload instruction, so short-circuit before touching those.
@@ -108,11 +113,72 @@ public actor UploadService: UploadServiceProtocol {
             try await repository.setPresign(clientJobId: job.clientJobId,
                                             uploadId: uploadId)
 
+            // Tier 1: copy the optimistic shortUrl immediately so clipboard
+            // lands before bytes do. Banner/Live Activity markers below.
+            if let shortUrl = presign.shortUrl {
+                await orchestrator.recordPendingLink(clientJobId: job.clientJobId,
+                                                     token: presign.token ?? "",
+                                                     shortUrl: shortUrl)
+                job.shortURL = shortUrl
+                job.linkAlreadyCopied = true
+            }
+
             try await repository.updateStatus(clientJobId: job.clientJobId, status: .uploading)
-            try background.scheduleUpload(job: job, upload: instruction, fileURL: stagedURL)
+            switch instruction {
+            case .single(let single):
+                try background.scheduleUpload(job: job, upload: single, fileURL: stagedURL)
+            case .multipart(let multipart):
+                // Tier 2: parallel part upload via foreground URLSession. The
+                // uploader finalizes /complete itself once all parts land.
+                try await scheduleMultipart(job: job,
+                                            uploadId: uploadId,
+                                            plan: multipart,
+                                            stagedURL: stagedURL,
+                                            size: size,
+                                            contentType: contentType,
+                                            originalFilename: originalFilename,
+                                            sha256: sha)
+            }
             job.status = .uploading
             job.expiresAt = presign.expiresAt
             job.deleteAfter = presign.deleteAfter
+            // Single source of truth for Live Activity start. Every upload
+            // entry path (share ext, screenshot banner, App Intents, drag-drop,
+            // future file picker) lands here. `startOrDefer` routes:
+            //   • main app → creates the Activity immediately.
+            //   • share extension (no widget descriptors in-process) → saves
+            //     the request to the App Group; `FastSharedApp.init` /
+            //     `handleEventsForBackgroundURLSession` drain it when the
+            //     main app wakes, so the Activity is created where it can
+            //     actually render on the Dynamic Island.
+            // Compiles to a no-op on non-iOS targets.
+            await LiveActivityController.shared.startOrDefer(
+                clientJobId: job.clientJobId,
+                filename: originalFilename ?? "",
+                contentType: contentType,
+                retentionPolicy: retentionPolicy.rawValue,
+                bytesTotal: size
+            )
+            // In-app banner — fallback for devices without Dynamic Island
+            // and for users with Live Activities disabled in Settings.
+            let bannerClientJobId = job.clientJobId
+            let bannerFilename = originalFilename ?? ""
+            let bannerShortUrl = presign.shortUrl?.absoluteString
+            await MainActor.run {
+                UploadProgressMonitor.shared.start(
+                    clientJobId: bannerClientJobId,
+                    filename: bannerFilename,
+                    contentType: contentType,
+                    bytesTotal: size
+                )
+                // Tier 1: after start(), tell the banner the link is already
+                // copied so it swaps the headline to "Link copied — still
+                // uploading".
+                if let url = bannerShortUrl {
+                    UploadProgressMonitor.shared.markLinkReady(clientJobId: bannerClientJobId,
+                                                                shortUrl: url)
+                }
+            }
             return job
         } catch {
             try? await repository.markFailed(clientJobId: job.clientJobId, error: error.localizedDescription)
@@ -124,6 +190,16 @@ public actor UploadService: UploadServiceProtocol {
         var jobs: [UploadJob] = []
         let stagingRoot = try AppGroupPaths.stagingDirectory()
         for url in urls {
+            // WHY: SwiftUI's `fileImporter` and UIDocumentPicker hand back
+            // security-scoped URLs — reading them in a sandboxed Release build
+            // (TestFlight / App Store) fails silently unless we enter the scope
+            // first. `startAccessingSecurityScopedResource()` returns `false` when
+            // the URL isn't scoped (e.g. it came from the share extension's
+            // staging path), so the call is harmless on non-scoped inputs. We
+            // always pair it with `stopAccessing...` via `defer`.
+            let didStart = url.startAccessingSecurityScopedResource()
+            defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+
             let filename = url.lastPathComponent
             let destination = stagingRoot.appendingPathComponent(UUID().uuidString).appendingPathExtension(url.pathExtension)
             try FileManager.default.copyItem(at: url, to: destination)
@@ -157,20 +233,101 @@ public actor UploadService: UploadServiceProtocol {
             tier = .free
         }
 
-        if size > caps.maxFileSizeBytes {
+        let bypass = DevOverrides.unlimitedFreeCaps
+        if !bypass, size > caps.maxFileSizeBytes {
             throw SubscriptionGate.fileTooLarge(sizeBytes: size, cap: caps.maxFileSizeBytes)
         }
-        if retention.ttlSeconds > caps.maxRetentionSeconds {
+        if !bypass, retention.ttlSeconds > caps.maxRetentionSeconds {
             throw SubscriptionGate.retentionTooLong(requestedSeconds: retention.ttlSeconds,
                                                     cap: caps.maxRetentionSeconds)
         }
-        if let cap = caps.dailyUploadLimit {
+        if let cap = caps.dailyUploadLimit, !bypass {
             let used = await usageTracker.currentCount()
             if used >= cap {
                 throw SubscriptionGate.dailyCapReached(used: used, cap: cap)
             }
         }
         _ = tier // reserved for future analytics
+    }
+
+    /// Tier 2: orchestrates the multipart upload end-to-end. Uses a foreground
+    /// `URLSession` on `BackgroundSessionManager.multipartURLSession` (the
+    /// background session serializes per-task and would defeat parallelism).
+    /// On failure, calls the backend's abort endpoint so R2 doesn't hoard
+    /// incomplete parts for 24h and the recipient's "uploading…" page stops
+    /// polling.
+    ///
+    /// Trade-off: the multipart path pauses when the app is backgrounded
+    /// mid-upload. For files up to ~100 MB that's inside iOS's ~30s grace.
+    /// Resume state across kills is an explicit follow-up (persist part
+    /// ETags to SwiftData) — not in Tier 2 scope.
+    private func scheduleMultipart(job: UploadJob,
+                                   uploadId: String,
+                                   plan: UploadInstruction.MultipartInstruction,
+                                   stagedURL: URL,
+                                   size: Int64,
+                                   contentType: String,
+                                   originalFilename: String?,
+                                   sha256: String) async throws {
+        let uploader = MultipartUploader(session: background.multipartURLSession)
+        let uploaderPlan = MultipartUploader.Plan(
+            multipartUploadId: plan.multipartUploadId,
+            partSize: plan.partSize,
+            parts: plan.parts.map { .init(partNumber: $0.partNumber, url: $0.url) }
+        )
+        let clientJobId = job.clientJobId
+        let bytesTotal = size
+        let repo = repository
+        do {
+            let completion = try await uploader.upload(
+                fileURL: stagedURL,
+                fileSize: size,
+                plan: uploaderPlan,
+                progress: { fraction in
+                    let bytesSent = Int64(Double(bytesTotal) * fraction)
+                    Task { @MainActor in
+                        UploadProgressMonitor.shared.updateProgress(clientJobId: clientJobId,
+                                                                    progress: fraction,
+                                                                    bytesSent: bytesSent,
+                                                                    bytesTotal: bytesTotal)
+                    }
+                    Task {
+                        await LiveActivityController.shared.updateProgress(clientJobId: clientJobId,
+                                                                           progress: fraction,
+                                                                           bytesSent: bytesSent,
+                                                                           bytesTotal: bytesTotal)
+                    }
+                    Task.detached(priority: .utility) {
+                        try? await repo.updateProgress(clientJobId: clientJobId,
+                                                       progress: fraction)
+                    }
+                }
+            )
+            let multipartPayload = CompleteRequest.MultipartCompletion(
+                parts: completion.parts.map { .init(partNumber: $0.partNumber, eTag: $0.eTag) }
+            )
+            try await repository.updateStatus(clientJobId: clientJobId, status: .completing)
+            let response = try await apiClient.completeUpload(
+                uploadId: uploadId,
+                request: CompleteRequest(contentType: contentType,
+                                         sizeBytes: size,
+                                         sha256: sha256,
+                                         originalFilename: originalFilename,
+                                         multipart: multipartPayload)
+            )
+            await orchestrator.handleMultipartCompletion(
+                clientJobId: clientJobId,
+                completion: response,
+                contentType: contentType,
+                sizeBytes: size,
+                filename: originalFilename
+            )
+        } catch {
+            log.error("multipart upload failed; aborting: \(error.localizedDescription, privacy: .public)")
+            try? await apiClient.abortMultipartUpload(uploadId: uploadId)
+            await orchestrator.handleTaskFailure(clientJobId: clientJobId, error: error)
+            throw error
+        }
     }
 
     private func ensureDeviceToken() async throws -> DeviceToken {

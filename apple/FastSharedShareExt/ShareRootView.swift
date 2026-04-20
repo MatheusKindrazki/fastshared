@@ -5,11 +5,11 @@ import FastSharedCore
 import UIKit
 #endif
 
-/// Share extension root — `design/screens.jsx` → `ShareSheet()` + `ShareSuccess()`.
+/// Share extension root — Friendly redesign.
 ///
 /// Five phases backed by `ShareViewModel`. The sheet itself sits on top of a
-/// faded host-app backdrop; the upload state is mirrored into the Dynamic
-/// Island via LiveActivity elsewhere.
+/// faded host-app backdrop. All color tokens are read via `@Environment(\.colorScheme)`
+/// so the sheet adapts to both light and dark appearances.
 struct ShareRootView: View {
     @Bindable var viewModel: ShareViewModel
     /// Process-scoped coordinator owned by ShareViewController; shared here
@@ -19,43 +19,75 @@ struct ShareRootView: View {
     let onCancel: () -> Void
     let onDismiss: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         ZStack {
             // Dim the host context so the sheet reads as modal.
             LinearGradient(
-                colors: [BrandPalette.ground.opacity(0.6),
-                         BrandPalette.ground.opacity(0.85),
-                         BrandPalette.ground],
+                colors: [groundColor.opacity(0.6),
+                         groundColor.opacity(0.85),
+                         groundColor],
                 startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea()
 
-            content
-                .padding(24)
-                .background(BrandPalette.surface0, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(BrandPalette.lineStrong, lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.4), radius: 32, y: -12)
-                .padding(12)
-                .frame(minWidth: 360, minHeight: 420)
+            VStack(spacing: 0) {
+                // Nav bar
+                navBar
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
+
+                content
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+            }
+            .background(groundColor, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(lineColor, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.4), radius: 32, y: -12)
+            .padding(12)
+            .frame(minWidth: 360)
         }
-        .preferredColorScheme(.dark)
-        .foregroundStyle(BrandPalette.text)
+        .foregroundStyle(textColor)
         .animation(BrandMotion.transition, value: phaseKey)
         .sheet(item: $paywallCoordinator.pending) { trigger in
-            // WHY: the share ext sheet host is this root; PaywallView lives in
-            // the main-app target so we project a lightweight inline paywall
-            // surface here. The upgrade flow itself (actual StoreKit call) is
-            // delegated through `SubscriptionStoreLocator`.
             SharePaywallSheet(trigger: trigger) {
                 paywallCoordinator.dismiss()
             }
         }
     }
 
-    // WHY: a discriminant key lets SwiftUI animate view identity across phases.
+    // MARK: - Nav bar
+
+    private var navBar: some View {
+        HStack {
+            Button(action: onCancel) {
+                Text("Cancel")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(accentHot)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            SheetBrandLockup(markSize: 22, textSize: 15)
+
+            Spacer()
+
+            // Mirror Cancel width for centering
+            Text("Cancel")
+                .font(.system(size: 15, weight: .semibold))
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: - Phase key
+
     private var phaseKey: Int {
         switch viewModel.phase {
         case .idle: return 0
@@ -66,6 +98,8 @@ struct ShareRootView: View {
         }
     }
 
+    // MARK: - Content routing
+
     @ViewBuilder
     private var content: some View {
         switch viewModel.phase {
@@ -75,16 +109,24 @@ struct ShareRootView: View {
                       onUpload: onUpload,
                       onCancel: onCancel)
         case .preparing:
-            PreparingStage()
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel,
+                      isPreparing: true)
         case .uploading(let progress, let sent, let total):
-            UploadingStage(progress: progress,
-                           bytesSent: sent,
-                           bytesTotal: total,
-                           retention: viewModel.retentionPolicy)
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel,
+                      uploadProgress: progress,
+                      bytesSent: sent,
+                      bytesTotal: total)
         case .success(let link, let filename, let deduped):
             SuccessStage(link: link,
                          filename: filename,
                          deduped: deduped,
+                         retention: viewModel.retentionPolicy,
                          onDone: onDismiss)
         case .failed(let reason, let requestId):
             FailureStage(reason: reason,
@@ -93,6 +135,17 @@ struct ShareRootView: View {
                          onCancel: onCancel)
         }
     }
+
+    // MARK: - Theme helpers
+
+    private var groundColor: Color     { FriendlyPalette.ground(colorScheme) }
+    private var canvasColor: Color     { FriendlyPalette.canvas(colorScheme) }
+    private var surface0Color: Color   { FriendlyPalette.surface0(colorScheme) }
+    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color    { FriendlyPalette.textDim(colorScheme) }
+    private var lineColor: Color       { FriendlyPalette.line(colorScheme) }
+    private var lineStrongColor: Color { FriendlyPalette.lineStrong(colorScheme) }
+    private var accentHot: Color       { FriendlyPalette.accentHot }
 }
 
 // MARK: - Shared inline atoms
@@ -107,31 +160,16 @@ private struct SheetRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(BrandPalette.line, lineWidth: stroke)
+            Circle()
+                .stroke(FriendlyPalette.accentHot.opacity(0.22), lineWidth: stroke)
                 .frame(width: size, height: size)
             Circle()
                 .trim(from: 0, to: clamped)
-                .stroke(BrandPalette.amberAccent.hot, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+                .stroke(FriendlyPalette.accentHot, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: size, height: size)
         }
         .frame(width: size, height: size)
-    }
-}
-
-/// Inline mono label for the share extension.
-private struct SheetMono: View {
-    let text: String
-    var size: CGFloat = 11
-    var track: CGFloat = 1.6
-    var color: Color = BrandPalette.textDim
-    var weight: Font.Weight = .semibold
-
-    var body: some View {
-        Text(text.uppercased())
-            .font(.system(size: size, weight: weight, design: .monospaced))
-            .tracking(track)
-            .foregroundStyle(color)
     }
 }
 
@@ -145,17 +183,21 @@ private struct SheetPlaneArc: View {
     var framed: Bool = false
     var ambient: Bool = false
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var planeColor: Color { FriendlyPalette.text(colorScheme) }
+
     var body: some View {
-        let accent = BrandPalette.amberAccent
         let corner = size * (32.0 / 140.0)
         let arcStrokeWidth = size * (9.0 / 140.0)
+        let a = BrandPalette.violetAccent
 
         ZStack {
             if ambient {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [accent.hot.opacity(0.21), .clear],
+                            colors: [a.hot.opacity(0.21), .clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: size * 0.82
@@ -168,11 +210,13 @@ private struct SheetPlaneArc: View {
             }
 
             if framed {
+                let bg = FriendlyPalette.surface0(colorScheme)
+                let borderColor = FriendlyPalette.lineStrong(colorScheme)
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
-                    .fill(BrandPalette.surface0)
+                    .fill(bg)
                     .overlay(
                         RoundedRectangle(cornerRadius: corner, style: .continuous)
-                            .stroke(BrandPalette.lineStrong, lineWidth: 1)
+                            .stroke(borderColor, lineWidth: 1)
                     )
                     .frame(width: size, height: size)
             }
@@ -181,9 +225,9 @@ private struct SheetPlaneArc: View {
                 .stroke(
                     LinearGradient(
                         stops: [
-                            .init(color: accent.fade.opacity(0), location: 0),
-                            .init(color: accent.hot.opacity(0.95), location: 0.5),
-                            .init(color: accent.soft, location: 1),
+                            .init(color: a.fade.opacity(0), location: 0),
+                            .init(color: a.hot.opacity(0.95), location: 0.5),
+                            .init(color: a.soft, location: 1),
                         ],
                         startPoint: .bottomLeading,
                         endPoint: .topTrailing
@@ -206,12 +250,12 @@ private struct SheetPlaneArc: View {
                         p.addLine(to: CGPoint(x: -4, y: 4).applying(transform))
                         p.closeSubpath()
                     }
-                    .fill(BrandPalette.text)
+                    .fill(planeColor)
                     Path { p in
                         p.move(to: CGPoint(x: 4, y: 4).applying(transform))
                         p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
                     }
-                    .stroke(BrandPalette.text.opacity(0.35), lineWidth: 1)
+                    .stroke(planeColor.opacity(0.35), lineWidth: 1)
                 }
             }
             .frame(width: size, height: size)
@@ -234,23 +278,23 @@ private struct SheetArcPath: Shape {
 }
 
 /// Inline brand lockup for the share extension.
-///
-/// Mirrors `apple/FastSharedApp/Components/BrandLockup.swift` — the canonical
-/// mark+wordmark pair (amber period as the only accent). Kept in sync by hand.
 private struct SheetBrandLockup: View {
-    var markSize: CGFloat = 20
-    var textSize: CGFloat = 13
+    var markSize: CGFloat = 22
+    var textSize: CGFloat = 15
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var textColor: Color { FriendlyPalette.text(colorScheme) }
 
     var body: some View {
-        let accent = BrandPalette.amberAccent
         HStack(spacing: 8) {
             SheetPlaneArc(size: markSize)
                 .accessibilityHidden(true)
             (
                 Text("fastshared")
-                    .foregroundStyle(BrandPalette.text)
+                    .foregroundStyle(textColor)
                 + Text(".")
-                    .foregroundStyle(accent.hot)
+                    .foregroundStyle(FriendlyPalette.accentHot)
             )
             .font(.system(size: textSize, weight: .bold))
             .tracking(-textSize * 0.02)
@@ -260,24 +304,23 @@ private struct SheetBrandLockup: View {
     }
 }
 
-/// Inline file glyph for the share extension.
-private struct SheetGlyph: View {
+/// Inline file type icon tile.
+private struct SheetFileIcon: View {
     let contentType: String
-    var size: CGFloat = 34
+    var size: CGFloat = 48
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
 
     var body: some View {
-        let accent = BrandPalette.amberAccent
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .fill(accent.hot.opacity(0.10))
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(bg)
             .frame(width: size, height: size)
             .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(accent.hot.opacity(0.20), lineWidth: 1)
-            )
-            .overlay(
                 Image(systemName: symbolName)
-                    .font(.system(size: size * 0.50, weight: .regular))
-                    .foregroundStyle(accent.hot)
+                    .font(.system(size: size * 0.40, weight: .medium))
+                    .foregroundStyle(FriendlyPalette.accentHot)
             )
     }
 
@@ -290,31 +333,90 @@ private struct SheetGlyph: View {
     }
 }
 
-// MARK: - Idle stage (pick retention, confirm upload)
+// MARK: - Progress bar atom
+
+private struct SheetProgressBar: View {
+    let progress: Double   // 0…1
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var trackColor: Color { FriendlyPalette.line(colorScheme) }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(trackColor)
+                    .frame(height: 6)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(FriendlyPalette.accentHot)
+                    .frame(width: max(0, geo.size.width * CGFloat(min(1, max(0, progress)))), height: 6)
+                    .animation(.easeInOut(duration: 0.3), value: progress)
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
+// MARK: - Idle / Preparing / Uploading stage
 
 private struct IdleStage: View {
     @Bindable var viewModel: ShareViewModel
     @Bindable var paywallCoordinator: PaywallCoordinator
     let onUpload: () async -> Void
     let onCancel: () -> Void
+    var isPreparing: Bool = false
+    var uploadProgress: Double? = nil
+    var bytesSent: Int64 = 0
+    var bytesTotal: Int64 = 0
 
     @State private var tier: Tier = .free
+    @Environment(\.colorScheme) private var colorScheme
+
+    // MARK: Theme helpers
+    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color    { FriendlyPalette.textDim(colorScheme) }
+    private var textFaintColor: Color  { FriendlyPalette.textFaint(colorScheme) }
+    private var canvasColor: Color     { FriendlyPalette.canvas(colorScheme) }
+    private var lineColor: Color       { FriendlyPalette.line(colorScheme) }
+    private var lineStrongColor: Color { FriendlyPalette.lineStrong(colorScheme) }
+    private var activeChipText: Color {
+        colorScheme == .dark ? .white : FriendlyPalette.text(.light)
+    }
+
+    private var isUploading: Bool { uploadProgress != nil }
+    private var effectiveProgress: Double { uploadProgress ?? 0 }
+    private var progressPercent: Int { Int((effectiveProgress * 100).rounded()) }
+    private var canSubmit: Bool { !viewModel.items.isEmpty && !isPreparing && !isUploading }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
+        VStack(alignment: .leading, spacing: 0) {
+            // Title + subtitle
+            Text("Create a link")
+                .font(.system(size: 24, weight: .bold))
+                .tracking(-24 * 0.025)
+                .foregroundStyle(textColor)
 
-            if viewModel.items.isEmpty {
-                preparingPlaceholder
-            } else {
-                stagedCard
-            }
+            Text("We'll upload and copy the link to your clipboard.")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(textDimColor)
+                .padding(.top, 4)
 
-            retentionPicker
+            // File card
+            fileCard
+                .padding(.top, 22)
 
-            Spacer(minLength: 6)
+            // Retention picker
+            retentionSection
+                .padding(.top, 18)
 
-            ctaRow
+            // Notify toggle
+            notifyRow
+                .padding(.top, 12)
+
+            // CTA
+            ctaButton
+                .padding(.top, 20)
         }
         .task {
             if let store = try? await SubscriptionStoreLocator.shared.current() {
@@ -327,189 +429,200 @@ private struct IdleStage: View {
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .top) {
-            // v3 share-ext header — BrandLockup at 20/13 per screens.jsx `ShareSheet()`.
-            SheetBrandLockup(markSize: 20, textSize: 13)
-            Spacer()
-            Button(action: onCancel) {
-                Text("CANCEL")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .tracking(1.4)
-                    .foregroundStyle(BrandPalette.textDim)
-            }
-            .buttonStyle(.plain)
-        }
-    }
+    // MARK: - File card
 
-    private var preparingPlaceholder: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Stage a temporary link")
-                .font(.system(size: 24, weight: .bold))
-                .tracking(-0.8)
-                .foregroundStyle(BrandPalette.text)
-            HStack(spacing: 10) {
-                ProgressView().tint(BrandPalette.amberAccent.hot)
-                SheetMono(text: "Preparing files")
-            }
-        }
-    }
+    private var fileCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                if let first = viewModel.items.first {
+                    SheetFileIcon(contentType: first.contentType, size: 48)
 
-    private var stagedCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Stage a temporary link")
-                .font(.system(size: 24, weight: .bold))
-                .tracking(-0.8)
-                .foregroundStyle(BrandPalette.text)
-
-            if let first = viewModel.items.first {
-                HStack(spacing: 12) {
-                    SheetGlyph(contentType: first.contentType)
-
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(first.filename)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(BrandPalette.text)
+                            .foregroundStyle(textColor)
                             .lineLimit(1)
                             .truncationMode(.middle)
-
                         Text("\(ByteCountFormatter.string(fromByteCount: first.sizeBytes, countStyle: .file)) · \(first.contentType)")
-                            .font(.system(size: 11, weight: .regular, design: .monospaced))
-                            .foregroundStyle(BrandPalette.textFaint)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(textDimColor)
+                            .lineLimit(1)
                     }
 
-                    Spacer()
+                    Spacer(minLength: 0)
+                } else {
+                    HStack(spacing: 10) {
+                        ProgressView().tint(FriendlyPalette.accentHot)
+                        Text("Preparing…")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(textDimColor)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(BrandPalette.paper)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(BrandPalette.line, lineWidth: 1)
-                        )
-                )
+            }
 
-                if viewModel.items.count > 1 {
-                    Text("+\(viewModel.items.count - 1) more will upload in the background.")
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
-                        .foregroundStyle(BrandPalette.textFaint)
+            // Progress bar row — only when uploading/preparing
+            if isPreparing || isUploading {
+                HStack(spacing: 10) {
+                    SheetProgressBar(progress: isPreparing ? 0.12 : effectiveProgress)
+                        .frame(maxWidth: .infinity)
+
+                    Text("\(isPreparing ? 0 : progressPercent)%")
+                        .font(.system(size: 12, weight: .bold).monospacedDigit())
+                        .foregroundStyle(FriendlyPalette.accentHot)
+                        .frame(minWidth: 36, alignment: .trailing)
                 }
+                .padding(.top, 14)
+            }
+        }
+        .padding(16)
+        .background(canvasColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(lineColor, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Retention section
+
+    private var retentionSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("How long should the link work?")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(textColor)
+
+            retentionChips
+        }
+    }
+
+    private var retentionChips: some View {
+        HStack(spacing: 8) {
+            ForEach(RetentionPolicy.shareable, id: \.self) { policy in
+                retentionChip(policy)
             }
         }
     }
 
-    private var retentionPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SheetMono(text: "link valid for", color: BrandPalette.textFaint)
+    private func retentionChip(_ policy: RetentionPolicy) -> some View {
+        let selected = viewModel.retentionPolicy == policy
+        let isGated = policy.ttlSeconds > tier.caps.maxRetentionSeconds
 
-            GatedRetentionPicker(
-                selection: $viewModel.retentionPolicy,
-                tier: tier,
-                onPaywall: { trigger in
-                    paywallCoordinator.present(trigger)
+        return Button {
+            if isGated {
+                paywallCoordinator.present(.longRetentionRequested(policy: policy))
+            } else {
+                viewModel.retentionPolicy = policy
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(chipLabel(for: policy))
+                    .font(.system(size: 13, weight: selected ? .bold : .semibold))
+                    .foregroundStyle(selected ? activeChipText : textColor)
+                if isGated {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(selected ? activeChipText.opacity(0.7) : textDimColor)
                 }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(selected ? FriendlyPalette.accentHot : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(selected ? Color.clear : lineColor, lineWidth: 1.5)
+                    )
             )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel(for: policy, gated: isGated))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
 
-            Text(retentionFootnote)
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundStyle(BrandPalette.textFaint)
+    private func chipLabel(for policy: RetentionPolicy) -> String {
+        switch policy {
+        case .oneHour: return "1 hour"
+        case .oneDay: return "24 hours"
+        case .oneWeek: return "3 days"
+        case .oneMonth: return "7 days"
+        default: return policy.displayName
         }
     }
 
-    private var retentionFootnote: String {
-        "Link expires in \(viewModel.retentionPolicy.displayName). Media deleted 24h later."
+    private func accessibilityLabel(for policy: RetentionPolicy, gated: Bool) -> String {
+        let base = policy.displayName
+        return gated ? "\(base), Pro only" : base
     }
 
-    private var ctaRow: some View {
-        let accent = BrandPalette.amberAccent
+    // MARK: - Notify row
+
+    private var notifyRow: some View {
+        HStack(spacing: 12) {
+            Text("🔕")
+                .font(.system(size: 18))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Notify me on open")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(textColor)
+                Text("Ping when someone views the link")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(textDimColor)
+            }
+
+            Spacer(minLength: 0)
+
+            Toggle("", isOn: notifyBinding)
+                .labelsHidden()
+                .tint(FriendlyPalette.accentHot)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(canvasColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(lineColor, lineWidth: 1)
+        )
+    }
+
+    /// Bind to UserDefaults notification preference (best-effort; not a strict view-model field).
+    private var notifyBinding: Binding<Bool> {
+        Binding(
+            get: {
+                UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?
+                    .bool(forKey: "notify_on_open") ?? false
+            },
+            set: { newValue in
+                UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?
+                    .set(newValue, forKey: "notify_on_open")
+            }
+        )
+    }
+
+    // MARK: - CTA button
+
+    private var ctaButton: some View {
+        let uploading = isPreparing || isUploading
+        let labelText = uploading ? "Uploading…" : "Create link →"
+
         return Button {
             Task { await onUpload() }
         } label: {
-            HStack(spacing: 10) {
-                Text("UPLOAD")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .tracking(1.8)
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .bold))
-            }
-            .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .background(accent.hot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Text(labelText)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(FriendlyPalette.text(.light))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 24)
+                .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
-        .disabled(viewModel.items.isEmpty)
-        .opacity(viewModel.items.isEmpty ? 0.45 : 1)
+        .disabled(!canSubmit)
+        .opacity(canSubmit ? 1 : 0.55)
         #if os(iOS)
         .keyboardShortcut(.defaultAction)
         #endif
-    }
-}
-
-// MARK: - Preparing stage
-
-private struct PreparingStage: View {
-    var body: some View {
-        VStack(spacing: 18) {
-            Spacer(minLength: 0)
-            SheetRing(progress: 0.12, size: 96, stroke: 5)
-                .rotationEffect(.degrees(0))
-            VStack(spacing: 6) {
-                Text("Preparing")
-                    .font(.system(size: 22, weight: .bold))
-                    .tracking(-0.6)
-                    .foregroundStyle(BrandPalette.text)
-                SheetMono(text: "hashing your file", color: BrandPalette.textFaint)
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Uploading stage
-
-private struct UploadingStage: View {
-    let progress: Double
-    let bytesSent: Int64
-    let bytesTotal: Int64
-    let retention: RetentionPolicy
-
-    private var percent: Int { Int((progress * 100).rounded()) }
-    private var sentString: String { ByteCountFormatter.string(fromByteCount: bytesSent, countStyle: .file) }
-    private var totalString: String { ByteCountFormatter.string(fromByteCount: bytesTotal, countStyle: .file) }
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer(minLength: 0)
-            SheetRing(progress: progress, size: 128, stroke: 7)
-                .overlay(
-                    VStack(spacing: 2) {
-                        Text("\(percent)%")
-                            .font(.system(size: 28, weight: .bold, design: .monospaced))
-                            .tracking(-0.6)
-                            .foregroundStyle(BrandPalette.text)
-                            .contentTransition(.numericText())
-                        SheetMono(text: "uploading", size: 9, track: 1.2, color: BrandPalette.textFaint)
-                    }
-                )
-
-            Text("\(sentString) / \(totalString)")
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(BrandPalette.textDim)
-
-            HStack(spacing: 6) {
-                Image(systemName: "timer")
-                    .font(.system(size: 10, weight: .semibold))
-                Text("link valid for \(retention.displayName) once ready")
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
-            }
-            .foregroundStyle(BrandPalette.textFaint)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -519,45 +632,95 @@ private struct SuccessStage: View {
     let link: FastSharedCore.ShareLink
     let filename: String
     let deduped: Bool
+    let retention: RetentionPolicy
     let onDone: () -> Void
 
     @State private var copied: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
+    private var canvasColor: Color  { FriendlyPalette.canvas(colorScheme) }
+    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
 
     var body: some View {
-        let accent = BrandPalette.amberAccent
-        VStack(spacing: 18) {
+        VStack(spacing: 0) {
             Spacer(minLength: 0)
 
-            // v3 success hero — PlaneArc framed + ambient, per screens.jsx
-            // `ShareSuccess()` (`<PlaneArc size={160} framed ambient/>`).
-            SheetPlaneArc(size: 160, framed: true, ambient: true)
+            // Hero — PlaneArc mark with success badge overlay
+            SheetPlaneArc(size: 100, framed: false, ambient: true)
+                .overlay(alignment: .bottomTrailing) {
+                    ZStack {
+                        Circle()
+                            .fill(FriendlyPalette.successGreen)
+                            .frame(width: 40, height: 40)
+                        Text("✓")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(.white)
+                    }
+                    .offset(x: 4, y: 4)
+                }
+                .padding(.top, 24)
 
-            SheetMono(text: "link copied · handoff ready", color: accent.hot)
-
-            Text("Done.")
-                .font(.system(size: 36, weight: .bold))
-                .tracking(-1.5)
-                .foregroundStyle(BrandPalette.text)
-            Text("Link is on your clipboard and waiting on your Mac.")
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(BrandPalette.textDim)
+            // Title
+            Text("Link copied!")
+                .font(.system(size: 30, weight: .bold))
+                .tracking(-30 * 0.025)
+                .foregroundStyle(textColor)
                 .multilineTextAlignment(.center)
+                .padding(.top, 28)
 
-            urlTicket
+            // Body
+            Text("Paste it anywhere. It expires in \(retentionBodyText).")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(textDimColor)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 280)
+                .padding(.top, 8)
 
-            Button(action: onDone) {
-                Text("DONE")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .tracking(1.8)
-                    .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(accent.hot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            // Link card
+            linkCard
+                .padding(.top, 20)
+
+            // Expiry reminder
+            expiryReminder
+                .padding(.top, 12)
+
+            // Buttons
+            VStack(spacing: 10) {
+                Button {
+                    shareLink()
+                } label: {
+                    Text("Share the link ↗")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(FriendlyPalette.text(.light))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                #if os(iOS)
+                .keyboardShortcut(.defaultAction)
+                #endif
+
+                Button(action: onDone) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(textColor)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(canvasColor)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(lineColor, lineWidth: 1)
+                                )
+                        )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            #if os(iOS)
-            .keyboardShortcut(.defaultAction)
-            #endif
+            .padding(.top, 20)
 
             Spacer(minLength: 0)
         }
@@ -565,57 +728,70 @@ private struct SuccessStage: View {
         .onAppear { copyIfNeeded() }
     }
 
-    private var urlTicket: some View {
-        let accent = BrandPalette.amberAccent
-        return HStack(spacing: 12) {
-            Image(systemName: copied ? "checkmark.circle.fill" : "link")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(accent.hot)
+    private var retentionBodyText: String {
+        switch retention {
+        case .oneHour: return "1 hour"
+        case .oneDay: return "24 hours"
+        case .oneWeek: return "7 days"
+        case .oneMonth: return "30 days"
+        default: return retention.displayName
+        }
+    }
 
+    private var linkCard: some View {
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
+                Text("YOUR LINK")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(textDimColor)
+
                 HStack(spacing: 0) {
                     Text("fastsha.red/s/")
-                        .foregroundStyle(BrandPalette.text)
+                        .foregroundStyle(textColor)
                     Text(link.token)
-                        .foregroundStyle(accent.hot)
+                        .foregroundStyle(FriendlyPalette.accentHot)
                 }
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
                 .lineLimit(1)
                 .truncationMode(.middle)
-
-                Text("expires \(link.expiresAt.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .tracking(0.8)
-                    .foregroundStyle(BrandPalette.textFaint)
             }
 
             Spacer(minLength: 0)
 
-            Button(action: copy) {
-                Text(copied ? "COPIED" : "COPY")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .tracking(1.4)
-                    .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(accent.hot, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .buttonStyle(.plain)
+            Text("✓")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(FriendlyPalette.successGreen)
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(BrandPalette.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(BrandPalette.lineStrong, lineWidth: 1)
-                )
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .background(canvasColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(lineColor, lineWidth: 1)
         )
     }
 
+    private var expiryReminder: some View {
+        HStack(spacing: 10) {
+            SheetRing(progress: 0.98, size: 24, stroke: 2.5)
+
+            Text("\(retentionBodyText) ")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(FriendlyPalette.accentHot)
+            + Text("before it expires")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(FriendlyPalette.accentHot)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(FriendlyPalette.accentHot.opacity(0.09))
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func copyIfNeeded() {
-        // WHY: The upload orchestrator already copies to the clipboard on
-        // completion. We mirror the visual state so the "COPY" pill reflects it.
         copied = true
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_600_000_000)
@@ -623,47 +799,39 @@ private struct SuccessStage: View {
         }
     }
 
-    private func copy() {
-        Clipboard.make().copy(link.shortURL.absoluteString)
-        copied = true
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_400_000_000)
-            copied = false
-        }
+    private func shareLink() {
+        // Share extensions can't present UIActivityViewController — the link is
+        // already on the pasteboard from the upload completion, so re-copy and
+        // let the user paste wherever. The Done button dismisses the sheet.
+        copyIfNeeded()
     }
 }
 
 // MARK: - Share-ext paywall sheet (lightweight)
 
 /// Inline paywall surface for the share extension.
-///
-/// The main app's `PaywallView` lives in the FastSharedApp target and can't be
-/// reached from here; we present a stripped-down summary that nudges the user
-/// back to the main app to complete the purchase. A future iteration can host
-/// the full paywall here by moving PaywallView into FastSharedCore.
 struct SharePaywallSheet: View {
     let trigger: PaywallTriggerContext
     let onDismiss: () -> Void
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let accent = BrandPalette.amberAccent
         VStack(spacing: 18) {
             Spacer()
             Image(systemName: "lock.shield.fill")
                 .font(.system(size: 48))
-                .foregroundStyle(accent.hot)
-            // TODO(i18n)
+                .foregroundStyle(FriendlyPalette.accentHot)
             Text(headline)
                 .font(.system(size: 22, weight: .bold))
                 .tracking(-0.6)
-                .foregroundStyle(BrandPalette.text)
+                .foregroundStyle(FriendlyPalette.text(colorScheme))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Text(subhead)
                 .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(BrandPalette.textDim)
+                .foregroundStyle(FriendlyPalette.textDim(colorScheme))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Spacer()
@@ -673,14 +841,13 @@ struct SharePaywallSheet: View {
                 }
                 onDismiss()
             } label: {
-                // TODO(i18n)
                 Text("OPEN FASTSHARED PRO")
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .tracking(1.6)
-                    .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                    .foregroundStyle(colorScheme == .dark ? FriendlyPalette.text(.light) : .white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(accent.hot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 24)
@@ -688,21 +855,18 @@ struct SharePaywallSheet: View {
             Button {
                 onDismiss()
             } label: {
-                // TODO(i18n)
                 Text("NOT NOW")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(1.4)
-                    .foregroundStyle(BrandPalette.textDim)
+                    .foregroundStyle(FriendlyPalette.textDim(colorScheme))
             }
             .buttonStyle(.plain)
             .padding(.bottom, 12)
         }
-        .background(BrandPalette.ground.ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .background(FriendlyPalette.ground(colorScheme).ignoresSafeArea())
     }
 
     private var headline: String {
-        // TODO(i18n)
         switch trigger {
         case .dailyCapReached: return "Free limit reached"
         case .cloudSyncRequested: return "Cross-device sync is Pro"
@@ -713,7 +877,6 @@ struct SharePaywallSheet: View {
     }
 
     private var subhead: String {
-        // TODO(i18n)
         switch trigger {
         case .dailyCapReached:
             return "Open FastShared to upgrade — your next link drops in instantly."
@@ -731,58 +894,65 @@ private struct FailureStage: View {
     let onRetry: () -> Void
     let onCancel: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var textColor: Color      { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color   { FriendlyPalette.textDim(colorScheme) }
+    private var textFaintColor: Color { FriendlyPalette.textFaint(colorScheme) }
+    private var canvasColor: Color    { FriendlyPalette.canvas(colorScheme) }
+    private var lineColor: Color      { FriendlyPalette.line(colorScheme) }
+
     var body: some View {
-        let accent = BrandPalette.amberAccent
         VStack(spacing: 16) {
             Spacer(minLength: 0)
 
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(accent.fade)
+                .foregroundStyle(FriendlyPalette.UrgencyTier.critical.text)
 
             VStack(spacing: 6) {
                 Text("Upload failed")
                     .font(.system(size: 22, weight: .bold))
                     .tracking(-0.6)
-                    .foregroundStyle(BrandPalette.text)
+                    .foregroundStyle(textColor)
                 Text(reason)
                     .font(.system(size: 14, weight: .regular))
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(BrandPalette.textDim)
+                    .foregroundStyle(textDimColor)
                     .padding(.horizontal, 12)
             }
 
-            SheetMono(text: "id \(requestId)", size: 10, color: BrandPalette.textFaint)
+            Text("id \(requestId)")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(textFaintColor)
 
             Spacer(minLength: 0)
 
             HStack(spacing: 12) {
                 Button(action: onCancel) {
-                    Text("CANCEL")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .tracking(1.4)
-                        .foregroundStyle(BrandPalette.textDim)
+                    Text("Cancel")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(textDimColor)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
+                        .frame(height: 52)
                         .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(BrandPalette.paper)
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(canvasColor)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .stroke(BrandPalette.line, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(lineColor, lineWidth: 1)
                                 )
                         )
                 }
                 .buttonStyle(.plain)
 
                 Button(action: onRetry) {
-                    Text("RETRY")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .tracking(1.4)
-                        .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                    Text("Try again")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(FriendlyPalette.text(.light))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(accent.hot, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .frame(height: 52)
+                        .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 #if os(iOS)

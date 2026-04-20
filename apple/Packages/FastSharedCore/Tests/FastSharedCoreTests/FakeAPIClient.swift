@@ -28,6 +28,16 @@ final class FakeAPIClient: APIClientProtocol, @unchecked Sendable {
         return DeviceToken(deviceId: UUID(), token: "fake")
     }
 
+    func signInWithApple(
+        identityToken: String,
+        authorizationCode: String,
+        fullName: String?,
+        email: String?,
+        claimingDeviceToken: String?
+    ) async throws -> SignInResponse {
+        throw APIError.transport(underlying: "unimplemented: signInWithApple")
+    }
+
     func requestUpload(_ request: PresignRequest) async throws -> PresignResponse {
         throw APIError.transport(underlying: "unimplemented: requestUpload")
     }
@@ -38,6 +48,10 @@ final class FakeAPIClient: APIClientProtocol, @unchecked Sendable {
 
     func failUpload(uploadId: String, errorCode: String, message: String?) async throws {
         throw APIError.transport(underlying: "unimplemented: failUpload")
+    }
+
+    func abortMultipartUpload(uploadId: String) async throws {
+        throw APIError.transport(underlying: "unimplemented: abortMultipartUpload")
     }
 
     func fetchHistory(cursor: String?, limit: Int) async throws -> HistoryPage {

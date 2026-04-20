@@ -3,9 +3,19 @@ import OSLog
 
 public protocol APIClientProtocol: Sendable {
     func registerDevice(platform: String, appVersion: String) async throws -> DeviceToken
+    func signInWithApple(
+        identityToken: String,
+        authorizationCode: String,
+        fullName: String?,
+        email: String?,
+        claimingDeviceToken: String?
+    ) async throws -> SignInResponse
     func requestUpload(_ request: PresignRequest) async throws -> PresignResponse
     func completeUpload(uploadId: String, request: CompleteRequest) async throws -> CompleteResponse
     func failUpload(uploadId: String, errorCode: String, message: String?) async throws
+    /// Tier 2: tell the backend to abort a multipart R2 upload that the client
+    /// gave up on. Tears down the R2 multipart and drops the pending share_link.
+    func abortMultipartUpload(uploadId: String) async throws
     func fetchHistory(cursor: String?, limit: Int) async throws -> HistoryPage
     func deleteAsset(_ id: UUID) async throws
     func revokeLink(token: String) async throws -> RevokeResponse
@@ -13,6 +23,34 @@ public protocol APIClientProtocol: Sendable {
     func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse
     func fetchMe() async throws -> MeResponse
     func fetchPricingFlags() async throws -> PricingFlags
+}
+
+/// Response from `POST /v1/auth/apple`. Server issues a first-class device token
+/// bound to the newly-linked Apple user and returns the resolved user id so the
+/// client can persist it for credential-revocation checks on subsequent launches.
+public struct SignInResponse: Decodable, Sendable {
+    public let deviceToken: String
+    public let userId: String
+    public let isNewUser: Bool
+
+    public init(deviceToken: String, userId: String, isNewUser: Bool) {
+        self.deviceToken = deviceToken
+        self.userId = userId
+        self.isNewUser = isNewUser
+    }
+}
+
+/// Body for `POST /v1/auth/apple`. Matches the backend contract exactly — the
+/// `claimDeviceToken` field lets the server rebind any anonymous guest uploads
+/// to the freshly-authenticated user instead of orphaning them.
+private struct SignInRequest: Encodable {
+    let identityToken: String
+    let authorizationCode: String
+    let fullName: String?
+    let email: String?
+    let claimDeviceToken: String?
+    let platform: String
+    let appVersion: String
 }
 
 public final class APIClient: APIClientProtocol, @unchecked Sendable {
@@ -72,6 +110,38 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         return DeviceToken(deviceId: response.deviceId, token: response.deviceToken)
     }
 
+    public func signInWithApple(
+        identityToken: String,
+        authorizationCode: String,
+        fullName: String?,
+        email: String?,
+        claimingDeviceToken: String?
+    ) async throws -> SignInResponse {
+        // WHY: platform string matches the backend's expected taxonomy — `registerDevice`
+        // callers currently pass "ios"/"macos" via UploadService, so stay consistent.
+        #if os(iOS)
+        let platform = "ios"
+        #elseif os(macOS)
+        let platform = "macos"
+        #else
+        let platform = "unknown"
+        #endif
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+        let body = SignInRequest(
+            identityToken: identityToken,
+            authorizationCode: authorizationCode,
+            fullName: fullName,
+            email: email,
+            claimDeviceToken: claimingDeviceToken,
+            platform: platform,
+            appVersion: appVersion
+        )
+        // WHY: sign-in issues the first bearer — we must NOT attach the guest
+        // device token header here, otherwise the server would ambiguously see
+        // both the claim payload AND an auth header tied to the anonymous row.
+        return try await perform(endpoint: .signInApple, body: body, requiresAuth: false)
+    }
+
     public func requestUpload(_ request: PresignRequest) async throws -> PresignResponse {
         try await perform(endpoint: .requestUpload, body: request)
     }
@@ -83,6 +153,15 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
     public func failUpload(uploadId: String, errorCode: String, message: String?) async throws {
         let body = FailRequest(errorCode: errorCode, message: message)
         try await performVoid(endpoint: .failUpload(uploadId: uploadId), body: body)
+    }
+
+    public func abortMultipartUpload(uploadId: String) async throws {
+        let endpoint = APIEndpoint.abortMultipartUpload(uploadId: uploadId)
+        var request = URLRequest(url: baseURL.appendingPathComponent(endpoint.path))
+        request.httpMethod = endpoint.method.rawValue
+        try await attachAuth(&request)
+        let (data, httpResponse) = try await dataTask(request)
+        try validate(httpResponse, data: data)
     }
 
     public func fetchHistory(cursor: String?, limit: Int) async throws -> HistoryPage {
@@ -194,7 +273,8 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         case 200..<300:
             return
         case 401:
-            throw APIError.unauthorized
+            let problem = try? decoder.decode(Problem.self, from: data)
+            throw APIError.unauthorized(detail: problem?.detail)
         case 402:
             // WHY: 402 is surfaced as a dedicated typed error so UI callers can route
             // to the paywall coordinator instead of parsing a generic `.http` payload.

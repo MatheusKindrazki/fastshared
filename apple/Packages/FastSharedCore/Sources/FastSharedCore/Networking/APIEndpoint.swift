@@ -10,9 +10,11 @@ public enum HTTPMethod: String, Sendable {
 
 public enum APIEndpoint: Sendable {
     case registerDevice
+    case signInApple
     case requestUpload
     case completeUpload(uploadId: String)
     case failUpload(uploadId: String)
+    case abortMultipartUpload(uploadId: String)
     case fetchHistory
     case deleteAsset(id: UUID)
     case revokeLink(token: String)
@@ -23,9 +25,11 @@ public enum APIEndpoint: Sendable {
     public var path: String {
         switch self {
         case .registerDevice: return "/v1/devices"
+        case .signInApple: return "/v1/auth/apple"
         case .requestUpload: return "/v1/uploads"
         case .completeUpload(let id): return "/v1/uploads/\(id)/complete"
         case .failUpload(let id): return "/v1/uploads/\(id)/fail"
+        case .abortMultipartUpload(let id): return "/v1/uploads/\(id)/abort-multipart"
         case .fetchHistory: return "/v1/history"
         case .deleteAsset(let id): return "/v1/assets/\(id.uuidString)"
         case .revokeLink(let token): return "/v1/links/\(token)/revoke"
@@ -37,7 +41,7 @@ public enum APIEndpoint: Sendable {
 
     public var method: HTTPMethod {
         switch self {
-        case .registerDevice, .requestUpload, .completeUpload, .failUpload, .revokeLink, .iapVerify: return .post
+        case .registerDevice, .signInApple, .requestUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
         case .fetchHistory, .me, .pricingFlags: return .get
         case .deleteAsset: return .delete
         }
@@ -115,20 +119,121 @@ public struct PresignRequest: Sendable, Codable, Equatable {
     }
 }
 
-public struct UploadInstruction: Sendable, Codable, Equatable {
-    public let url: URL
-    public let method: String
-    public let headers: [String: String]
-    public let expiresAt: Date
+/// Tier 2: the presign response's `upload` slot carries either a single-PUT
+/// presign or a multipart plan, discriminated by `mode`. The server always
+/// emits `mode` on new deploys; when it's missing we default to `single` so a
+/// client with this enum decodes a legacy response correctly.
+public enum UploadInstruction: Sendable, Codable, Equatable {
+    case single(SingleInstruction)
+    case multipart(MultipartInstruction)
 
-    public init(url: URL,
-                method: String,
-                headers: [String: String],
-                expiresAt: Date) {
-        self.url = url
-        self.method = method
-        self.headers = headers
-        self.expiresAt = expiresAt
+    public struct SingleInstruction: Sendable, Codable, Equatable {
+        public let url: URL
+        public let method: String
+        public let headers: [String: String]
+        public let expiresAt: Date
+
+        public init(url: URL, method: String, headers: [String: String], expiresAt: Date) {
+            self.url = url
+            self.method = method
+            self.headers = headers
+            self.expiresAt = expiresAt
+        }
+    }
+
+    public struct MultipartInstruction: Sendable, Codable, Equatable {
+        public let multipartUploadId: String
+        public let partSize: Int
+        public let parts: [PartURL]
+        public let expiresAt: Date
+
+        public struct PartURL: Sendable, Codable, Equatable {
+            public let partNumber: Int
+            public let url: URL
+            public let method: String
+
+            public init(partNumber: Int, url: URL, method: String) {
+                self.partNumber = partNumber
+                self.url = url
+                self.method = method
+            }
+        }
+
+        public init(multipartUploadId: String,
+                    partSize: Int,
+                    parts: [PartURL],
+                    expiresAt: Date) {
+            self.multipartUploadId = multipartUploadId
+            self.partSize = partSize
+            self.parts = parts
+            self.expiresAt = expiresAt
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case mode
+        case url
+        case method
+        case headers
+        case expiresAt
+        case multipartUploadId
+        case partSize
+        case parts
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let mode = try container.decodeIfPresent(String.self, forKey: .mode) ?? "single"
+        switch mode {
+        case "single":
+            self = .single(SingleInstruction(
+                url: try container.decode(URL.self, forKey: .url),
+                method: try container.decode(String.self, forKey: .method),
+                headers: try container.decode([String: String].self, forKey: .headers),
+                expiresAt: try container.decode(Date.self, forKey: .expiresAt)
+            ))
+        case "multipart":
+            self = .multipart(MultipartInstruction(
+                multipartUploadId: try container.decode(String.self, forKey: .multipartUploadId),
+                partSize: try container.decode(Int.self, forKey: .partSize),
+                parts: try container.decode([MultipartInstruction.PartURL].self, forKey: .parts),
+                expiresAt: try container.decode(Date.self, forKey: .expiresAt)
+            ))
+        default:
+            throw DecodingError.dataCorruptedError(forKey: .mode,
+                                                   in: container,
+                                                   debugDescription: "unknown upload mode \(mode)")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .single(let s):
+            try container.encode("single", forKey: .mode)
+            try container.encode(s.url, forKey: .url)
+            try container.encode(s.method, forKey: .method)
+            try container.encode(s.headers, forKey: .headers)
+            try container.encode(s.expiresAt, forKey: .expiresAt)
+        case .multipart(let m):
+            try container.encode("multipart", forKey: .mode)
+            try container.encode(m.multipartUploadId, forKey: .multipartUploadId)
+            try container.encode(m.partSize, forKey: .partSize)
+            try container.encode(m.parts, forKey: .parts)
+            try container.encode(m.expiresAt, forKey: .expiresAt)
+        }
+    }
+}
+
+// Backward-compat shim: existing call sites that build a single-PUT instruction
+// inline used `UploadInstruction(url:method:headers:expiresAt:)`. Keep that
+// shape working so the refactor doesn't ripple across tests + share ext.
+public extension UploadInstruction {
+    init(url: URL, method: String, headers: [String: String], expiresAt: Date) {
+        self = .single(SingleInstruction(url: url,
+                                         method: method,
+                                         headers: headers,
+                                         expiresAt: expiresAt))
     }
 }
 
@@ -146,6 +251,11 @@ public struct PresignResponse: Sendable, Codable, Equatable {
     public let retentionPolicy: String?
     public let expiresAt: Date?
     public let deleteAfter: Date?
+    // Tier 1: optimistic share_link minted at presign so the client can copy
+    // the URL before the bytes finish uploading. Nil on dedup responses.
+    public let token: String?
+    public let shortUrl: URL?
+    public let linkStatus: String?
     public let deduped: DedupeInfo?
 
     public init(uploadId: String?,
@@ -157,6 +267,9 @@ public struct PresignResponse: Sendable, Codable, Equatable {
                 retentionPolicy: String?,
                 expiresAt: Date?,
                 deleteAfter: Date?,
+                token: String? = nil,
+                shortUrl: URL? = nil,
+                linkStatus: String? = nil,
                 deduped: DedupeInfo?) {
         self.uploadId = uploadId
         self.bucket = bucket
@@ -167,6 +280,9 @@ public struct PresignResponse: Sendable, Codable, Equatable {
         self.retentionPolicy = retentionPolicy
         self.expiresAt = expiresAt
         self.deleteAfter = deleteAfter
+        self.token = token
+        self.shortUrl = shortUrl
+        self.linkStatus = linkStatus
         self.deduped = deduped
     }
 }
@@ -176,15 +292,38 @@ public struct CompleteRequest: Sendable, Codable, Equatable {
     public let sizeBytes: Int64
     public let sha256: String?
     public let originalFilename: String?
+    /// Tier 2: present only when the upload took the multipart path. Server
+    /// sorts by partNumber defensively but we still send ascending to be clear.
+    public let multipart: MultipartCompletion?
+
+    public struct MultipartCompletion: Sendable, Codable, Equatable {
+        public let parts: [PartResult]
+
+        public struct PartResult: Sendable, Codable, Equatable {
+            public let partNumber: Int
+            public let eTag: String
+
+            public init(partNumber: Int, eTag: String) {
+                self.partNumber = partNumber
+                self.eTag = eTag
+            }
+        }
+
+        public init(parts: [PartResult]) {
+            self.parts = parts
+        }
+    }
 
     public init(contentType: String,
                 sizeBytes: Int64,
                 sha256: String?,
-                originalFilename: String?) {
+                originalFilename: String?,
+                multipart: MultipartCompletion? = nil) {
         self.contentType = contentType
         self.sizeBytes = sizeBytes
         self.sha256 = sha256
         self.originalFilename = originalFilename
+        self.multipart = multipart
     }
 }
 

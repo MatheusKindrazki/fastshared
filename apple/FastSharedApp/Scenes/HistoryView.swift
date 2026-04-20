@@ -2,19 +2,20 @@ import SwiftUI
 import SwiftData
 import FastSharedCore
 import UniformTypeIdentifiers
+import OSLog
 
 #if canImport(UIKit)
 import UIKit
 #endif
 
-/// The Hub — `design/screens.jsx` → `Hub()`.
+/// The Hub — "Friendly" redesign v2.
 ///
 /// Composition (top → bottom):
-///  - small brand chip (sphere + wordmark) + gear icon
-///  - "next to expire" hero: Ring + filename + short URL
-///  - summary strip: 3-up (ACTIVE / SENDING / DEFAULT)
-///  - manifest section header + list of amber file cards
-///  - FAB bottom-right for upload
+///  - Header: BrandLockup + gear icon
+///  - Greeting block: dynamic count headline + optional urgency subtitle
+///  - Empty state (when no active shares): mark + copy + hint card + CTA
+///  - Share list: LazyVStack of urgency-aware card rows
+///  - Footer CTA gradient with "Share something new +" button
 ///
 /// Driven by a `TimelineView` tick (once per second) so countdowns stay live
 /// and rows reshuffle between urgency sections as they decay.
@@ -24,6 +25,7 @@ struct HistoryView: View {
     @Environment(\.uploadOrchestrator) private var orchestrator
     @Environment(\.clipboard) private var clipboard
     @Environment(\.paywallCoordinator) private var paywallCoordinator
+    @Environment(\.colorScheme) private var colorScheme
     @Query(sort: [SortDescriptor(\ShareLinkEntity.createdAt, order: .reverse)]) private var links: [ShareLinkEntity]
 
     @State private var viewModel: HistoryViewModel?
@@ -31,6 +33,43 @@ struct HistoryView: View {
     @State private var showImporter: Bool = false
     @State private var copyPulseToken: String?
     @State private var revokePulseToken: String?
+    // Coordinator for the custom swipe-to-reveal cards below. Lives on the
+    // view so scrolling away / refiltering resets it naturally.
+    @State private var swipeManager = SwipeableCardManager()
+    #if os(iOS)
+    @State private var shareURL: URL?
+    #endif
+
+    // Guest-upgrade banner state.
+    @State private var guestBannerDismissed: Bool = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?
+        .bool(forKey: "dismissed_guest_hint_v1") ?? false
+    @State private var showSignInSheet: Bool = false
+
+    // MARK: - Resolved tokens (light/dark adaptive)
+
+    private var groundColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
+    }
+    private var canvasColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
+    }
+    private var surface0Color: Color {
+        colorScheme == .dark ? BrandPalette.friendlySurface0Dark : BrandPalette.friendlySurface0
+    }
+    private var textColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
+    }
+    private var textDimColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
+    }
+    private var textFaintColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextFaintDark : BrandPalette.friendlyTextFaint
+    }
+    private var lineColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
+    }
+
+    // MARK: - Filtered links
 
     private func filtered(_ source: [ShareLinkEntity]) -> [ShareLinkEntity] {
         guard !searchText.isEmpty else { return source }
@@ -41,38 +80,24 @@ struct HistoryView: View {
         }
     }
 
+    // MARK: - Body
+
     var body: some View {
         ZStack {
-            BrandPalette.ground
-                .ignoresSafeArea(.all)
+            groundColor.ignoresSafeArea(.all)
 
             TimelineView(.periodic(from: .now, by: 1)) { timeline in
                 let now = timeline.date
                 let snapshot = ExpirySnapshot.build(from: filtered(links), now: now)
-                content(now: now, snapshot: snapshot)
+                mainContent(now: now, snapshot: snapshot)
             }
         }
-        #if os(iOS)
-        .overlay(alignment: .bottomTrailing) {
-            floatingAddButton
-                .padding(.trailing, 20)
-                .padding(.bottom, 94)
-        }
-        #endif
-        .preferredColorScheme(.dark)
-        .foregroundStyle(BrandPalette.text)
+        .foregroundStyle(textColor)
         .navigationTitle("")
         #if os(iOS)
-        // WHY: ground the nav-bar chrome in brand ink and mark it .visible so
-        // the area behind the dynamic island / status bar matches the scroll
-        // background instead of falling back to the system's default chrome
-        // (which on iOS 17 reads as a pale translucent band against our dark
-        // canvas). The scene still uses a transparent nav-bar look because the
-        // fill matches the page background edge-to-edge.
-        .toolbarBackground(BrandPalette.ground, for: .navigationBar)
+        .toolbarBackground(groundColor, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         #endif
         #if os(iOS)
         .refreshable {
@@ -92,6 +117,22 @@ struct HistoryView: View {
             }
             await viewModel?.refresh(visibleLinks: links)
         }
+        .sheet(isPresented: $showSignInSheet) {
+            SignInView(onComplete: { showSignInSheet = false })
+        }
+        #if os(iOS)
+        // WHY: the swipe-reveal "Share" action needs to programmatically
+        // present the system share sheet (a native ShareLink button can't be
+        // fired from inside our custom SwipeAction callback). Toggling
+        // `shareURL` drives a .sheet — set to nil when dismissed.
+        .sheet(item: Binding(
+            get: { shareURL.map { IdentifiableURL(url: $0) } },
+            set: { shareURL = $0?.url }
+        )) { wrapped in
+            ShareSheet(items: [wrapped.url])
+                .presentationDetents([.medium, .large])
+        }
+        #endif
         #if os(iOS)
         .navigationDestination(for: PersistentIdentifier.self) { id in
             DetailView(linkID: id)
@@ -99,260 +140,363 @@ struct HistoryView: View {
         #endif
     }
 
-    // MARK: - Content
+    // MARK: - Main content
 
     @ViewBuilder
-    private func content(now: Date, snapshot: ExpirySnapshot) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                brandHeader
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+    private func mainContent(now: Date, snapshot: ExpirySnapshot) -> some View {
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: []) {
+                    // Header
+                    headerRow
+                        .padding(.top, 8)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 18)
 
-                if let next = snapshot.grouped.first?.links.first {
-                    heroBlock(next: next, now: now)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 28)
-                } else if searchText.isEmpty {
-                    emptyHero
-                        .padding(.horizontal, 20)
-                        .padding(.top, 28)
+                    // Guest upgrade banner (dismissible, only for guests)
+                    if AuthState.currentMode == .guest && !guestBannerDismissed {
+                        guestUpgradeBanner
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 14)
+                    }
+
+                    // Greeting
+                    greetingBlock(snapshot: snapshot)
+                        .padding(.top, 4)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 14)
+
+                    if snapshot.activeCount == 0 && searchText.isEmpty {
+                        // Empty state (owns its own CTA — footer CTA hidden below)
+                        emptyState
+                            .padding(.horizontal, 24)
+                            .padding(.top, 16)
+                    } else if snapshot.activeCount == 0 && !searchText.isEmpty {
+                        // Search empty
+                        searchEmptyState
+                            .padding(.horizontal, 24)
+                            .padding(.top, 16)
+                    } else {
+                        // Share list
+                        shareList(snapshot: snapshot, now: now)
+                    }
+
+                    // Bottom spacer for the gradient footer CTA. Not needed on
+                    // the empty state since its own CTA is rendered inline.
+                    if snapshot.activeCount > 0 {
+                        Color.clear.frame(height: 120)
+                    }
                 }
-
-                summaryStrip(snapshot: snapshot)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 22)
-
-                manifestSection(snapshot: snapshot, now: now)
-                    .padding(.top, 22)
-
-                Color.clear.frame(height: 160)
             }
-            .padding(.top, 8)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+
+            // Gradient footer CTA — only when the list has items. On the empty
+            // state we rely on the inline "Share a file" button so the user
+            // isn't choosing between two identical CTAs.
+            if snapshot.activeCount > 0 {
+                footerCTA
+            }
         }
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
     }
 
-    // MARK: - Brand header
+    // MARK: - Header row
 
-    private var brandHeader: some View {
+    private var headerRow: some View {
         HStack(spacing: 10) {
-            // v3 Hub header — BrandLockup replaces the hand-rolled sphere+wordmark chip.
-            BrandLockup(markSize: 26, textSize: 15)
+            BrandLockup(markSize: 28, textSize: 19)
 
             Spacer()
 
-            Button {
-                // navigation handled elsewhere — placeholder IconBtn
+            NavigationLink {
+                SettingsView()
             } label: {
-                iconTile("gearshape")
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func iconTile(_ systemName: String) -> some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(BrandPalette.paper)
-            .frame(width: 36, height: 36)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(BrandPalette.line, lineWidth: 1)
-            )
-            .overlay(
-                Image(systemName: systemName)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(BrandPalette.textDim)
-            )
-    }
-
-    // MARK: - Hero (next-to-expire)
-
-    private func heroBlock(next: ShareLinkEntity, now: Date) -> some View {
-        let accent = BrandPalette.amberAccent
-        let remaining = max(0, next.expiresAt.timeIntervalSince(now))
-        let retention = max(0, next.expiresAt.timeIntervalSince(next.createdAt))
-        let progress = retention > 0 ? max(0, min(1, remaining / retention)) : 0
-
-        return VStack(alignment: .leading, spacing: 10) {
-            Mono("next to expire", color: BrandPalette.textFaint)
-
-            NavigationLink(value: next.persistentModelID) {
-                HStack(alignment: .bottom, spacing: 14) {
-                    Ring(progress: progress,
-                         size: 78,
-                         stroke: 5,
-                         label: compactRemaining(remaining),
-                         sub: "LEFT")
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(next.originalFilename ?? next.token)
-                            .font(.system(size: 17, weight: .semibold))
-                            .tracking(-0.3)
-                            .foregroundStyle(BrandPalette.text)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Text("fastsha.red/s/\(next.token)")
-                            .font(.system(size: 12, weight: .regular, design: .monospaced))
-                            .foregroundStyle(accent.hot)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .padding(.bottom, 2)
-
-                    Spacer(minLength: 0)
+                ZStack {
+                    Circle()
+                        .fill(canvasColor)
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .stroke(lineColor, lineWidth: 1)
+                        )
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(textDimColor)
                 }
             }
             .buttonStyle(.plain)
         }
     }
 
-    private var emptyHero: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Mono("ready when you are", color: BrandPalette.textFaint)
-            Text("Share a file")
-                .font(.system(size: 34, weight: .bold))
-                .tracking(-1.2)
-                .foregroundStyle(BrandPalette.text)
-            Text("Your first temporary link will land here, already copied.")
-                .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(BrandPalette.textDim)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    // MARK: - Guest upgrade banner
 
-    // MARK: - Summary strip
+    /// Dismissible hint shown to guest-mode users, offering a one-tap
+    /// upgrade to Sign in with Apple. Persistence via AppGroup defaults
+    /// keeps the dismissal sticky across launches and across extensions.
+    private var guestUpgradeBanner: some View {
+        let bgTint: Color = colorScheme == .dark
+            ? BrandPalette.accentHot.opacity(0.18)
+            : BrandPalette.accentHot.opacity(0.09)
+        let borderTint: Color = BrandPalette.accentHot.opacity(0.22)
 
-    private func summaryStrip(snapshot: ExpirySnapshot) -> some View {
-        let totalSending = totalBytesInFlight(snapshot: snapshot)
-        let defaultRetention = RetentionPolicy.defaultFromAppGroup().displayName.uppercased()
+        return HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "icloud.slash")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(BrandPalette.accentHot)
+                .frame(width: 20)
 
-        let cells: [(String, String)] = [
-            (String(format: "%02d", snapshot.activeCount), "ACTIVE"),
-            (totalSending, "SENDING"),
-            (defaultRetention, "DEFAULT"),
-        ]
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Syncing is off")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(textColor)
+                Text("Sign in with Apple to sync across your devices.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(textDimColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-        return HStack(spacing: 0) {
-            ForEach(Array(cells.enumerated()), id: \.offset) { idx, cell in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(cell.0)
-                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                            .tracking(-0.3)
-                            .foregroundStyle(BrandPalette.text)
-                        Mono(cell.1, size: 9, track: 1.2, color: BrandPalette.textFaint)
-                    }
-                    Spacer()
+            Spacer(minLength: 8)
+
+            HStack(spacing: 6) {
+                Button {
+                    showSignInSheet = true
+                } label: {
+                    Text("Sign in")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(BrandPalette.accentHot)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
+                        .contentShape(Rectangle())
                 }
-                .padding(.leading, idx == 0 ? 0 : 12)
-                .overlay(alignment: .leading) {
-                    if idx > 0 {
-                        Rectangle()
-                            .fill(BrandPalette.line)
-                            .frame(width: 1)
-                            .padding(.vertical, 2)
-                    }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Sign in with Apple")
+
+                Button {
+                    dismissGuestBanner()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(textDimColor)
+                        .padding(6)
+                        .contentShape(Rectangle())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss sign-in hint")
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(BrandPalette.paper)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(bgTint)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(BrandPalette.line, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(borderTint, lineWidth: 1)
                 )
         )
     }
 
-    private func totalBytesInFlight(snapshot: ExpirySnapshot) -> String {
-        let total = snapshot.grouped.flatMap(\.links).reduce(Int64(0)) { $0 + $1.sizeBytes }
-        return ByteCountFormatter.string(fromByteCount: total, countStyle: .file).uppercased()
+    private func dismissGuestBanner() {
+        guestBannerDismissed = true
+        UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?
+            .set(true, forKey: "dismissed_guest_hint_v1")
     }
 
-    // MARK: - Manifest list
+    // MARK: - Greeting block
+
+    private func greetingBlock(snapshot: ExpirySnapshot) -> some View {
+        let count = snapshot.activeCount
+        // Urgency: links expiring under 1 hour
+        let urgentCount = snapshot.grouped.filter { $0.tier <= ExpiryTier.underOneHour }.flatMap(\.links).count
+
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("\(count) link\(count == 1 ? "" : "s") live right now")
+                .font(.system(size: 28, weight: .bold))
+                .tracking(-0.025 * 28)
+                .lineSpacing(1.15)
+                .foregroundStyle(textColor)
+
+            if urgentCount > 0 {
+                Text("One expires in under an hour — tap to extend or stop sharing.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(textDimColor)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Empty state
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            PlaneArcMark(size: 120, ambient: true)
+                .accessibilityHidden(true)
+                .padding(.top, 24)
+
+            VStack(spacing: 10) {
+                Text("Ready when you are.")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(textColor)
+                    .multilineTextAlignment(.center)
+
+                Text("Share a file from any app — FastShared creates a temporary link and copies it to your clipboard.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(textDimColor)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+            }
+
+            // Hint card
+            HStack(spacing: 8) {
+                Text("💡")
+                    .font(.system(size: 16))
+                Text("Try the share sheet in Photos — pick FastShared.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(textDimColor)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(canvasColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(lineColor, lineWidth: 1)
+                    )
+            )
+
+            Button {
+                showImporter = true
+            } label: {
+                Text("Share a file")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(BrandPalette.accentHot)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Search empty state
+
+    private var searchEmptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No results")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(textColor)
+            Text("Nothing matches \"\(searchText)\".")
+                .font(.system(size: 15))
+                .foregroundStyle(textDimColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 16)
+    }
+
+    // MARK: - Share list
 
     @ViewBuilder
-    private func manifestSection(snapshot: ExpirySnapshot, now: Date) -> some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Mono("manifest · \(String(format: "%02d", snapshot.activeCount))",
-                     color: BrandPalette.amberAccent.hot)
-                Rectangle().fill(BrandPalette.line).frame(height: 1)
-                Mono("sorted: urgency", size: 10, color: BrandPalette.textFaint)
-            }
-            .padding(.horizontal, 20)
-
-            if snapshot.activeCount == 0 && !searchText.isEmpty {
-                searchEmpty
-            } else if snapshot.activeCount == 0 {
-                Text("No active links.")
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
-                    .foregroundStyle(BrandPalette.textFaint)
-                    .padding(.vertical, 40)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(snapshot.grouped.flatMap(\.links), id: \.token) { link in
-                        NavigationLink(value: link.persistentModelID) {
-                            HubLinkCard(link: link, now: now)
-                                .padding(.horizontal, 20)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button {
-                                copyLink(link)
-                            } label: {
-                                Label("Copy link", systemImage: "doc.on.doc")
-                            }
-                            #if os(iOS)
-                            ShareLink(item: link.shortURL) {
-                                Label("Share…", systemImage: "square.and.arrow.up")
-                            }
-                            #endif
-                            Button(role: .destructive) {
-                                Task { await revoke(link) }
-                            } label: {
-                                Label("Revoke", systemImage: "xmark.circle")
-                            }
-                        }
+    private func shareList(snapshot: ExpirySnapshot, now: Date) -> some View {
+        LazyVStack(spacing: 0) {
+            ForEach(snapshot.grouped.flatMap(\.links), id: \.token) { link in
+                // WHY: `.swipeActions(...)` only fires inside a `List`; our
+                // LazyVStack layout needs a hand-rolled reveal. The manager
+                // keeps at-most-one row open at a time across the whole list.
+                SwipeableCardManaged(id: link.token, manager: swipeManager) {
+                    NavigationLink(value: link.persistentModelID) {
+                        FriendlyLinkCard(link: link, now: now, colorScheme: colorScheme)
+                    }
+                    .buttonStyle(.plain)
+                } actions: {
+                    SwipeAction(
+                        label: "Share",
+                        systemImage: "square.and.arrow.up",
+                        tint: BrandPalette.accentHot
+                    ) {
                         #if os(iOS)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button {
-                                Task { await revoke(link) }
-                            } label: {
-                                Label("Revoke", systemImage: "xmark.circle")
-                            }
-                            .tint(BrandPalette.amberAccent.fade)
-
-                            Button {
-                                copyLink(link)
-                            } label: {
-                                Label("Copy", systemImage: "doc.on.doc")
-                            }
-                            .tint(BrandPalette.amberAccent.hot)
-                        }
+                        shareURL = link.shortURL
                         #endif
+                    }
+                    SwipeAction(
+                        label: "Revoke",
+                        systemImage: "xmark.circle",
+                        tint: BrandPalette.urgencyCritical,
+                        isDestructive: true
+                    ) {
+                        Task { await revoke(link) }
+                    }
+                }
+                .padding(.bottom, 10)
+                .contextMenu {
+                    Button {
+                        copyLink(link)
+                    } label: {
+                        Label("Copy link", systemImage: "doc.on.doc")
+                    }
+                    #if os(iOS)
+                    ShareLink(item: link.shortURL) {
+                        Label("Share…", systemImage: "square.and.arrow.up")
+                    }
+                    #endif
+                    Button(role: .destructive) {
+                        Task { await revoke(link) }
+                    } label: {
+                        Label("Revoke", systemImage: "xmark.circle")
                     }
                 }
             }
         }
+        .padding(.horizontal, 18)
     }
 
-    private var searchEmpty: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Mono("no match", color: BrandPalette.textFaint)
-            Text("Nothing matches \"\(searchText)\".")
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(BrandPalette.textDim)
+    // MARK: - Footer CTA
+
+    private var footerCTA: some View {
+        VStack(spacing: 0) {
+            // Gradient fade overlay
+            LinearGradient(
+                stops: [
+                    .init(color: groundColor.opacity(0), location: 0),
+                    .init(color: groundColor.opacity(0.6), location: 0.4),
+                    .init(color: groundColor, location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 40)
+
+            // Button area on solid ground
+            groundColor
+                .overlay(alignment: .center) {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Text("Share something new +")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .padding(.horizontal, 24)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(BrandPalette.accentHot)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 24)
+                }
+                .frame(height: 72)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 28)
+        .ignoresSafeArea(edges: .bottom)
     }
 
     // MARK: - Actions
@@ -367,44 +511,10 @@ struct HistoryView: View {
         await viewModel?.revoke(link)
     }
 
-    private func compactRemaining(_ s: TimeInterval) -> String {
-        let seconds = Int(max(0, s))
-        if seconds < 60 { return "<1m" }
-        if seconds < 3600 { return "\(seconds/60)m" }
-        if seconds < 86_400 {
-            let h = seconds / 3600
-            let m = (seconds % 3600) / 60
-            return m == 0 ? "\(h)h" : "\(h)h \(m)m"
-        }
-        let d = seconds / 86_400
-        let h = (seconds % 86_400) / 3600
-        return h == 0 ? "\(d)d" : "\(d)d \(h)h"
-    }
-
     #if os(iOS)
-    private var floatingAddButton: some View {
-        let accent = BrandPalette.amberAccent
-        return Button {
-            showImporter = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
-                .frame(width: 56, height: 56)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(accent.hot)
-                        .shadow(color: accent.hot.opacity(0.33), radius: 18, y: 10)
-                )
-        }
-        .buttonStyle(.plain)
-        .sensoryFeedback(.impact(weight: .medium), trigger: showImporter)
-        .accessibilityLabel("Upload file")
-    }
-
     private func handleImport(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, let service = uploadService else { return }
-        Task {
+        Task(priority: .userInitiated) {
             do {
                 _ = try await service.enqueueDrop(urls: urls)
             } catch let gate as SubscriptionGate {
@@ -414,7 +524,11 @@ struct HistoryView: View {
                     await MainActor.run { paywallCoordinator.present(.serverForced(errorCode: code)) }
                 }
             } catch {
-                // Swallow — Live Activity / toast handles visibility elsewhere.
+                // Surface via Logger so TestFlight failures aren't invisible.
+                // Live Activity / toast handles success visibility; only the
+                // typed Subscription/Payment paths above have bespoke UI.
+                Logger(subsystem: "dev.kindrazki.fastshared", category: "upload")
+                    .error("handleImport failed: \(String(describing: error), privacy: .public)")
             }
         }
     }
@@ -442,92 +556,147 @@ struct HistoryView: View {
     #endif
 }
 
-// MARK: - HubLinkCard
+// MARK: - FriendlyLinkCard
 
-/// One row in the manifest — per `design/screens.jsx` → `LinkCard()`.
+/// One row in the share list — "Friendly" redesign v2.
 ///
-/// A 4pt tier-colored left rail, a 38pt FileGlyph, filename + meta, trailing
-/// compact Ring + mono remaining time.
-struct HubLinkCard: View {
+/// An urgency-aware card with a FileTile, filename + meta, and a trailing
+/// Ring + compact remaining-time label. Urgent rows (< 1 day) get a tinted
+/// background and colored border.
+struct FriendlyLinkCard: View {
     let link: ShareLinkEntity
     let now: Date
+    let colorScheme: ColorScheme
+
+    // MARK: - Derived values
+
+    private var remaining: TimeInterval { max(0, link.expiresAt.timeIntervalSince(now)) }
+    private var retention: TimeInterval { max(0, link.expiresAt.timeIntervalSince(link.createdAt)) }
+    private var progress: Double { retention > 0 ? max(0, min(1, remaining / retention)) : 0 }
+    private var tier: ExpiryTier { ExpiryTier.tier(for: remaining) }
+
+    private var isUrgent: Bool {
+        tier <= ExpiryTier.underOneDay
+    }
+
+    // MARK: - Adaptive tokens
+
+    private var canvasColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
+    }
+    private var textColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
+    }
+    private var textDimColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
+    }
+    private var lineColor: Color {
+        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
+    }
+
+    private var urgencyColor: Color { tier.urgencyColor }
+    private var cardBg: Color {
+        if isUrgent {
+            return colorScheme == .dark ? tier.urgencyBgDark : tier.urgencyBgLight
+        }
+        return canvasColor
+    }
+    private var cardBorder: Color {
+        isUrgent ? urgencyColor.opacity(0.21) : lineColor
+    }
+
+    // MARK: - Body
 
     var body: some View {
-        let remaining = max(0, link.expiresAt.timeIntervalSince(now))
-        let retention = max(0, link.expiresAt.timeIntervalSince(link.createdAt))
-        let progress = retention > 0 ? max(0, min(1, remaining / retention)) : 0
-        let tierColor = tier(for: remaining)
+        HStack(spacing: 12) {
+            // File type tile
+            FileGlyph(contentType: link.contentType, size: 44)
 
-        HStack(spacing: 0) {
-            // Left tier rail.
-            Rectangle()
-                .fill(tierColor.opacity(0.85))
-                .frame(width: 4)
+            // Filename + meta
+            VStack(alignment: .leading, spacing: 4) {
+                Text(link.originalFilename ?? link.token)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(textColor)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
 
-            HStack(spacing: 12) {
-                FileGlyph(contentType: link.contentType)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(link.originalFilename ?? link.token)
-                        .font(.system(size: 14, weight: .semibold))
-                        .tracking(-0.2)
-                        .foregroundStyle(BrandPalette.text)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    HStack(spacing: 8) {
-                        Text(ByteCountFormatter.string(fromByteCount: link.sizeBytes, countStyle: .file))
-                        Text("·")
-                        Text("s/\(link.token.prefix(8))")
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                HStack(spacing: 8) {
+                    // Urgency chip (critical or warning tiers)
+                    if tier <= ExpiryTier.underOneDay {
+                        urgencyChip
                     }
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .foregroundStyle(BrandPalette.textFaint)
-                }
 
-                Spacer(minLength: 8)
+                    Text(ByteCountFormatter.string(fromByteCount: link.sizeBytes, countStyle: .file))
+                        .font(.system(size: 12))
+                        .foregroundStyle(textDimColor)
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Ring(progress: progress, size: 30, stroke: 2.5, tint: tierColor)
-                    Text(compactRemaining(remaining))
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .tracking(1.0)
-                        .foregroundStyle(tierColor)
+                    Text("·")
+                        .font(.system(size: 12))
+                        .foregroundStyle(textDimColor)
+
+                    Text(ExpiryFormatter.createdAgo(link.createdAt, now: now))
+                        .font(.system(size: 12))
+                        .foregroundStyle(textDimColor)
                 }
             }
-            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Ring + time remaining
+            VStack(alignment: .trailing, spacing: 4) {
+                UrgencyRing(progress: progress, size: 38, stroke: 3.5)
+                Text(ExpiryFormatter.remaining(remaining))
+                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(urgencyColor)
+            }
         }
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(BrandPalette.paper)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(cardBg)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(BrandPalette.line, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(cardBorder, lineWidth: 1)
                 )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    private func tier(for remaining: TimeInterval) -> Color {
-        let accent = BrandPalette.amberAccent
-        if remaining <= 3600 { return accent.fade }
-        if remaining <= 86_400 { return accent.hot }
-        return accent.soft
-    }
+    // MARK: - Urgency chip
 
-    private func compactRemaining(_ s: TimeInterval) -> String {
-        let seconds = Int(max(0, s))
-        if seconds < 60 { return "<1m" }
-        if seconds < 3600 { return "\(seconds/60)m" }
-        if seconds < 86_400 {
-            let h = seconds / 3600
-            let m = (seconds % 3600) / 60
-            return m == 0 ? "\(h)h" : "\(h)h \(m)m"
+    private var urgencyChip: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(urgencyColor)
+                .frame(width: 6, height: 6)
+            Text(tier.urgencyLabel)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(urgencyColor)
         }
-        let d = seconds / 86_400
-        let h = (seconds % 86_400) / 3600
-        return h == 0 ? "\(d)d" : "\(d)d \(h)h"
+        .padding(.vertical, 4)
+        .padding(.horizontal, 9)
+        .background(
+            Capsule(style: .continuous)
+                .fill(colorScheme == .dark ? tier.urgencyBgDark : tier.urgencyBgLight)
+        )
     }
 }
 
+#if os(iOS)
+// MARK: - ShareSheet helpers
+
+/// Tiny wrapper so a `URL` can drive `.sheet(item:)` (Identifiable).
+private struct IdentifiableURL: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
+}
+
+/// SwiftUI wrapper for `UIActivityViewController`. Used when a `ShareLink`
+/// button is not an option — e.g. firing the share sheet from inside our
+/// SwipeAction callback, where we are outside the button chain.
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+#endif

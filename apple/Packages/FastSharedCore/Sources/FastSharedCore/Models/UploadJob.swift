@@ -31,6 +31,10 @@ public struct UploadJob: Sendable, Codable, Identifiable, Equatable {
     public var retentionPolicy: RetentionPolicy
     public var expiresAt: Date?
     public var deleteAfter: Date?
+    // Tier 1: presign-time optimistic link was already copied; /complete
+    // must not re-copy (avoid clobbering whatever the user pasted in the
+    // interval). Persisted so a crashed-and-resumed complete still respects it.
+    public var linkAlreadyCopied: Bool
 
     public init(clientJobId: UUID = UUID(),
                 status: UploadJobStatus = .queued,
@@ -49,7 +53,8 @@ public struct UploadJob: Sendable, Codable, Identifiable, Equatable {
                 stagedRelativePath: String,
                 retentionPolicy: RetentionPolicy = .default,
                 expiresAt: Date? = nil,
-                deleteAfter: Date? = nil) {
+                deleteAfter: Date? = nil,
+                linkAlreadyCopied: Bool = false) {
         self.clientJobId = clientJobId
         self.status = status
         self.progress = progress
@@ -68,5 +73,6 @@ public struct UploadJob: Sendable, Codable, Identifiable, Equatable {
         self.retentionPolicy = retentionPolicy
         self.expiresAt = expiresAt
         self.deleteAfter = deleteAfter
+        self.linkAlreadyCopied = linkAlreadyCopied
     }
 }

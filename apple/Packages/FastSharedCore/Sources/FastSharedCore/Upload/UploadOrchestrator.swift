@@ -55,9 +55,44 @@ public actor UploadOrchestrator {
         }
     }
 
+    /// Tier 2: multipart's caller already has the /complete response in hand
+    /// (unlike single-PUT where the URLSession delegate fires /complete for
+    /// us). Reuse `recordSuccess` so the post-complete bookkeeping stays in
+    /// one place — usage counter, clipboard guard, Live Activity transition.
+    public func handleMultipartCompletion(clientJobId: UUID,
+                                          completion: CompleteResponse,
+                                          contentType: String,
+                                          sizeBytes: Int64,
+                                          filename: String?) async {
+        do {
+            try await recordSuccess(clientJobId: clientJobId,
+                                    completion: completion,
+                                    contentType: contentType,
+                                    sizeBytes: sizeBytes,
+                                    filename: filename)
+        } catch {
+            log.error("multipart recordSuccess failed: \(error.localizedDescription, privacy: .public)")
+            await scheduleRetryOrFail(clientJobId: clientJobId, error: error)
+        }
+    }
+
     public func handleTaskFailure(clientJobId: UUID, error: Error) async {
         log.error("upload task failed \(clientJobId.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
         await scheduleRetryOrFail(clientJobId: clientJobId, error: error)
+    }
+
+    /// Tier 1: presign returned a pending shortUrl. Copy it to clipboard
+    /// immediately and persist that fact so `/complete` doesn't re-copy.
+    public func recordPendingLink(clientJobId: UUID,
+                                  token: String,
+                                  shortUrl: URL) async {
+        _ = token // reserved for future wiring (telemetry / banner contract)
+        clipboard.copy(shortUrl.absoluteString)
+        do {
+            try await repository.markLinkCopied(clientJobId: clientJobId, shortURL: shortUrl)
+        } catch {
+            log.error("markLinkCopied failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     public func recordDedupe(clientJobId: UUID,
@@ -85,6 +120,10 @@ public actor UploadOrchestrator {
         await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
                                                           shortUrl: dedupe.shortUrl.absoluteString,
                                                           expiresAt: dedupe.expiresAt)
+        await MainActor.run {
+            UploadProgressMonitor.shared.finishSuccess(clientJobId: clientJobId,
+                                                       shortUrl: dedupe.shortUrl.absoluteString)
+        }
     }
 
     public func revoke(token: String) async throws {
@@ -143,6 +182,9 @@ public actor UploadOrchestrator {
                                contentType: String,
                                sizeBytes: Int64,
                                filename: String?) async throws {
+        // Tier 1: capture whether presign already copied the short URL before
+        // we overwrite the entity with the final completion data.
+        let linkAlreadyCopied = (try? await repository.snapshot(clientJobId: clientJobId))?.linkAlreadyCopied ?? false
         try await repository.markCompleted(clientJobId: clientJobId,
                                            assetId: completion.assetId,
                                            shortURL: completion.shortUrl,
@@ -163,10 +205,18 @@ public actor UploadOrchestrator {
         // upload. Dedupe responses (recordDedupe path) explicitly skip this
         // because the server recognized idempotency and didn't consume quota.
         _ = await usageTracker.increment()
-        clipboard.copy(completion.shortUrl.absoluteString)
+        // Tier 1: if presign already pushed the short URL to clipboard the
+        // user may have pasted it elsewhere — don't clobber that by re-copying.
+        if !linkAlreadyCopied {
+            clipboard.copy(completion.shortUrl.absoluteString)
+        }
         await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
                                                           shortUrl: completion.shortUrl.absoluteString,
                                                           expiresAt: completion.expiresAt)
+        await MainActor.run {
+            UploadProgressMonitor.shared.finishSuccess(clientJobId: clientJobId,
+                                                       shortUrl: completion.shortUrl.absoluteString)
+        }
     }
 
     private func writeShareLink(token: String,
@@ -230,6 +280,10 @@ public actor UploadOrchestrator {
                 try await repository.markFailed(clientJobId: clientJobId, error: error.localizedDescription)
                 await LiveActivityController.shared.finishFailure(clientJobId: clientJobId,
                                                                   reason: error.localizedDescription)
+                await MainActor.run {
+                    UploadProgressMonitor.shared.finishFailure(clientJobId: clientJobId,
+                                                               reason: error.localizedDescription)
+                }
                 return
             }
             try await repository.markFailed(clientJobId: clientJobId, error: error.localizedDescription)

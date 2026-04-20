@@ -2,9 +2,13 @@ import Foundation
 import OSLog
 
 public protocol BackgroundSessionScheduling: AnyObject, Sendable {
-    func scheduleUpload(job: UploadJob, upload: UploadInstruction, fileURL: URL) throws
+    func scheduleUpload(job: UploadJob, upload: UploadInstruction.SingleInstruction, fileURL: URL) throws
     func attach(completionHandler: @escaping () -> Void, identifier: String)
     func bind(orchestrator: UploadOrchestrator, store: SwiftDataStore)
+    /// Tier 2: foreground session used by `MultipartUploader`. Separate from the
+    /// background session because background URLSessions serialize per-task and
+    /// would defeat the point of parallel part uploads.
+    var multipartURLSession: URLSession { get }
 }
 
 public final class BackgroundSessionManager: NSObject,
@@ -21,6 +25,7 @@ public final class BackgroundSessionManager: NSObject,
     private var repository: UploadJobRepository?
     private var completionHandler: (() -> Void)?
     private var _session: URLSession?
+    private var _multipartSession: URLSession?
 
     private var session: URLSession {
         if let session = _session { return session }
@@ -30,8 +35,26 @@ public final class BackgroundSessionManager: NSObject,
         configuration.sessionSendsLaunchEvents = true
         configuration.allowsCellularAccess = true
         configuration.waitsForConnectivity = true
+        configuration.httpMaximumConnectionsPerHost = 6
+        configuration.timeoutIntervalForRequest = 60
+        configuration.timeoutIntervalForResource = 7 * 24 * 60 * 60
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         _session = session
+        return session
+    }
+
+    public func prewarm() { _ = session }
+
+    public var multipartURLSession: URLSession {
+        if let existing = _multipartSession { return existing }
+        let configuration = URLSessionConfiguration.default
+        configuration.httpMaximumConnectionsPerHost = 6
+        configuration.timeoutIntervalForRequest = 120
+        configuration.timeoutIntervalForResource = 600
+        configuration.allowsCellularAccess = true
+        configuration.waitsForConnectivity = true
+        let session = URLSession(configuration: configuration, delegate: nil, delegateQueue: nil)
+        _multipartSession = session
         return session
     }
 
@@ -48,7 +71,9 @@ public final class BackgroundSessionManager: NSObject,
         _ = session
     }
 
-    public func scheduleUpload(job: UploadJob, upload: UploadInstruction, fileURL: URL) throws {
+    public func scheduleUpload(job: UploadJob,
+                               upload: UploadInstruction.SingleInstruction,
+                               fileURL: URL) throws {
         var request = URLRequest(url: upload.url)
         request.httpMethod = upload.method.uppercased()
         for (key, value) in upload.headers {
@@ -83,6 +108,12 @@ public final class BackgroundSessionManager: NSObject,
                                                                progress: progress,
                                                                bytesSent: totalBytesSent,
                                                                bytesTotal: totalBytesExpectedToSend)
+            await MainActor.run {
+                UploadProgressMonitor.shared.updateProgress(clientJobId: clientJobId,
+                                                            progress: progress,
+                                                            bytesSent: totalBytesSent,
+                                                            bytesTotal: totalBytesExpectedToSend)
+            }
         }
     }
 

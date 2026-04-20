@@ -93,6 +93,15 @@ public actor UploadJobRepository {
         return try context.fetch(descriptor).map { $0.snapshot() }
     }
 
+    public func setSha256(clientJobId: UUID, sha256: String) throws {
+        let context = store.backgroundContext()
+        let descriptor = FetchDescriptor<UploadJobEntity>(predicate: #Predicate { $0.clientJobId == clientJobId })
+        guard let entity = try context.fetch(descriptor).first else { return }
+        entity.sha256 = sha256
+        entity.updatedAt = Date()
+        try context.save()
+    }
+
     public func setPresign(clientJobId: UUID, uploadId: String, assetId: UUID? = nil) throws {
         let context = store.backgroundContext()
         let descriptor = FetchDescriptor<UploadJobEntity>(predicate: #Predicate { $0.clientJobId == clientJobId })
@@ -103,6 +112,19 @@ public actor UploadJobRepository {
         if let assetId {
             entity.remoteAssetId = assetId.uuidString
         }
+        entity.updatedAt = Date()
+        try context.save()
+    }
+
+    /// Tier 1: remember that the presign-time shortUrl has been copied so
+    /// `recordSuccess()` at /complete skips a second copy. Also stashes the
+    /// short URL on the entity so UIs that bind to the job see it early.
+    public func markLinkCopied(clientJobId: UUID, shortURL: URL) throws {
+        let context = store.backgroundContext()
+        let descriptor = FetchDescriptor<UploadJobEntity>(predicate: #Predicate { $0.clientJobId == clientJobId })
+        guard let entity = try context.fetch(descriptor).first else { return }
+        entity.linkAlreadyCopied = true
+        entity.shortURLString = shortURL.absoluteString
         entity.updatedAt = Date()
         try context.save()
     }

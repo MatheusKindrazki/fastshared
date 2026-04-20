@@ -248,8 +248,23 @@ final class ShareViewController: PlatformViewController {
     }
 
     private func performUpload() async {
-        // Only one item is expected from a share sheet in the MVP shape. If multiple were staged we still only
-        // track the first for UI state; the service will enqueue them all in the background.
+        // WHY: the share ext stays open showing live progress. We can't rely
+        // on the URL-scheme handoff because iOS blocks `extensionContext.open`
+        // when the main app is force-quit (documented Apple policy), so the
+        // user would get zero feedback if we dismissed immediately. Instead:
+        //   1. `enqueue` stages the URLSession background task (so it keeps
+        //      running even if the user leaves before we finish).
+        //   2. We poll the SwiftData job row via `startObserving` and render
+        //      progress inside the sheet.
+        //   3. When the upload completes, the orchestrator copies the link
+        //      to the clipboard; the sheet briefly shows a success card,
+        //      then the view model flips `readyToDismiss` and we close.
+        //
+        // Live Activity: still parked via `startOrDefer` inside `enqueue`.
+        // When the main app next opens, `drainPendingStarts` creates the
+        // Activity in the process that owns the widget descriptors — at
+        // which point the Dynamic Island animates for whatever state the
+        // upload is in (usually already completed by then).
         guard let first = await viewModel.items.first else {
             log.error("performUpload invoked with zero staged items")
             return
@@ -265,54 +280,47 @@ final class ShareViewController: PlatformViewController {
         let store = SwiftDataStore.shared
         let orchestrator = UploadOrchestrator(apiClient: apiClient, store: store, clipboard: Clipboard.make())
         BackgroundSessionManager.shared.bind(orchestrator: orchestrator, store: store)
-        let service = UploadService(apiClient: apiClient,
-                                    store: store,
-                                    tokenStore: tokenStore,
-                                    background: BackgroundSessionManager.shared,
-                                    orchestrator: orchestrator,
-                                    subscriptionStore: subscriptionStore)
+        let service = UploadService(
+            apiClient: apiClient,
+            store: store,
+            tokenStore: tokenStore,
+            background: BackgroundSessionManager.shared,
+            orchestrator: orchestrator,
+            subscriptionStore: subscriptionStore
+        )
 
         let policy = await viewModel.retentionPolicy
         do {
-            let job = try await service.enqueue(stagedURL: first.localURL,
-                                                contentType: first.contentType,
-                                                originalFilename: first.filename,
-                                                retentionPolicy: policy)
-            log.info("share enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
-            await LiveActivityController.shared.start(clientJobId: job.clientJobId,
-                                                      filename: first.filename,
-                                                      contentType: first.contentType,
-                                                      retentionPolicy: policy.rawValue,
-                                                      progress: 0,
-                                                      bytesTotal: first.sizeBytes)
+            let job = try await service.enqueue(
+                stagedURL: first.localURL,
+                contentType: first.contentType,
+                originalFilename: first.filename,
+                retentionPolicy: policy
+            )
+            log.info("share ext enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
+
             await MainActor.run {
-                viewModel.startObserving(clientJobId: job.clientJobId,
-                                         filename: first.filename,
-                                         totalBytes: first.sizeBytes)
+                viewModel.startObserving(
+                    clientJobId: job.clientJobId,
+                    filename: first.filename,
+                    totalBytes: first.sizeBytes
+                )
             }
 
-            // Fire-and-forget any remaining items; their UI isn't tracked in MVP but they still upload.
+            // Fire-and-forget additional items — UI tracks only the first.
             let remaining = await viewModel.items.dropFirst()
             for item in remaining {
                 Task.detached {
-                    if let tailJob = try? await service.enqueue(stagedURL: item.localURL,
-                                                                contentType: item.contentType,
-                                                                originalFilename: item.filename,
-                                                                retentionPolicy: policy) {
-                        await LiveActivityController.shared.start(clientJobId: tailJob.clientJobId,
-                                                                  filename: item.filename,
-                                                                  contentType: item.contentType,
-                                                                  retentionPolicy: policy.rawValue,
-                                                                  progress: 0,
-                                                                  bytesTotal: item.sizeBytes)
-                    }
+                    _ = try? await service.enqueue(
+                        stagedURL: item.localURL,
+                        contentType: item.contentType,
+                        originalFilename: item.filename,
+                        retentionPolicy: policy
+                    )
                 }
             }
         } catch let gate as SubscriptionGate {
-            log.info("preflight blocked: \(String(describing: gate), privacy: .public)")
             await MainActor.run {
-                // Reset viewModel back to idle so the user can close + retry
-                // after upgrading.
                 viewModel.phase = .idle
                 switch gate {
                 case .dailyCapReached(let used, let cap):
@@ -325,20 +333,20 @@ final class ShareViewController: PlatformViewController {
                     paywallCoordinator.present(.cloudSyncRequested)
                 }
             }
-        } catch let apiError as APIError {
-            if case .paymentRequired(let code, _) = apiError {
+        } catch let api as APIError {
+            if case .paymentRequired(let code, _) = api {
                 await MainActor.run {
                     viewModel.phase = .idle
                     paywallCoordinator.present(.serverForced(errorCode: code))
                 }
                 return
             }
-            log.error("enqueue failed retentionPolicy=\(policy.rawValue, privacy: .public): \(apiError.localizedDescription, privacy: .public)")
+            log.error("share ext enqueue api error: \(api.localizedDescription, privacy: .public)")
             await MainActor.run {
-                viewModel.reportEnqueueFailure(error: apiError, requestId: UUID())
+                viewModel.reportEnqueueFailure(error: api, requestId: UUID())
             }
         } catch {
-            log.error("enqueue failed retentionPolicy=\(policy.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            log.error("share ext enqueue failed: \(error.localizedDescription, privacy: .public)")
             await MainActor.run {
                 viewModel.reportEnqueueFailure(error: error, requestId: UUID())
             }
