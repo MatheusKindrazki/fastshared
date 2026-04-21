@@ -5,25 +5,24 @@
 // Palette tokens come from `web/.impeccable.md` (the locked brand spec).
 
 const COLORS = {
-  ink: '#070318',
-  nightshade: '#1d0d4b',
+  // Light-first friendly palette (matches Apple app redesign)
+  ink: '#fbf8f1',          // cream — page background
+  nightshade: '#f5f1e6',   // warm surface
   deepViolet: '#3b1f86',
-  // `warning` is amber — reserved strictly for urgency signals
-  // (expiry countdown, "expiring soon"). Brand/system text now uses violet.
-  warning: '#ff9f47',
+  warning: '#ff9f47',      // amber — urgency only
   ember: '#ffc487',
   coral: '#ff4e7c',
-  cream: '#ffe0b8',
-  milk: '#fafaff',
+  cream: '#fbf8f1',
+  milk: '#1d1d1f',         // charcoal — primary text
   violetHot: '#9d7aff',
   violetSoft: '#c1a9ff',
   violetDust: '#e0d4ff',
   violetFade: '#ff7ad1',
-  rule: 'rgba(255,255,255,0.08)',
-  ruleSoft: 'rgba(255,255,255,0.04)',
-  milkDim: 'rgba(250,250,255,0.56)',
-  milkFaint: 'rgba(250,250,255,0.32)',
-  milkGhost: 'rgba(250,250,255,0.12)',
+  rule: 'rgba(0,0,0,0.08)',
+  ruleSoft: 'rgba(0,0,0,0.04)',
+  milkDim: 'rgba(0,0,0,0.55)',
+  milkFaint: 'rgba(0,0,0,0.32)',
+  milkGhost: 'rgba(0,0,0,0.12)',
 } as const;
 
 export interface RenderPreviewPageArgs {
@@ -152,12 +151,13 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
 
 <style>
   :root {
-    --ink: ${COLORS.ink};
-    --nightshade: ${COLORS.nightshade};
-    --deep-violet: ${COLORS.deepViolet};
+    --cream: ${COLORS.cream};
+    --surface-warm: ${COLORS.nightshade};
+    --card: #ffffff;
+    --panel: rgba(0,0,0,0.04);
     --warning: ${COLORS.warning};
     --coral: ${COLORS.coral};
-    --milk: ${COLORS.milk};
+    --charcoal: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
     --violet-soft: ${COLORS.violetSoft};
     --rule: ${COLORS.rule};
@@ -165,15 +165,28 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     --milk-faint: ${COLORS.milkFaint};
     --sans: 'Bricolage Grotesque', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cream: #0f0f12;
+      --surface-warm: #1a1a1e;
+      --card: #1c1c22;
+      --panel: rgba(255,255,255,0.04);
+      --charcoal: #f0f0f5;
+      --violet-hot: ${COLORS.violetHot};
+      --violet-soft: ${COLORS.violetSoft};
+      --rule: rgba(255,255,255,0.08);
+      --milk-dim: rgba(240,240,245,0.55);
+      --milk-faint: rgba(240,240,245,0.35);
+      color-scheme: dark;
+    }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    background:
-      radial-gradient(ellipse at 18% -10%, rgba(157,122,255,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 92% 18%, rgba(255,122,209,0.06) 0%, transparent 50%),
-      var(--ink);
-    color: var(--milk);
+    background: var(--cream);
+    color: var(--charcoal);
     font-family: var(--sans);
     min-height: 100vh;
     padding: 24px;
@@ -193,18 +206,19 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
-    color: var(--milk);
+    color: var(--charcoal);
     text-decoration: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .viewport {
     border-radius: 20px;
-    background: var(--nightshade);
+    background: var(--card);
     border: 1px solid var(--rule);
     overflow: hidden;
     min-height: 240px;
     display: grid;
     place-items: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
   .viewport img {
     display: block;
@@ -237,7 +251,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     font-size: 13px;
     line-height: 1.6;
     color: var(--milk-dim);
-    background: var(--nightshade);
+    background: var(--surface-warm);
     tab-size: 2;
     white-space: pre;
     word-wrap: normal;
@@ -252,7 +266,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--milk-faint);
-    background: var(--nightshade);
+    background: var(--surface-warm);
     text-align: center;
     letter-spacing: 0.04em;
   }
@@ -296,7 +310,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     letter-spacing: -0.025em;
     line-height: 1.25;
     word-break: break-word;
-    color: var(--milk);
+    color: var(--charcoal);
   }
   .badges {
     display: flex;
@@ -313,7 +327,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
   .badge-mono {
     padding: 4px 10px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.06);
+    background: var(--panel);
     color: var(--milk-dim);
     font-family: var(--mono);
     font-size: 12px;
@@ -324,9 +338,10 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     margin: 24px 0;
     padding: 18px 20px;
     border-radius: 14px;
-    background: var(--nightshade);
+    background: var(--card);
     border: 1px solid var(--rule);
     text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
   .countdown-label {
     font-family: var(--mono);
@@ -353,7 +368,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     width: 100%;
     padding: 16px 24px;
     background: var(--violet-hot);
-    color: var(--ink);
+    color: #ffffff;
     border-radius: 999px;
     text-align: center;
     text-decoration: none;
@@ -379,7 +394,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     text-decoration: none;
     border-bottom: 1px dotted var(--milk-faint);
   }
-  footer a:hover { color: var(--milk); }
+  footer a:hover { color: var(--charcoal); }
 </style>
 </head>
 <body>
@@ -511,9 +526,10 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" />
 <style>
   :root {
-    --ink: ${COLORS.ink};
-    --nightshade: ${COLORS.nightshade};
-    --milk: ${COLORS.milk};
+    --cream: ${COLORS.cream};
+    --surface-warm: ${COLORS.nightshade};
+    --card: #ffffff;
+    --charcoal: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
     --violet-soft: ${COLORS.violetSoft};
     --rule: ${COLORS.rule};
@@ -521,15 +537,27 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     --milk-faint: ${COLORS.milkFaint};
     --sans: 'Bricolage Grotesque', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cream: #0f0f12;
+      --surface-warm: #1a1a1e;
+      --card: #1c1c22;
+      --charcoal: #f0f0f5;
+      --violet-hot: ${COLORS.violetHot};
+      --violet-soft: ${COLORS.violetSoft};
+      --rule: rgba(255,255,255,0.08);
+      --milk-dim: rgba(240,240,245,0.55);
+      --milk-faint: rgba(240,240,245,0.35);
+      color-scheme: dark;
+    }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    background:
-      radial-gradient(ellipse at 18% -10%, rgba(157,122,255,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 92% 18%, rgba(255,122,209,0.06) 0%, transparent 50%),
-      var(--ink);
-    color: var(--milk);
+    background: var(--cream);
+    color: var(--charcoal);
     font-family: var(--sans);
     min-height: 100vh;
     padding: 24px;
@@ -547,16 +575,17 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
-    color: var(--milk);
+    color: var(--charcoal);
     text-decoration: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .stage {
     padding: 48px 24px;
     border-radius: 20px;
-    background: var(--nightshade);
+    background: var(--card);
     border: 1px solid var(--rule);
     text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
   .ring {
     display: block;
@@ -569,7 +598,7 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     stroke-width: 4;
     stroke-linecap: round;
   }
-  .ring .track { stroke: rgba(255,255,255,0.08); }
+  .ring .track { stroke: var(--rule); }
   .ring .arc {
     stroke: var(--violet-hot);
     stroke-dasharray: 160 240;
@@ -589,7 +618,7 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     letter-spacing: -0.025em;
     line-height: 1.25;
     word-break: break-word;
-    color: var(--milk);
+    color: var(--charcoal);
   }
   .label {
     font-family: var(--mono);
@@ -623,7 +652,7 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     text-decoration: none;
     border-bottom: 1px dotted var(--milk-faint);
   }
-  footer a:hover { color: var(--milk); }
+  footer a:hover { color: var(--charcoal); }
 </style>
 </head>
 <body>
@@ -846,15 +875,16 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
 
 <style>
   :root {
-    --ink: ${COLORS.ink};
-    --nightshade: ${COLORS.nightshade};
-    --panel: rgba(250,250,255,0.04);
-    --panel-strong: rgba(250,250,255,0.06);
-    --rule: rgba(255,255,255,0.08);
-    --rule-soft: rgba(255,255,255,0.05);
+    --cream: ${COLORS.cream};
+    --surface-warm: ${COLORS.nightshade};
+    --card: #ffffff;
+    --panel: rgba(0,0,0,0.03);
+    --panel-strong: rgba(0,0,0,0.05);
+    --rule: rgba(0,0,0,0.08);
+    --rule-soft: rgba(0,0,0,0.05);
     --warning: ${COLORS.warning};
     --coral: ${COLORS.coral};
-    --milk: ${COLORS.milk};
+    --charcoal: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
     --violet-soft: ${COLORS.violetSoft};
     --violet-dust: ${COLORS.violetDust};
@@ -863,17 +893,33 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     --milk-ghost: ${COLORS.milkGhost};
     --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cream: #0f0f12;
+      --surface-warm: #1a1a1e;
+      --card: #1c1c22;
+      --panel: rgba(255,255,255,0.03);
+      --panel-strong: rgba(255,255,255,0.05);
+      --rule: rgba(255,255,255,0.08);
+      --rule-soft: rgba(255,255,255,0.05);
+      --charcoal: #f0f0f5;
+      --violet-hot: ${COLORS.violetHot};
+      --violet-soft: ${COLORS.violetSoft};
+      --violet-dust: ${COLORS.violetDust};
+      --milk-dim: rgba(240,240,245,0.55);
+      --milk-faint: rgba(240,240,245,0.35);
+      --milk-ghost: rgba(240,240,245,0.14);
+      color-scheme: dark;
+    }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   body {
-    background:
-      radial-gradient(ellipse at 16% 0%, rgba(157,122,255,0.10) 0%, transparent 40%),
-      radial-gradient(ellipse at 84% 12%, rgba(255,122,209,0.06) 0%, transparent 36%),
-      linear-gradient(180deg, #06020f 0%, #070318 100%);
-    color: var(--milk);
+    background: var(--cream);
+    color: var(--charcoal);
     font-family: var(--sans);
-    /* lock bundle preview to a single viewport — scroll lives inside .file-list / .viewer-body */
     height: 100vh;
     overflow: hidden;
     display: flex;
@@ -894,7 +940,6 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     flex-direction: column;
   }
   .shell {
-    /* fill <main>: finder-bar (fixed) / browser (flex) / footer */
     flex: 1;
     min-height: 0;
     display: grid;
@@ -915,7 +960,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.03em;
-    color: var(--milk);
+    color: var(--charcoal);
     text-decoration: none;
   }
   .brand-dot { color: var(--violet-hot); }
@@ -928,14 +973,13 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     border: 1px solid var(--rule);
     border-bottom: 0;
     border-radius: 14px 14px 0 0;
-    background: rgba(20, 10, 40, 0.35);
-    backdrop-filter: blur(20px);
+    background: var(--card);
     flex-shrink: 0;
     height: 44px;
   }
   .finder-title {
     font-size: 13px;
-    color: var(--milk);
+    color: var(--charcoal);
     font-weight: 500;
     letter-spacing: -0.01em;
     min-width: 0;
@@ -970,9 +1014,14 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .browser {
     border: 1px solid var(--rule);
-    background: rgba(255,255,255,0.03);
-    box-shadow: 0 18px 60px -42px rgba(0,0,0,0.9);
-    backdrop-filter: blur(12px);
+    background: var(--card);
+    box-shadow: 0 18px 60px -42px rgba(0,0,0,0.10);
+    border-radius: 0 0 14px 14px;
+    border-top: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .meta-chip {
     display: inline-flex;
@@ -980,26 +1029,17 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     gap: 7px;
     padding: 6px 9px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.04);
+    background: var(--panel);
     color: var(--milk-dim);
     font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--rule-soft);
   }
   .meta-chip strong {
-    color: var(--milk);
+    color: var(--charcoal);
     font-weight: 600;
-  }
-  .browser {
-    border-radius: 0 0 14px 14px;
-    border-top: 0;
-    /* occupy the 1fr row in .shell grid, clip so inner panes handle scroll */
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
   }
   .browser-body {
     display: grid;
@@ -1011,7 +1051,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   .sidebar {
     display: flex;
     flex-direction: column;
-    background: rgba(20, 10, 40, 0.25);
+    background: var(--surface-warm);
     border-right: 1px solid var(--rule);
     min-height: 0;
     overflow: hidden;
@@ -1048,7 +1088,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     padding: 6px 14px;
     background: transparent;
     border: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--rule-soft);
     color: var(--milk-dim);
     text-align: left;
     cursor: pointer;
@@ -1058,7 +1098,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .file-row:hover {
     background: rgba(157, 122, 255, 0.06);
-    color: var(--milk);
+    color: var(--charcoal);
   }
   .file-row:focus-visible {
     outline: none;
@@ -1066,8 +1106,8 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .file-row-selected,
   .file-row-selected:hover {
-    background: rgba(157, 122, 255, 0.18);
-    color: var(--milk);
+    background: rgba(157, 122, 255, 0.14);
+    color: var(--charcoal);
   }
   .file-row-icon {
     font-size: 15px;
@@ -1077,13 +1117,13 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .file-row-title {
     font-weight: 500;
-    color: var(--milk);
+    color: var(--charcoal);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     letter-spacing: -0.005em;
   }
-  .file-row-selected .file-row-title { color: var(--milk); }
+  .file-row-selected .file-row-title { color: var(--charcoal); }
   .file-row-size,
   .file-row-type {
     text-align: right;
@@ -1100,7 +1140,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    background: rgba(15, 7, 30, 0.4);
+    background: var(--card);
   }
   .viewer-body {
     min-height: 0;
@@ -1117,7 +1157,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--rule);
-    background: rgba(0,0,0,0.25);
+    background: var(--panel);
     display: grid;
     place-items: center;
   }
@@ -1130,7 +1170,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.01em;
-    color: var(--milk);
+    color: var(--charcoal);
     word-break: break-word;
   }
   .viewer-dl {
@@ -1148,7 +1188,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .viewer-dl dd {
     margin: 0;
-    color: var(--milk);
+    color: var(--charcoal);
     text-align: right;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1173,16 +1213,16 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     font-family: var(--sans);
     font-size: 12px;
     font-weight: 500;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.04);
-    color: var(--milk);
+    border: 1px solid var(--rule);
+    background: var(--panel);
+    color: var(--charcoal);
   }
   .viewer-action:hover {
-    background: rgba(255,255,255,0.08);
+    background: var(--panel-strong);
   }
   .viewer-action-primary {
     background: var(--asset-accent, var(--violet-hot));
-    color: var(--ink);
+    color: #ffffff;
     border-color: transparent;
     font-weight: 600;
   }
@@ -1200,13 +1240,13 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .preview-frame img {
     object-fit: contain;
-    background: rgba(255,255,255,0.02);
+    background: rgba(0,0,0,0.02);
   }
   .preview-frame video {
     background: #000;
   }
   .preview-frame iframe {
-    background: #f7f7fb;
+    background: var(--surface-warm);
   }
   .preview-empty {
     width: 100%;
@@ -1218,7 +1258,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     color: var(--milk-dim);
   }
   .preview-empty strong {
-    color: var(--milk);
+    color: var(--charcoal);
     display: block;
     margin-bottom: 8px;
   }
@@ -1234,12 +1274,11 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     text-decoration: none;
     border-bottom: 1px dotted var(--milk-faint);
   }
-  footer a:hover { color: var(--milk); }
+  footer a:hover { color: var(--charcoal); }
   .gallery-marker {
     display: none;
   }
   @media (max-width: 1040px) {
-    /* below desktop, go back to natural document scroll — sidebar stacks above viewer */
     html, body { height: auto; }
     body {
       height: auto;
@@ -1501,9 +1540,10 @@ export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Respo
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" />
 <style>
   :root {
-    --ink: ${COLORS.ink};
-    --nightshade: ${COLORS.nightshade};
-    --milk: ${COLORS.milk};
+    --cream: ${COLORS.cream};
+    --surface-warm: ${COLORS.nightshade};
+    --card: #ffffff;
+    --charcoal: ${COLORS.milk};
     --milk-dim: ${COLORS.milkDim};
     --milk-faint: ${COLORS.milkFaint};
     --coral: ${COLORS.coral};
@@ -1511,15 +1551,27 @@ export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Respo
     --rule: ${COLORS.rule};
     --sans: 'Bricolage Grotesque', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --cream: #0f0f12;
+      --surface-warm: #1a1a1e;
+      --card: #1c1c22;
+      --charcoal: #f0f0f5;
+      --milk-dim: rgba(240,240,245,0.55);
+      --milk-faint: rgba(240,240,245,0.35);
+      --coral: ${COLORS.coral};
+      --violet-hot: ${COLORS.violetHot};
+      --rule: rgba(255,255,255,0.08);
+      color-scheme: dark;
+    }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    background:
-      radial-gradient(ellipse at 18% -10%, rgba(157,122,255,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 92% 18%, rgba(255,122,209,0.06) 0%, transparent 50%),
-      var(--ink);
-    color: var(--milk);
+    background: var(--cream);
+    color: var(--charcoal);
     font-family: var(--sans);
     min-height: 100vh;
     padding: 24px;
@@ -1536,16 +1588,17 @@ export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Respo
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
-    color: var(--milk);
+    color: var(--charcoal);
     text-decoration: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .card {
     padding: 40px 32px;
     border-radius: 20px;
-    background: var(--nightshade);
+    background: var(--card);
     border: 1px solid var(--rule);
     text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
   h1 {
     margin: 0 0 12px;
@@ -1572,7 +1625,7 @@ export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Respo
     text-decoration: none;
     border-bottom: 1px dotted var(--milk-faint);
   }
-  footer a:hover { color: var(--milk); }
+  footer a:hover { color: var(--charcoal); }
 </style>
 </head>
 <body>
