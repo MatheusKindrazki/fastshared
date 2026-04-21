@@ -956,26 +956,40 @@ private struct SuccessStage: View {
     }
 
     private var expiryReminder: some View {
-        HStack(spacing: 10) {
-            SheetRing(progress: 0.98, size: 24, stroke: 2.5)
+        // Pill compacto centralizado — evita o badge "solto" alinhado à
+        // esquerda que o user reclamou. HStack autofit + frame alignment
+        // center deixa ele ocupando só o necessário.
+        HStack(spacing: 8) {
+            SheetRing(progress: 0.98, size: 16, stroke: 2)
+                .frame(width: 16, height: 16)
 
             Text("\(retentionBodyText) ")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(FriendlyPalette.accentHot)
             + Text("before it expires")
                 .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(FriendlyPalette.accentHot)
+                .foregroundStyle(FriendlyPalette.accentHot.opacity(0.85))
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(FriendlyPalette.accentHot.opacity(0.09))
+            Capsule(style: .continuous)
+                .fill(FriendlyPalette.accentHot.opacity(0.12))
         )
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func copyIfNeeded() {
+        // Re-copy defensivamente: o orchestrator copia no complete, mas se o
+        // pasteboard foi sobrescrito (user mexeu em outro app) ou o write da
+        // extensão ficou pendente, garantimos aqui. Usa expirationDate nil pra
+        // persistir após o sheet fechar.
+        #if canImport(UIKit)
+        UIPasteboard.general.setItems(
+            [[UIPasteboard.typeAutomatic: link.shortURL.absoluteString]],
+            options: [:]
+        )
+        #endif
         copied = true
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_600_000_000)
@@ -984,9 +998,8 @@ private struct SuccessStage: View {
     }
 
     private func shareLink() {
-        // Share extensions can't present UIActivityViewController — the link is
-        // already on the pasteboard from the upload completion, so re-copy and
-        // let the user paste wherever. The Done button dismisses the sheet.
+        // Share extensions can't present UIActivityViewController — re-copy
+        // the link so the user can paste wherever, and flash the confirmation.
         copyIfNeeded()
     }
 }
@@ -1084,6 +1097,17 @@ private struct BundleSuccessStage: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
+        .onAppear {
+            // Defensive re-copy: orchestrator already did this in /complete,
+            // but if the pasteboard got clobbered by another app we rewrite
+            // it here so "Link copied!" stays true by the time user pastes.
+            #if canImport(UIKit)
+            UIPasteboard.general.setItems(
+                [[UIPasteboard.typeAutomatic: shortUrl.absoluteString]],
+                options: [:]
+            )
+            #endif
+        }
     }
 
     private var retentionBodyText: String {
