@@ -47,11 +47,43 @@ export async function runReconciliation(env: Env): Promise<void> {
     RETURNING id
   `);
 
+  // 4) Sweep stale pending share_links. Two cohorts:
+  //    a) Single (is_bundle=false) OR bundle with zero junction rows, older
+  //       than 1h: nothing landed. Drop the row outright.
+  //    b) Bundle with partial junction rows older than 24h: caller gave up
+  //       mid-batch. Mark expired so /b/:token returns 410 — the deletion
+  //       cron picks up the asset bytes via their own delete_after window.
+  const cleaned = await db.execute<{ id: string }>(sql`
+    DELETE FROM share_link
+     WHERE link_status = 'pending'
+       AND created_at < now() - interval '1 hour'
+       AND (
+         is_bundle = false
+         OR NOT EXISTS (
+           SELECT 1 FROM bundle_asset ba WHERE ba.share_link_id = share_link.id
+         )
+       )
+    RETURNING id
+  `);
+  const partialExpired = await db.execute<{ id: string }>(sql`
+    UPDATE share_link
+       SET link_status = 'expired'
+     WHERE link_status = 'pending'
+       AND is_bundle = true
+       AND created_at < now() - interval '24 hours'
+       AND EXISTS (
+         SELECT 1 FROM bundle_asset ba WHERE ba.share_link_id = share_link.id
+       )
+    RETURNING id
+  `);
+
   log.info({
     msg: 'reconciliation_done',
     expired: rowCount(expired),
     enqueued: rowCount(enqueued),
     requeued: rowCount(requeued),
+    pendingCleaned: rowCount(cleaned),
+    bundlesPartialExpired: rowCount(partialExpired),
   });
 }
 

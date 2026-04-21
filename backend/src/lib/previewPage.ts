@@ -663,6 +663,324 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
   });
 }
 
+// Bundle preview page — N files behind one short link. Visual tokens come
+// from `web/.impeccable.md`, same palette as the single preview so the brand
+// reads consistently. The "Download all" button is a stub for the M2 cut;
+// ZIP packaging lands in a later milestone.
+export interface BundlePreviewItem {
+  assetId: string;
+  filename: string;
+  sizeBytes: number;
+  contentType: string;
+  downloadUrl: string;
+}
+
+export interface RenderBundlePreviewPageArgs {
+  token: string;
+  expiresAt: Date;
+  canonicalUrl: string;
+  ogImageUrl: string;
+  items: BundlePreviewItem[];
+  requestNow?: Date;
+}
+
+export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Response {
+  const now = args.requestNow ?? new Date();
+  const msUntilExpiry = Math.max(0, args.expiresAt.getTime() - now.getTime());
+  const humanRemaining = humanizeMs(msUntilExpiry);
+  const expiresIso = args.expiresAt.toISOString();
+
+  const safeRemaining = escapeHtml(humanRemaining);
+  const safeCanonical = escapeHtml(args.canonicalUrl);
+  const safeOgImage = escapeHtml(args.ogImageUrl);
+
+  const fileCount = args.items.length;
+  const ogTitle = `${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`;
+  // OG description: enumerate first two filenames + "+N more" trail.
+  const previewNames = args.items.slice(0, 2).map((i) => i.filename);
+  const remainder = Math.max(0, fileCount - previewNames.length);
+  const ogDescription =
+    previewNames.length > 0
+      ? `${previewNames.join(', ')}${remainder > 0 ? ` +${remainder} more` : ''}`
+      : 'Bundle via FastShared';
+  const safeOgTitle = escapeHtml(ogTitle);
+  const safeOgDescription = escapeHtml(ogDescription);
+
+  const cards = args.items
+    .map((item) => {
+      const safeFilename = escapeHtml(item.filename);
+      const safeSize = escapeHtml(formatBytes(item.sizeBytes));
+      const safeCt = escapeHtml(item.contentType);
+      const safeDownload = escapeHtml(item.downloadUrl);
+      const glyph = fileGlyphFor(item.contentType, item.filename);
+      return `<li class="card">
+  <div class="card-glyph" aria-hidden="true">${glyph}</div>
+  <div class="card-meta">
+    <div class="card-name" title="${safeFilename}">${safeFilename}</div>
+    <div class="card-sub">
+      <span>${safeSize}</span>
+      <span class="dot" aria-hidden="true">&middot;</span>
+      <span class="card-ct">${safeCt}</span>
+    </div>
+  </div>
+  <a class="card-dl" href="${safeDownload}" download rel="noopener" aria-label="Download ${safeFilename}">Download</a>
+</li>`;
+    })
+    .join('\n');
+
+  const headerLabel = `${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`;
+  const safeHeaderLabel = escapeHtml(headerLabel);
+
+  const body = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="referrer" content="no-referrer" />
+<meta name="robots" content="noindex,nofollow" />
+<title>${safeHeaderLabel}</title>
+<link rel="canonical" href="${safeCanonical}" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${safeOgTitle}" />
+<meta property="og:description" content="${safeOgDescription}" />
+<meta property="og:image" content="${safeOgImage}" />
+<meta property="og:url" content="${safeCanonical}" />
+<meta property="og:site_name" content="FastShared" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${safeOgTitle}" />
+<meta name="twitter:description" content="${safeOgDescription}" />
+<meta name="twitter:image" content="${safeOgImage}" />
+
+<style>
+  :root {
+    --ink: ${COLORS.ink};
+    --nightshade: ${COLORS.nightshade};
+    --deep-violet: ${COLORS.deepViolet};
+    --amber: ${COLORS.amber};
+    --coral: ${COLORS.coral};
+    --milk: ${COLORS.milk};
+    --violet-hot: ${COLORS.violetHot};
+    --rule: ${COLORS.rule};
+    --milk-dim: ${COLORS.milkDim};
+    --milk-faint: ${COLORS.milkFaint};
+    --milk-ghost: ${COLORS.milkGhost};
+    --sans: 'Bricolage Grotesque', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(ellipse at 18% -10%, rgba(157,122,255,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 92% 18%, rgba(255,122,209,0.06) 0%, transparent 50%),
+      var(--ink);
+    color: var(--milk);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  main {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  header { margin-bottom: 24px; }
+  .brand {
+    display: inline-block;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--milk);
+    text-decoration: none;
+  }
+  .brand-dot { color: var(--violet-hot); }
+  h1 {
+    margin: 24px 0 8px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--milk);
+  }
+  .countdown {
+    margin: 8px 0 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--milk-dim);
+    letter-spacing: 0.04em;
+  }
+  .countdown[data-expired="true"] { color: var(--coral); }
+  .list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+    background: var(--nightshade);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+  }
+  .card-glyph {
+    flex: 0 0 auto;
+    font-size: 32px;
+    line-height: 1;
+  }
+  .card-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .card-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--milk);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-sub {
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--milk-dim);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .card-sub .dot { color: var(--milk-faint); }
+  .card-ct {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 240px;
+  }
+  .card-dl {
+    flex: 0 0 auto;
+    padding: 9px 16px;
+    background: var(--violet-hot);
+    color: var(--ink);
+    border-radius: 999px;
+    text-decoration: none;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: -0.005em;
+    transition: filter 120ms ease, transform 120ms ease;
+  }
+  .card-dl:hover, .card-dl:focus {
+    filter: brightness(1.08);
+    transform: scale(1.02);
+  }
+  .download-all {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    background: transparent;
+    color: var(--milk-dim);
+    border: 1px dashed var(--milk-ghost);
+    border-radius: 999px;
+    text-align: center;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    cursor: not-allowed;
+  }
+  .download-all small {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--milk-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-left: 6px;
+  }
+  footer {
+    margin-top: 32px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--milk-faint);
+  }
+  footer a {
+    color: var(--milk-dim);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--milk-faint);
+  }
+  footer a:hover { color: var(--milk); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
+  </header>
+
+  <h1>${safeHeaderLabel}</h1>
+  <div class="countdown" data-expires-at="${expiresIso}" data-expired="false" aria-live="polite">expires in ${safeRemaining}</div>
+
+  <ul class="list">
+    ${cards}
+  </ul>
+
+  <button class="download-all" type="button" disabled aria-disabled="true">
+    Download all <small>em breve</small>
+  </button>
+
+  <footer>
+    <a href="https://fastsha.red">fastsha.red</a> &middot; share files, watch them expire.
+  </footer>
+</main>
+
+<script>
+(function () {
+  var el = document.querySelector('[data-expires-at]');
+  if (!el) return;
+  var expiresAt = new Date(el.getAttribute('data-expires-at')).getTime();
+  if (!isFinite(expiresAt)) return;
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmt(ms) {
+    if (ms <= 0) return 'expired';
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400); s -= d * 86400;
+    var h = Math.floor(s / 3600); s -= h * 3600;
+    var m = Math.floor(s / 60); s -= m * 60;
+    if (d > 0) return 'expires in ' + d + 'd ' + pad(h) + 'h ' + pad(m) + 'm';
+    if (h > 0) return 'expires in ' + pad(h) + 'h ' + pad(m) + 'm ' + pad(s) + 's';
+    return 'expires in ' + pad(m) + 'm ' + pad(s) + 's';
+  }
+  function tick() {
+    var ms = expiresAt - Date.now();
+    el.textContent = fmt(ms);
+    el.setAttribute('data-expired', ms <= 0 ? 'true' : 'false');
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>`;
+
+  return new Response(body, {
+    status: 200,
+    headers: buildHtmlHeaders(),
+  });
+}
+
 export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Response {
   const titleByReason: Record<'expired' | 'revoked' | 'deleted', string> = {
     expired: 'This link has expired',

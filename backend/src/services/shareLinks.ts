@@ -106,6 +106,21 @@ export async function incrementAccess(db: Db, token: string): Promise<void> {
     .where(eq(shareLink.token, token));
 }
 
+// Once /complete observes that bundle_asset rows == bundleAssetCount, flip the
+// pending bundle to active. The pending guard makes this a no-op for any
+// caller that lost the race — only the first one wins. Returns true on flip.
+export async function activateBundleIfPending(
+  db: Db,
+  shareLinkId: string,
+): Promise<boolean> {
+  const updated = await db
+    .update(shareLink)
+    .set({ linkStatus: 'active' })
+    .where(and(eq(shareLink.id, shareLinkId), eq(shareLink.linkStatus, 'pending')))
+    .returning({ id: shareLink.id });
+  return updated.length > 0;
+}
+
 function isUniqueViolation(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as { code?: string; message?: string };

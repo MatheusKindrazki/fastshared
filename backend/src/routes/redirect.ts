@@ -1,18 +1,24 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { AppBindings } from '~/env';
 import { createDb, type Db } from '~/db/client';
-import { asset, type Asset, type ShareLink } from '~/db/schema';
+import { asset, bundleAsset, type Asset, type ShareLink } from '~/db/schema';
 import { findByToken, incrementAccess, markExpiredByToken } from '~/services/shareLinks';
 import { getObjectStream, type R2GetRange } from '~/services/r2';
 import { parseRangeHeader } from '~/lib/httpRange';
 import { contentDispositionAttachment, contentDispositionInline } from '~/lib/contentDisposition';
-import { renderGonePage, renderPendingPage, renderPreviewPage } from '~/lib/previewPage';
+import {
+  renderBundlePreviewPage,
+  renderGonePage,
+  renderPendingPage,
+  renderPreviewPage,
+} from '~/lib/previewPage';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { log } from '~/lib/logger';
 
 export const redirectRoutes = new Hono<AppBindings>();
+export const bundleRedirectRoutes = new Hono<AppBindings>();
 
 // Public, unauthenticated endpoint. Two independent rate-limit buckets:
 //  - per client IP (blunt abuse floor),
@@ -216,8 +222,32 @@ async function binaryHandler(
     );
   }
 
+  const onLeadingHit = (offset: number) => {
+    if (offset !== 0) return;
+    c.executionCtx.waitUntil(
+      incrementAccess(db, token).catch((err) => {
+        log.warn({
+          msg: 'access_increment_failed',
+          requestId: c.get('requestId'),
+          token,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }),
+    );
+  };
+  return streamAssetBytes(c, loaded.assetRow, mode, onLeadingHit);
+}
+
+// Shared R2 streaming for /s/:token and /b/:token/d/:assetId. Centralises
+// range parsing, security headers, content-disposition, and HEAD handling so
+// both code paths stay byte-for-byte identical.
+async function streamAssetBytes(
+  c: Context<AppBindings>,
+  a: Asset,
+  mode: 'attachment' | 'inline',
+  onLeadingHit?: (offset: number) => void,
+): Promise<Response> {
   const isHead = c.req.method === 'HEAD';
-  const a = loaded.assetRow;
   const totalSize = a.sizeBytes;
 
   const parsed = parseRangeHeader(c.req.header('range') ?? null, totalSize);
@@ -277,18 +307,7 @@ async function binaryHandler(
   // Only count an access on the leading (or non-ranged) request. Media
   // clients often issue a HEAD + several byte-range GETs per playback —
   // we don't want one view to multiply the access counter.
-  if (effectiveOffset === 0) {
-    c.executionCtx.waitUntil(
-      incrementAccess(db, token).catch((err) => {
-        log.warn({
-          msg: 'access_increment_failed',
-          requestId: c.get('requestId'),
-          token,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }),
-    );
-  }
+  if (onLeadingHit) onLeadingHit(effectiveOffset);
 
   return new Response(result.body, { status, headers });
 }
@@ -414,5 +433,153 @@ function goneOrNotFoundJson(
   );
   applySecurityHeaders(res.headers);
   return res;
+}
+
+// ---------------------------------------------------------------------------
+// Bundle path: /b/:token (preview HTML) + /b/:token/d/:assetId (per-asset
+// download). Mounted at /b in the worker root. Mirrors the rate-limit
+// posture of /s — IP bucket + per-token bucket — so a hot bundle can't
+// drown out everyone else.
+// ---------------------------------------------------------------------------
+
+bundleRedirectRoutes.use(
+  '*',
+  ratelimit({ bucket: 'redirect_ip', limit: 60, windowSeconds: 60, keyFrom: 'ip' }),
+);
+bundleRedirectRoutes.use(
+  '*',
+  tokenRateLimit({ bucket: 'redirect_token', limit: 300, windowSeconds: 60 }),
+);
+
+bundleRedirectRoutes.get('/:token', (c) => bundlePreviewHandler(c));
+bundleRedirectRoutes.get('/:token/d/:assetId', (c) => bundleAssetDownloadHandler(c));
+
+interface LoadedBundle {
+  link: ShareLink;
+  assets: Array<{ asset: Asset; displayOrder: number }>;
+}
+
+async function loadActiveBundle(
+  c: Context<AppBindings>,
+  db: Db,
+  token: string,
+): Promise<LoadedBundle | { status: 'not_found' } | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' } | { status: 'pending' }> {
+  const link = await findByToken(db, token);
+  if (!link || !link.isBundle) return { status: 'not_found' };
+  if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
+  if (link.linkStatus === 'pending') return { status: 'pending' };
+  if (link.expiresAt.getTime() <= Date.now()) {
+    c.executionCtx.waitUntil(
+      markExpiredByToken(db, token).catch((err) => {
+        log.warn({
+          msg: 'lazy_expire_failed',
+          token,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }),
+    );
+    return { status: 'gone', reason: 'expired' };
+  }
+  // Two queries (junction + assets) instead of a JOIN — keeps the route
+  // simple and lets the test fake stay dumb. Assets in displayOrder.
+  const junctions = await db
+    .select()
+    .from(bundleAsset)
+    .where(eq(bundleAsset.shareLinkId, link.id))
+    .orderBy(bundleAsset.displayOrder);
+  const collected: Array<{ asset: Asset; displayOrder: number }> = [];
+  for (const j of junctions) {
+    const [a] = await db.select().from(asset).where(eq(asset.id, j.assetId)).limit(1);
+    if (!a) continue;
+    if (a.deletedAt !== null || a.status === 'deleted') continue;
+    collected.push({ asset: a, displayOrder: j.displayOrder });
+  }
+  collected.sort((x, y) => x.displayOrder - y.displayOrder);
+  if (collected.length === 0) return { status: 'gone', reason: 'deleted' };
+  return { link, assets: collected };
+}
+
+async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> {
+  const token = c.req.param('token') ?? '';
+  if (!token) return goneOrNotFoundHtml(c, 404, 'not_found', 'missing token');
+  const db = createDb(c.env.DATABASE_URL);
+  const loaded = await loadActiveBundle(c, db, token);
+  if ('status' in loaded) {
+    if (loaded.status === 'not_found') return goneOrNotFoundHtml(c, 404, 'not_found', 'unknown bundle');
+    if (loaded.status === 'pending') return goneOrNotFoundHtml(c, 404, 'not_found', 'bundle still uploading');
+    return goneOrNotFoundHtml(c, 410, 'gone', loaded.reason);
+  }
+
+  c.executionCtx.waitUntil(
+    incrementAccess(db, token).catch((err) => {
+      log.warn({
+        msg: 'access_increment_failed',
+        requestId: c.get('requestId'),
+        token,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }),
+  );
+
+  return renderBundlePreviewPage({
+    token,
+    expiresAt: loaded.link.expiresAt,
+    canonicalUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
+    ogImageUrl: `${c.env.SHORT_LINK_HOST}/og-image.png`,
+    items: loaded.assets.map((row) => ({
+      assetId: row.asset.id,
+      filename: row.asset.originalFilename ?? 'download',
+      sizeBytes: row.asset.sizeBytes,
+      contentType: row.asset.contentType,
+      downloadUrl: `${c.env.SHORT_LINK_HOST}/b/${token}/d/${row.asset.id}`,
+    })),
+  });
+}
+
+async function bundleAssetDownloadHandler(c: Context<AppBindings>): Promise<Response> {
+  const token = c.req.param('token') ?? '';
+  const assetId = c.req.param('assetId') ?? '';
+  if (!token || !assetId) return goneOrNotFoundJson(c, 404, 'not_found', 'missing token or asset');
+  const db = createDb(c.env.DATABASE_URL);
+
+  const link = await findByToken(db, token);
+  if (!link || !link.isBundle) return goneOrNotFoundJson(c, 404, 'not_found', 'unknown bundle');
+  if (link.linkStatus === 'revoked') return goneOrNotFoundJson(c, 410, 'gone', 'revoked');
+  if (link.linkStatus === 'pending') return goneOrNotFoundJson(c, 404, 'not_found', 'bundle still uploading');
+  if (link.expiresAt.getTime() <= Date.now()) {
+    return goneOrNotFoundJson(c, 410, 'gone', 'expired');
+  }
+
+  // Authorize: the asset must belong to this bundle. Without this check, any
+  // asset_id leak would let a caller pivot from one share's token to bytes of
+  // another share owned by the same device.
+  const junctionRows = await db
+    .select()
+    .from(bundleAsset)
+    .where(and(eq(bundleAsset.shareLinkId, link.id), eq(bundleAsset.assetId, assetId)))
+    .limit(1);
+  if (junctionRows.length === 0) {
+    return goneOrNotFoundJson(c, 404, 'not_found', 'asset not in bundle');
+  }
+
+  const [a] = await db.select().from(asset).where(eq(asset.id, assetId)).limit(1);
+  if (!a || a.deletedAt !== null || a.status === 'deleted') {
+    return goneOrNotFoundJson(c, 410, 'gone', 'deleted');
+  }
+
+  const onLeadingHit = (offset: number) => {
+    if (offset !== 0) return;
+    c.executionCtx.waitUntil(
+      incrementAccess(db, token).catch((err) => {
+        log.warn({
+          msg: 'access_increment_failed',
+          requestId: c.get('requestId'),
+          token,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }),
+    );
+  };
+  return streamAssetBytes(c, a, 'attachment', onLeadingHit);
 }
 
