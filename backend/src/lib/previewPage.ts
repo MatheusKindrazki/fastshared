@@ -8,13 +8,16 @@ const COLORS = {
   ink: '#070318',
   nightshade: '#1d0d4b',
   deepViolet: '#3b1f86',
-  amber: '#ff9f47',
+  // `warning` is amber — reserved strictly for urgency signals
+  // (expiry countdown, "expiring soon"). Brand/system text now uses violet.
+  warning: '#ff9f47',
   ember: '#ffc487',
   coral: '#ff4e7c',
   cream: '#ffe0b8',
   milk: '#fafaff',
   violetHot: '#9d7aff',
   violetSoft: '#c1a9ff',
+  violetDust: '#e0d4ff',
   violetFade: '#ff7ad1',
   rule: 'rgba(255,255,255,0.08)',
   ruleSoft: 'rgba(255,255,255,0.04)',
@@ -152,11 +155,11 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     --ink: ${COLORS.ink};
     --nightshade: ${COLORS.nightshade};
     --deep-violet: ${COLORS.deepViolet};
-    --amber: ${COLORS.amber};
-    --ember: ${COLORS.ember};
+    --warning: ${COLORS.warning};
     --coral: ${COLORS.coral};
     --milk: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
+    --violet-soft: ${COLORS.violetSoft};
     --rule: ${COLORS.rule};
     --milk-dim: ${COLORS.milkDim};
     --milk-faint: ${COLORS.milkFaint};
@@ -338,9 +341,12 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     font-size: 32px;
     font-weight: 700;
     letter-spacing: -0.015em;
-    color: var(--amber);
+    color: var(--violet-hot);
     font-variant-numeric: tabular-nums;
+    transition: color 250ms cubic-bezier(0.16, 1, 0.3, 1);
   }
+  /* Urgent: <1h left — amber warning. Expired: coral. */
+  .countdown-value[data-urgent="true"] { color: var(--warning); }
   .countdown-value[data-expired="true"] { color: var(--coral); }
   .download {
     display: block;
@@ -394,7 +400,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
 
   <section class="countdown" aria-live="polite">
     <div class="countdown-label">Expires in</div>
-    <div class="countdown-value" data-expires-at="${expiresIso}" data-expired="false">${safeRemaining}</div>
+    <div class="countdown-value" data-expires-at="${expiresIso}" data-expired="false" data-urgent="${msUntilExpiry > 0 && msUntilExpiry < 3_600_000 ? 'true' : 'false'}">${safeRemaining}</div>
   </section>
 
   <a class="download" href="${safeDownload}" download rel="noopener">Download</a>
@@ -425,6 +431,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     var ms = expiresAt - Date.now();
     el.textContent = fmt(ms);
     el.setAttribute('data-expired', ms <= 0 ? 'true' : 'false');
+    el.setAttribute('data-urgent', ms > 0 && ms < 3600000 ? 'true' : 'false');
   }
   tick();
   setInterval(tick, 1000);
@@ -506,9 +513,9 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
   :root {
     --ink: ${COLORS.ink};
     --nightshade: ${COLORS.nightshade};
-    --amber: ${COLORS.amber};
     --milk: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
+    --violet-soft: ${COLORS.violetSoft};
     --rule: ${COLORS.rule};
     --milk-dim: ${COLORS.milkDim};
     --milk-faint: ${COLORS.milkFaint};
@@ -589,7 +596,7 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--amber);
+    color: var(--violet-hot);
     margin-bottom: 20px;
   }
   .hint {
@@ -708,20 +715,22 @@ function bundleTypeLabel(kind: BundlePreviewKind): string {
   }
 }
 
+// All brand accents are violet-family now; kept per-kind so CSS can distinguish
+// cards if we add secondary tints later. Amber is reserved for urgency only.
 function bundleAccentFor(kind: BundlePreviewKind): string {
   switch (kind) {
     case 'image':
-      return 'amber';
+      return 'violet-hot';
     case 'video':
       return 'violet-hot';
     case 'audio':
       return 'coral';
     case 'pdf':
-      return 'ember';
+      return 'violet-soft';
     case 'text':
       return 'milk-dim';
     default:
-      return 'violet-soft';
+      return 'violet-dust';
   }
 }
 
@@ -844,12 +853,12 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     --panel-strong: rgba(250,250,255,0.06);
     --rule: rgba(255,255,255,0.08);
     --rule-soft: rgba(255,255,255,0.05);
-    --amber: ${COLORS.amber};
-    --ember: ${COLORS.ember};
+    --warning: ${COLORS.warning};
     --coral: ${COLORS.coral};
     --milk: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
     --violet-soft: ${COLORS.violetSoft};
+    --violet-dust: ${COLORS.violetDust};
     --milk-dim: ${COLORS.milkDim};
     --milk-faint: ${COLORS.milkFaint};
     --milk-ghost: ${COLORS.milkGhost};
@@ -860,8 +869,8 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   html, body { margin: 0; padding: 0; }
   body {
     background:
-      radial-gradient(ellipse at 16% 0%, rgba(157,122,255,0.08) 0%, transparent 40%),
-      radial-gradient(ellipse at 84% 12%, rgba(255,159,71,0.06) 0%, transparent 36%),
+      radial-gradient(ellipse at 16% 0%, rgba(157,122,255,0.10) 0%, transparent 40%),
+      radial-gradient(ellipse at 84% 12%, rgba(255,122,209,0.06) 0%, transparent 36%),
       linear-gradient(180deg, #06020f 0%, #070318 100%);
     color: var(--milk);
     font-family: var(--sans);
@@ -938,7 +947,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   .hero-label {
     font-family: var(--mono);
     font-size: 10px;
-    color: var(--amber);
+    color: var(--violet-hot);
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
