@@ -1,5 +1,5 @@
 ---
-// Zero-friction surface — four cards + one whispered ghost row.
+// Zero-friction surface — four cards on a warm cream stage.
 // Icons are inline Lucide SVGs (stroke-based, 1.5px).
 
 type IconName = 'action-button' | 'siri' | 'back-tap' | 'clipboard' | 'sparkle';
@@ -40,9 +40,12 @@ const cards: Card[] = [
     </span>
   </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/8">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     {cards.map((card) => (
-      <article class="bg-ink p-8 md:p-10 flex flex-col gap-5 min-h-[200px]">
+      <article
+        class="bg-canvas p-8 md:p-10 flex flex-col gap-5 min-h-[200px] rounded-[20px]"
+        style="border: 1px solid var(--rule); box-shadow: var(--shadow);"
+      >
         <span class="text-violet-hot" aria-hidden="true">
           {card.icon === 'action-button' && (
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -74,20 +77,20 @@ const cards: Card[] = [
           )}
         </span>
         <h3
-          class="font-display font-semibold text-milk"
+          class="font-display font-semibold text-charcoal"
           style="font-size: 20px; line-height: 1.25; letter-spacing: -0.02em;"
         >
           {card.title}
         </h3>
-        <p class="font-mono text-[13px] leading-[1.65] tracking-[0.02em] text-milk/60">
+        <p class="font-mono text-[13px] leading-[1.65] tracking-[0.02em] text-charcoal/55">
           {card.caption}
         </p>
       </article>
     ))}
   </div>
 
-  <!-- whispered ghost row, full width, no chrome -->
-  <p class="mt-10 font-mono text-[12px] leading-[1.6] tracking-[0.04em] text-milk/40">
+  <!-- whispered ghost row -->
+  <p class="mt-10 font-mono text-[12px] leading-[1.6] tracking-[0.04em] text-charcoal/40">
     <span class="text-violet-hot" aria-hidden="true">+</span> Screenshot banner · automatic when FastShared is open
   </p>
 </section>

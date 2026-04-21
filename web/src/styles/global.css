@@ -3,38 +3,88 @@
 @tailwind utilities;
 
 /* ============================================================
-   FastShared — global stylesheet
-   Palette, typography, and atmospheric background.
-   Match the brand/preview.html feel: dark radial stage,
-   noise overlay, subtle 100px grid.
+   FastShared — global stylesheet (light-first, Apple-friendly)
+   Palette mirrors the Friendly Design System used in the
+   Apple app: cream ground, warm white cards, violet accent,
+   1px hairlines, soft shadows. No noise, no grid, no glass.
    ============================================================ */
 
 :root {
-  --ink: #070318;
-  --nightshade: #1d0d4b;
-  --deep-violet: #3b1f86;
-  /* Amber is urgency-only (expiry < 1h, warnings). Brand accent = violet-hot. */
-  --warning: #ff9f47;
-  --amber: #ff9f47;
-  --ember: #ffc487;
-  --coral: #ff4e7c;
-  --cream: #ffe0b8;
-  --milk: #fafaff;
+  /* Light-first semantic RGB tokens — Tailwind opacity modifiers need rgb triplets */
+  --ink-rgb: 251 248 241;
+  --milk-rgb: 29 29 31;
+  --cream-rgb: 251 248 241;
+  --canvas-rgb: 255 255 255;
+  --surface-warm-rgb: 245 241 230;
+  --charcoal-rgb: 29 29 31;
+  --silver-rgb: 110 110 115;
+  --tin-rgb: 161 161 166;
 
-  /* Violet accent — Plane + Arc (Refined) default */
+  /* Fixed palette (hex mirrors for inline styles / SVG) */
+  --cream: #fbf8f1;
+  --canvas: #ffffff;
+  --surface-warm: #f5f1e6;
+  --charcoal: #1d1d1f;
+  --silver: #6e6e73;
+  --tin: #a1a1a6;
+
+  /* Legacy semantic aliases for SVG / component compatibility */
+  --ink: var(--cream);
+  --milk: var(--charcoal);
+
   --violet-hot: #9d7aff;
   --violet-soft: #c1a9ff;
   --violet-fade: #ff7ad1;
   --violet-dust: #e0d4ff;
 
-  --rule: rgba(255, 255, 255, 0.08);
-  --rule-soft: rgba(255, 255, 255, 0.04);
-  --milk-dim: rgba(250, 250, 255, 0.56);
-  --milk-faint: rgba(250, 250, 255, 0.32);
-  --milk-ghost: rgba(250, 250, 255, 0.12);
+  --warning: #ff9f47;
+  --amber: #ff9f47;
+  --ember: #ffc487;
+  --coral: #ff4e7c;
+
+  --rule: rgba(0, 0, 0, 0.08);
+  --rule-soft: rgba(0, 0, 0, 0.04);
+  --shadow: 0 24px 64px -20px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 32px 80px -24px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
+
+  --milk-dim: rgba(29, 29, 31, 0.55);
+  --milk-faint: rgba(29, 29, 31, 0.35);
+  --milk-ghost: rgba(29, 29, 31, 0.14);
 
   --display: 'Bricolage Grotesque', 'Söhne', 'Inter Tight', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --ink-rgb: 15 15 18;
+  --milk-rgb: 240 240 245;
+  --cream-rgb: 15 15 18;
+  --canvas-rgb: 28 28 34;
+  --surface-warm-rgb: 26 26 30;
+  --charcoal-rgb: 240 240 245;
+  --silver-rgb: 138 138 147;
+  --tin-rgb: 110 110 115;
+
+  --cream: #0f0f12;
+  --canvas: #1c1c22;
+  --surface-warm: #1a1a1e;
+  --charcoal: #f0f0f5;
+  --silver: #8a8a93;
+  --tin: #6e6e73;
+
+  --ink: var(--cream);
+  --milk: var(--charcoal);
+
+  --rule: rgba(255, 255, 255, 0.08);
+  --rule-soft: rgba(255, 255, 255, 0.05);
+  --shadow: 0 24px 64px -20px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+  --shadow-lg: 0 32px 80px -24px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.18);
+
+  --milk-dim: rgba(240, 240, 245, 0.55);
+  --milk-faint: rgba(240, 240, 245, 0.35);
+  --milk-ghost: rgba(240, 240, 245, 0.14);
 
   color-scheme: dark;
 }
@@ -46,47 +96,19 @@
 
   html {
     scroll-behavior: smooth;
-    background: var(--ink);
+    background: var(--cream);
   }
 
   body {
     font-family: var(--display);
-    background:
-      radial-gradient(1200px 800px at 18% -10%, #2a1458 0%, transparent 55%),
-      radial-gradient(900px 700px at 92% 18%, #1a0a4a 0%, transparent 50%),
-      var(--ink);
-    color: var(--milk);
+    background: var(--cream);
+    color: var(--charcoal);
     font-feature-settings: 'ss02', 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
     overflow-x: hidden;
     line-height: 1.5;
-  }
-
-  /* Noise overlay — fixed, non-interactive, above background, below content */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-    opacity: 0.6;
-    mix-blend-mode: overlay;
-  }
-
-  /* 100px grid — faint */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 2;
-    background:
-      linear-gradient(to right, var(--rule-soft) 1px, transparent 1px) 0 0 / 100px 100px,
-      linear-gradient(to bottom, var(--rule-soft) 1px, transparent 1px) 0 0 / 100px 100px;
-    opacity: 0.5;
   }
 
   main,
@@ -98,10 +120,10 @@
 
   ::selection {
     background: var(--violet-hot);
-    color: var(--ink);
+    color: #ffffff;
   }
 
-  /* Keyboard focus — violet-hot ring, clearly visible */
+  /* Keyboard focus — violet-hot ring */
   :focus-visible {
     outline: 2px solid var(--violet-hot);
     outline-offset: 4px;
@@ -163,7 +185,7 @@
     gap: 10px;
     padding: 16px 28px;
     background: var(--violet-hot);
-    color: var(--ink);
+    color: #ffffff;
     font-family: var(--mono);
     font-weight: 600;
     font-size: 13px;
@@ -171,20 +193,20 @@
     text-transform: uppercase;
     border-radius: 999px;
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s;
-    box-shadow: 0 10px 40px -12px rgba(157, 122, 255, 0.65);
+    box-shadow: 0 8px 24px -8px rgba(157, 122, 255, 0.45);
   }
 
   .btn-primary:hover {
     transform: translateY(-2px);
     background: var(--violet-soft);
-    box-shadow: 0 18px 52px -10px rgba(157, 122, 255, 0.8);
+    box-shadow: 0 14px 40px -6px rgba(157, 122, 255, 0.55);
   }
 
   .btn-ghost {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: var(--milk);
+    color: var(--charcoal);
     font-family: var(--mono);
     font-weight: 500;
     font-size: 13px;
@@ -214,7 +236,7 @@
     font-weight: 500;
     font-size: 13px;
     letter-spacing: 0.06em;
-    color: var(--milk-dim);
+    color: var(--silver);
   }
 
   .dashed-rule {
@@ -224,13 +246,7 @@
 }
 
 /* ============================================================
-   PlaneArc — Plane + Arc (Refined) — full cinematic sequence
-   Triggered via [data-animate="planearc"] on the wrapper.
-   Four steps:
-     1. Frame fades in (0.3s, ease).
-     2. Arc draws via stroke-dashoffset (1.2s spring).
-     3. Plane flies in from top-right (0.6s, ending shortly after arc).
-     4. Particle pulses once at the arc origin (0.9s loop once).
+   PlaneArc — cinematic sequence (CSS-driven)
    ============================================================ */
 @keyframes pa-frame-in {
   from { opacity: 0; transform: scale(0.98); }
@@ -245,11 +261,11 @@
 @keyframes pa-plane-in {
   from {
     opacity: 0;
-    transform: translate(42px, -42px) scale(1.1);
+    transform: translate(24px, -24px);
   }
   to {
     opacity: 1;
-    transform: translate(0, 0) scale(1.1);
+    transform: translate(0, 0);
   }
 }
 
@@ -272,6 +288,7 @@
 
 [data-animate="planearc"] .planearc-plane {
   opacity: 0;
+  transform-box: fill-box;
   transform-origin: 0 0;
   animation: pa-plane-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.0s forwards;
 }
@@ -297,7 +314,7 @@ details.faq-item > summary {
   font-weight: 500;
   font-size: 14px;
   letter-spacing: 0.04em;
-  color: var(--milk);
+  color: var(--charcoal);
   text-transform: uppercase;
 }
 
@@ -325,11 +342,11 @@ details.faq-item .faq-body {
   font-weight: 400;
   font-size: 17px;
   line-height: 1.55;
-  color: var(--milk-dim);
+  color: var(--silver);
   max-width: 640px;
 }
 
-/* Dynamic Island rotation (CSS fallback; JS will take over when present) */
+/* Dynamic Island rotation */
 .island-state {
   opacity: 0;
   transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -339,31 +356,33 @@ details.faq-item .faq-body {
 }
 
 /* ============================================================
-   Pricing page — tier cards
+   Pricing page — tier cards (adapted for light-first)
    ============================================================ */
 .tier-card {
   position: relative;
   display: flex;
   flex-direction: column;
   padding: 28px 24px 24px;
-  background: rgba(29, 13, 75, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  background: var(--canvas);
+  border: 1px solid var(--rule);
+  border-radius: 20px;
   overflow: hidden;
   transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 220ms ease;
+              border-color 220ms ease,
+              box-shadow 220ms ease;
+  box-shadow: 0 1px 2px var(--shadow-color);
 }
-.tier-card:hover { transform: translateY(-2px); border-color: rgba(157, 122, 255, 0.3); }
+.tier-card:hover { transform: translateY(-2px); border-color: rgba(157, 122, 255, 0.25); box-shadow: 0 8px 24px -6px rgba(0,0,0,0.06); }
 
 .tier-card.tier-pro {
-  background: linear-gradient(180deg, rgba(157, 122, 255, 0.10) 0%, rgba(29, 13, 75, 0.5) 100%);
-  border-color: rgba(157, 122, 255, 0.3);
+  background: linear-gradient(180deg, rgba(157, 122, 255, 0.06) 0%, var(--canvas) 100%);
+  border-color: rgba(157, 122, 255, 0.2);
 }
 .tier-card.tier-lifetime {
-  background: linear-gradient(180deg, rgba(255, 78, 124, 0.10) 0%, rgba(29, 13, 75, 0.5) 100%);
-  border-color: rgba(255, 78, 124, 0.4);
+  background: linear-gradient(180deg, rgba(255, 78, 124, 0.06) 0%, var(--canvas) 100%);
+  border-color: rgba(255, 78, 124, 0.2);
 }
-.tier-card.tier-lifetime:hover { border-color: rgba(255, 78, 124, 0.6); }
+.tier-card.tier-lifetime:hover { border-color: rgba(255, 78, 124, 0.35); }
 
 .tier-head { margin-bottom: 20px; }
 .tier-name {
@@ -371,7 +390,7 @@ details.faq-item .faq-body {
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--milk);
+  color: var(--charcoal);
   display: flex; align-items: center; gap: 8px;
   flex-wrap: wrap;
 }
@@ -379,14 +398,14 @@ details.faq-item .faq-body {
   margin-top: 12px;
   font-family: var(--display);
   font-weight: 700;
-  color: var(--milk);
+  color: var(--charcoal);
   display: flex; align-items: baseline; gap: 8px;
 }
 .tier-price .amount { font-size: 44px; letter-spacing: -0.04em; line-height: 1; }
 .tier-price .period {
   font-family: var(--mono);
   font-size: 12px;
-  color: rgba(250, 250, 255, 0.5);
+  color: var(--silver);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -395,7 +414,7 @@ details.faq-item .faq-body {
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.55;
-  color: rgba(250, 250, 255, 0.6);
+  color: var(--silver);
 }
 
 .tier-cta { align-self: flex-start; margin-bottom: 24px; }
@@ -416,10 +435,10 @@ details.faq-item .faq-body {
   font-size: 12px;
   letter-spacing: 0.03em;
 }
-.ft-k { color: rgba(250, 250, 255, 0.55); }
-.ft-v { color: var(--milk); text-align: right; }
+.ft-k { color: var(--tin); }
+.ft-v { color: var(--charcoal); text-align: right; }
 .ft-v.ft-on { color: var(--violet-hot); }
-.ft-v.ft-off { color: rgba(250, 250, 255, 0.25); }
+.ft-v.ft-off { color: var(--tin); }
 
 /* Legacy class name kept for markup stability — renders in violet now. */
 .badge-amber {
@@ -427,9 +446,9 @@ details.faq-item .faq-body {
   letter-spacing: 0.08em;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(157, 122, 255, 0.16);
+  background: rgba(157, 122, 255, 0.12);
   color: var(--violet-hot);
-  border: 1px solid rgba(157, 122, 255, 0.38);
+  border: 1px solid rgba(157, 122, 255, 0.25);
 }
 
 .ribbon-coral {
@@ -437,7 +456,7 @@ details.faq-item .faq-body {
   top: 14px; right: -32px;
   transform: rotate(28deg);
   background: var(--coral);
-  color: var(--ink);
+  color: #ffffff;
   padding: 4px 36px;
   font-family: var(--mono);
   font-size: 10px;

@@ -1,10 +1,7 @@
 ---
-// Hero — Plane + Arc (Refined) cinematic stage.
-// Left column: eyebrow, headline with "Vanishes" in violet-hot, sub-line, CTA pair.
-// Right column: frosted rounded-rect card containing the animated PlaneArc mark.
-// Animation sequence (CSS-driven, no GSAP):
-//   1) frame fades in · 2) arc stroke draws · 3) plane flies in · 4) particle pulses.
-// Respects prefers-reduced-motion via global.css overrides.
+// Hero — clean, warm, Apple-friendly.
+// Left: eyebrow, headline, sub-line, CTA pair.
+// Right: animated PlaneArc mark inside a soft white card.
 import PlaneArc from './PlaneArc.astro';
 ---
 <section
@@ -20,15 +17,15 @@ import PlaneArc from './PlaneArc.astro';
 
       <h1
         id="hero-headline"
-        class="display-line font-display font-bold text-milk"
-        style="font-size: clamp(56px, 10.5vw, 168px); letter-spacing: -0.055em; line-height: 0.9;"
+        class="display-line font-display font-bold text-charcoal"
+        style="font-size: clamp(48px, 9vw, 120px); letter-spacing: -0.055em; line-height: 0.9;"
       >
         <span class="block">Share anything.</span>
-        <span class="block"><span class="text-violet-hot" style="color: var(--violet-hot);">Vanishes</span></span>
+        <span class="block"><span class="text-violet-hot">Vanishes</span></span>
         <span class="block">on schedule.</span>
       </h1>
 
-      <p class="mt-8 md:mt-10 font-mono text-[14px] leading-[1.65] tracking-[0.02em] text-milk/60 max-w-[560px]">
+      <p class="mt-8 md:mt-10 font-mono text-[14px] leading-[1.65] tracking-[0.02em] text-charcoal/55 max-w-[560px]">
         Temporary share links for iPhone, iPad and Mac · no accounts · no residue.
       </p>
 
@@ -44,37 +41,28 @@ import PlaneArc from './PlaneArc.astro';
       </div>
     </div>
 
-    <!-- Plane + Arc (Refined) — cinematic animation card -->
+    <!-- Plane + Arc — soft white card, no glass -->
     <div
       class="relative w-full max-w-[520px] mx-auto lg:mx-0 aspect-square order-1 lg:order-2"
       data-hero-stage
     >
-      <!-- ambient violet halo behind the tile -->
+      <!-- very subtle warm halo for depth -->
       <div
         aria-hidden="true"
         class="absolute inset-0 pointer-events-none"
         style="
           background:
-            radial-gradient(60% 60% at 70% 30%, rgba(157,122,255,0.35) 0%, rgba(157,122,255,0) 60%),
-            radial-gradient(60% 60% at 30% 80%, rgba(255,122,209,0.18) 0%, rgba(255,122,209,0) 55%);
-          filter: blur(8px);
+            radial-gradient(60% 60% at 70% 30%, rgba(157,122,255,0.10) 0%, transparent 60%),
+            radial-gradient(60% 60% at 30% 80%, rgba(255,122,209,0.06) 0%, transparent 55%);
+          filter: blur(12px);
         "
       ></div>
       <div
-        class="absolute inset-0 rounded-[22%] overflow-hidden flex items-center justify-center"
-        style="
-          background: linear-gradient(160deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.015) 100%);
-          border: 1px solid rgba(255,255,255,0.08);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          box-shadow:
-            0 80px 120px -40px rgba(60,20,120,0.55),
-            0 40px 80px -20px rgba(255,122,209,0.18),
-            inset 0 2px 0 0 rgba(255,255,255,0.1);
-        "
+        class="absolute inset-0 rounded-[28px] overflow-hidden flex items-center justify-center bg-canvas"
+        style="border: 1px solid var(--rule); box-shadow: var(--shadow);"
       >
         <PlaneArc
-          size={420}
+          size={380}
           animate
           ariaLabel="FastShared mark — Plane and Arc"
           class="hero-planearc"
@@ -90,20 +78,19 @@ import PlaneArc from './PlaneArc.astro';
   aria-label="FastShared technical facts"
 >
   <div
-    class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 border-t border-dashed"
-    style="border-color: rgba(157,122,255,0.18);"
+    class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 border-t border-dashed border-charcoal/10"
   >
     <div class="flex items-baseline gap-3 pt-5">
-      <span class="font-mono text-[11px] tracking-[0.18em] uppercase" style="color: var(--violet-hot);">Signed redirect</span>
-      <span class="font-mono text-[12px] tracking-[0.08em] text-milk/55">60s</span>
+      <span class="font-mono text-[11px] tracking-[0.18em] uppercase text-violet-hot">Signed redirect</span>
+      <span class="font-mono text-[12px] tracking-[0.08em] text-charcoal/50">60s</span>
     </div>
-    <div class="flex items-baseline gap-3 pt-5 md:border-l md:border-dashed md:pl-8" style="border-color: rgba(157,122,255,0.18);">
-      <span class="font-mono text-[11px] tracking-[0.18em] uppercase" style="color: var(--violet-hot);">Default expiry</span>
-      <span class="font-mono text-[12px] tracking-[0.08em] text-milk/55">24h</span>
+    <div class="flex items-baseline gap-3 pt-5 md:border-l md:border-dashed md:pl-8 border-charcoal/10">
+      <span class="font-mono text-[11px] tracking-[0.18em] uppercase text-violet-hot">Default expiry</span>
+      <span class="font-mono text-[12px] tracking-[0.08em] text-charcoal/50">24h</span>
     </div>
-    <div class="flex items-baseline gap-3 pt-5 md:border-l md:border-dashed md:pl-8" style="border-color: rgba(157,122,255,0.18);">
-      <span class="font-mono text-[11px] tracking-[0.18em] uppercase" style="color: var(--violet-hot);">Apex</span>
-      <span class="font-mono text-[12px] tracking-[0.08em] text-milk/55">fastsha.red</span>
+    <div class="flex items-baseline gap-3 pt-5 md:border-l md:border-dashed md:pl-8 border-charcoal/10">
+      <span class="font-mono text-[11px] tracking-[0.18em] uppercase text-violet-hot">Apex</span>
+      <span class="font-mono text-[12px] tracking-[0.08em] text-charcoal/50">fastsha.red</span>
     </div>
   </div>
 </aside>

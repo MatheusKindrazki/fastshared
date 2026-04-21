@@ -21,10 +21,26 @@ const pageUrl = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://
 const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toString();
 ---
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    {/* Theme hydration — runs before render to prevent FOUC */}
+    <script is:inline>
+      (function () {
+        var stored = localStorage.getItem('fs-theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var isDark = stored === 'dark' || (!stored && prefersDark);
+        if (isDark) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) {
+          themeColor.setAttribute('content', isDark ? '#0f0f12' : '#fbf8f1');
+        }
+      })();
+    </script>
 
     <title>{title}</title>
     <meta name="description" content={description} />
@@ -32,8 +48,8 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toS
 
     {noindex && <meta name="robots" content="noindex, nofollow" />}
 
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#070318" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fbf8f1" />
     <meta name="author" content="Matheus Kindrazki" />
 
     {/* Favicon + app icons */}
