@@ -33,38 +33,14 @@ struct SettingsView: View {
     private let retentionKey = "default_retention_policy"
     private let cloudSyncKey = "cloud_sync_enabled_v1"
 
-    // MARK: - Theme helpers
+    // MARK: - Theme helpers — HIG semantic; adapts to light/dark.
 
-    private var ground: Color {
-        colorScheme == .dark
-            ? BrandPalette.friendlyGroundDark
-            : BrandPalette.friendlyGround
-    }
-    private var paper: Color {
-        colorScheme == .dark
-            ? BrandPalette.friendlyCanvasDark
-            : .white
-    }
-    private var textPrimary: Color {
-        colorScheme == .dark
-            ? BrandPalette.friendlyTextDark
-            : BrandPalette.friendlyText
-    }
-    private var textDim: Color {
-        colorScheme == .dark
-            ? BrandPalette.friendlyTextDimDark
-            : BrandPalette.friendlyTextDim
-    }
-    private var textFaint: Color {
-        colorScheme == .dark
-            ? BrandPalette.friendlyTextFaintDark
-            : BrandPalette.friendlyTextFaint
-    }
-    private var line: Color {
-        colorScheme == .dark
-            ? BrandPalette.friendlyLineDark
-            : BrandPalette.friendlyLine
-    }
+    private var ground: Color { Color(.systemGroupedBackground) }
+    private var paper: Color { Color(.secondarySystemGroupedBackground) }
+    private var textPrimary: Color { Color(.label) }
+    private var textDim: Color { Color(.secondaryLabel) }
+    private var textFaint: Color { Color(.tertiaryLabel) }
+    private var line: Color { Color(.separator) }
 
     // MARK: - Body
 
@@ -793,7 +769,7 @@ private struct FriendlyToggle: View {
         } label: {
             ZStack {
                 Capsule()
-                    .fill(isOn ? BrandPalette.accentHot : BrandPalette.friendlyLine)
+                    .fill(isOn ? BrandPalette.accentHot : Color(.separator))
                     .frame(width: 42, height: 25)
                 HStack {
                     if isOn { Spacer() }

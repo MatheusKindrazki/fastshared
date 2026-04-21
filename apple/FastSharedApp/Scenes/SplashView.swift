@@ -32,10 +32,10 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            // Splash background — matches design (light: paper white,
-            // dark: friendly ground). Cross-fades to the app's cream ground
-            // (light) or stays the same (dark) when the splash dismisses.
-            (colorScheme == .dark ? FriendlyPalette.ground(.dark) : Color.white)
+            // Splash background — HIG semantic, adapts to light/dark
+            // without hard-coding brand ground. Keeps the radial glow +
+            // mark as the only branded elements.
+            Color(.systemBackground)
                 .ignoresSafeArea()
 
             ZStack {
@@ -60,9 +60,7 @@ struct SplashView: View {
                     arcProgress: arcProgress,
                     planeProgress: planeProgress,
                     planeOpacity: planeOpacity,
-                    planeColor: colorScheme == .dark
-                        ? FriendlyPalette.text(.dark)
-                        : FriendlyPalette.text(.light)
+                    planeColor: Color(.label)
                 )
             }
             .opacity(rootOpacity)

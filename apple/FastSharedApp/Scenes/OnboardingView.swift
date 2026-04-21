@@ -20,26 +20,14 @@ struct OnboardingView: View {
     @State private var errorMessage: String?
     @State private var startedPulse: Int = 0
 
-    // MARK: - Resolved tokens
+    // MARK: - Resolved tokens — HIG semantic; adapts to light/dark.
 
-    private var groundColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
-    }
-    private var textColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
-    }
-    private var textDimColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
-    }
-    private var textFaintColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextFaintDark : BrandPalette.friendlyTextFaint
-    }
-    private var cardBgColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
-    }
-    private var lineColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
-    }
+    private var groundColor: Color { Color(.systemBackground) }
+    private var textColor: Color { Color(.label) }
+    private var textDimColor: Color { Color(.secondaryLabel) }
+    private var textFaintColor: Color { Color(.tertiaryLabel) }
+    private var cardBgColor: Color { Color(.secondarySystemBackground) }
+    private var lineColor: Color { Color(.separator) }
 
     // MARK: - Body
 
@@ -177,12 +165,12 @@ struct OnboardingView: View {
                 HStack {
                     if isProvisioning {
                         ProgressView()
-                            .tint(colorScheme == .dark ? BrandPalette.friendlyTextDark : Color.white)
+                            .tint(.white)
                             .scaleEffect(0.85)
                     }
                     Text(isProvisioning ? "Setting up…" : "Get started →")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(colorScheme == .dark ? BrandPalette.friendlyText : Color.white)
+                        .foregroundStyle(.white)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)

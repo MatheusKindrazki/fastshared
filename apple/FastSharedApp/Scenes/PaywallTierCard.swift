@@ -33,7 +33,7 @@ struct PaywallTierCard: View {
         .frame(minHeight: 280, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(BrandPalette.paper)
+                .fill(Color(.secondarySystemGroupedBackground))
         )
         .overlay(
             cardStroke
@@ -56,7 +56,7 @@ struct PaywallTierCard: View {
                     .stroke(BrandPalette.arc, lineWidth: 1.5)
             } else {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(BrandPalette.line, lineWidth: 1)
+                    .stroke(Color(.separator), lineWidth: 1)
             }
         }
     }
@@ -66,7 +66,7 @@ struct PaywallTierCard: View {
             Text(tierDisplayName)
                 .font(.title3)
                 .fontWeight(.semibold)
-                .foregroundStyle(BrandPalette.text)
+                .foregroundStyle(Color(.label))
             Spacer(minLength: 0)
         }
     }
@@ -86,13 +86,13 @@ struct PaywallTierCard: View {
                 .font(.largeTitle.monospacedDigit())
                 .fontWeight(.bold)
                 .tracking(-0.6)
-                .foregroundStyle(BrandPalette.text)
+                .foregroundStyle(Color(.label))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text(priceCadence)
                 .font(.caption.monospaced())
-                .foregroundStyle(BrandPalette.textFaint)
+                .foregroundStyle(Color(.tertiaryLabel))
         }
     }
 
@@ -115,7 +115,7 @@ struct PaywallTierCard: View {
                         .foregroundStyle(BrandPalette.amberAccent.hot)
                     Text(feature)
                         .font(.body)
-                        .foregroundStyle(BrandPalette.textDim)
+                        .foregroundStyle(Color(.secondaryLabel))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

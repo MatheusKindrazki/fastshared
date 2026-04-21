@@ -156,13 +156,13 @@ struct ShareRootView: View {
 
     // MARK: - Theme helpers
 
-    private var groundColor: Color     { FriendlyPalette.ground(colorScheme) }
-    private var canvasColor: Color     { FriendlyPalette.canvas(colorScheme) }
-    private var surface0Color: Color   { FriendlyPalette.surface0(colorScheme) }
-    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color    { FriendlyPalette.textDim(colorScheme) }
-    private var lineColor: Color       { FriendlyPalette.line(colorScheme) }
-    private var lineStrongColor: Color { FriendlyPalette.lineStrong(colorScheme) }
+    private var groundColor: Color     { Color(.systemBackground) }
+    private var canvasColor: Color     { Color(.secondarySystemBackground) }
+    private var surface0Color: Color   { Color(.tertiarySystemBackground) }
+    private var textColor: Color       { Color(.label) }
+    private var textDimColor: Color    { Color(.secondaryLabel) }
+    private var lineColor: Color       { Color(.separator) }
+    private var lineStrongColor: Color { Color(.separator) }
     private var accentHot: Color       { FriendlyPalette.accentHot }
 }
 
@@ -203,7 +203,7 @@ private struct SheetPlaneArc: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var planeColor: Color { FriendlyPalette.text(colorScheme) }
+    private var planeColor: Color { Color(.label) }
 
     var body: some View {
         let corner = size * (32.0 / 140.0)
@@ -228,8 +228,8 @@ private struct SheetPlaneArc: View {
             }
 
             if framed {
-                let bg = FriendlyPalette.surface0(colorScheme)
-                let borderColor = FriendlyPalette.lineStrong(colorScheme)
+                let bg = Color(.tertiarySystemBackground)
+                let borderColor = Color(.separator)
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(bg)
                     .overlay(
@@ -302,7 +302,7 @@ private struct SheetBrandLockup: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color { FriendlyPalette.text(colorScheme) }
+    private var textColor: Color { Color(.label) }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -329,7 +329,7 @@ private struct SheetFileIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
+    private var bg: Color { Color(.tertiarySystemBackground) }
 
     var body: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -358,7 +358,7 @@ private struct SheetBundleStackIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
+    private var bg: Color { Color(.tertiarySystemBackground) }
 
     var body: some View {
         ZStack {
@@ -384,7 +384,7 @@ private struct SheetProgressBar: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var trackColor: Color { FriendlyPalette.line(colorScheme) }
+    private var trackColor: Color { Color(.separator) }
 
     var body: some View {
         GeometryReader { geo in
@@ -421,12 +421,12 @@ private struct IdleStage: View {
     @Environment(\.colorScheme) private var colorScheme
 
     // MARK: Theme helpers
-    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color    { FriendlyPalette.textDim(colorScheme) }
-    private var textFaintColor: Color  { FriendlyPalette.textFaint(colorScheme) }
-    private var canvasColor: Color     { FriendlyPalette.canvas(colorScheme) }
-    private var lineColor: Color       { FriendlyPalette.line(colorScheme) }
-    private var lineStrongColor: Color { FriendlyPalette.lineStrong(colorScheme) }
+    private var textColor: Color       { Color(.label) }
+    private var textDimColor: Color    { Color(.secondaryLabel) }
+    private var textFaintColor: Color  { Color(.tertiaryLabel) }
+    private var canvasColor: Color     { Color(.secondarySystemBackground) }
+    private var lineColor: Color       { Color(.separator) }
+    private var lineStrongColor: Color { Color(.separator) }
     private var activeChipText: Color {
         colorScheme == .dark ? .white : FriendlyPalette.text(.light)
     }
@@ -701,10 +701,10 @@ private struct SuccessStage: View {
     @State private var copied: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
-    private var canvasColor: Color  { FriendlyPalette.canvas(colorScheme) }
-    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
+    private var textColor: Color    { Color(.label) }
+    private var textDimColor: Color { Color(.secondaryLabel) }
+    private var canvasColor: Color  { Color(.secondarySystemBackground) }
+    private var lineColor: Color    { Color(.separator) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -883,10 +883,10 @@ private struct BundleSuccessStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
-    private var canvasColor: Color  { FriendlyPalette.canvas(colorScheme) }
-    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
+    private var textColor: Color    { Color(.label) }
+    private var textDimColor: Color { Color(.secondaryLabel) }
+    private var canvasColor: Color  { Color(.secondarySystemBackground) }
+    private var lineColor: Color    { Color(.separator) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -995,12 +995,12 @@ struct SharePaywallSheet: View {
             Text(headline)
                 .font(.system(size: 22, weight: .bold))
                 .tracking(-0.6)
-                .foregroundStyle(FriendlyPalette.text(colorScheme))
+                .foregroundStyle(Color(.label))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Text(subhead)
                 .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(FriendlyPalette.textDim(colorScheme))
+                .foregroundStyle(Color(.secondaryLabel))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Spacer()
@@ -1027,12 +1027,12 @@ struct SharePaywallSheet: View {
                 Text("NOT NOW")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(1.4)
-                    .foregroundStyle(FriendlyPalette.textDim(colorScheme))
+                    .foregroundStyle(Color(.secondaryLabel))
             }
             .buttonStyle(.plain)
             .padding(.bottom, 12)
         }
-        .background(FriendlyPalette.ground(colorScheme).ignoresSafeArea())
+        .background(Color(.systemBackground).ignoresSafeArea())
     }
 
     private var headline: String {
@@ -1065,11 +1065,11 @@ private struct FailureStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color      { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color   { FriendlyPalette.textDim(colorScheme) }
-    private var textFaintColor: Color { FriendlyPalette.textFaint(colorScheme) }
-    private var canvasColor: Color    { FriendlyPalette.canvas(colorScheme) }
-    private var lineColor: Color      { FriendlyPalette.line(colorScheme) }
+    private var textColor: Color      { Color(.label) }
+    private var textDimColor: Color   { Color(.secondaryLabel) }
+    private var textFaintColor: Color { Color(.tertiaryLabel) }
+    private var canvasColor: Color    { Color(.secondarySystemBackground) }
+    private var lineColor: Color      { Color(.separator) }
 
     var body: some View {
         VStack(spacing: 16) {

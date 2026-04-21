@@ -14,8 +14,8 @@ import AppKit
 ///
 /// Layout follows the design package `design/screens.jsx` → `Paywall()`:
 /// warm sphere, trigger-specific hero line, three tier cards, restore button,
-/// footer. All copy is English with `TODO(i18n)` markers — no hardcoded hex;
-/// `BrandPalette` exclusively.
+/// footer. All copy is English with `TODO(i18n)` markers. Surfaces use HIG
+/// semantic colors; accents (amber, urgency) still come from `BrandPalette`.
 struct PaywallView: View {
     let trigger: PaywallTriggerContext
 
@@ -42,7 +42,9 @@ struct PaywallView: View {
 
     var body: some View {
         ZStack {
-            BrandPalette.canvas.ignoresSafeArea()
+            // HIG semantic ground — adapts to light/dark; no hard-coded
+            // dark canvas gradient. Tier cards provide their own surface.
+            Color(.systemGroupedBackground).ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -65,7 +67,7 @@ struct PaywallView: View {
                     .padding()
             }
         }
-        .foregroundStyle(BrandPalette.text)
+        .foregroundStyle(Color(.label))
         #if os(iOS)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -117,7 +119,7 @@ struct PaywallView: View {
                     .frame(width: 20, height: 20)
                 (
                     Text("fastshared")
-                        .foregroundStyle(BrandPalette.text)
+                        .foregroundStyle(Color(.label))
                     + Text(".pro")
                         .foregroundStyle(accent.hot)
                 )
@@ -136,12 +138,12 @@ struct PaywallView: View {
                 Text("Not now")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .tracking(1.4)
-                    .foregroundStyle(BrandPalette.textDim)
+                    .foregroundStyle(Color(.secondaryLabel))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .stroke(BrandPalette.line, lineWidth: 1)
+                            .stroke(Color(.separator), lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
@@ -165,13 +167,13 @@ struct PaywallView: View {
             Text(heroHeadline)
                 .font(.system(size: 32, weight: .bold))
                 .tracking(-1.2)
-                .foregroundStyle(BrandPalette.text)
+                .foregroundStyle(Color(.label))
                 .fixedSize(horizontal: false, vertical: true)
 
             // TODO(i18n): hero subhead
             Text(heroSubhead)
                 .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(BrandPalette.textDim)
+                .foregroundStyle(Color(.secondaryLabel))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
@@ -255,11 +257,11 @@ struct PaywallView: View {
             Text(loadError
                  ?? "StoreKit returned 0 of 3 products for this App Store account. Usually means the Paid Apps Agreement is pending, the product IDs in App Store Connect don't match, or the catalog hasn't propagated yet (5–30 min after save).")
                 .font(.system(size: 13))
-                .foregroundStyle(BrandPalette.textDim)
+                .foregroundStyle(Color(.secondaryLabel))
                 .fixedSize(horizontal: false, vertical: true)
             Text("Expecting: red.fastsha.pro.monthly, .annual, .lifetime")
                 .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(BrandPalette.textFaint)
+                .foregroundStyle(Color(.tertiaryLabel))
             Button {
                 Task {
                     didAttemptLoad = false
@@ -402,7 +404,7 @@ struct PaywallView: View {
                 Text(restoring ? "RESTORING…" : "RESTORE PURCHASES")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .tracking(1.6)
-                    .foregroundStyle(BrandPalette.textDim)
+                    .foregroundStyle(Color(.secondaryLabel))
             }
             .buttonStyle(.plain)
             .disabled(restoring)
@@ -416,7 +418,7 @@ struct PaywallView: View {
         VStack(spacing: 8) {
             Text("Subscriptions auto-renew monthly or annually. Cancel anytime in Settings.")
                 .font(.system(size: 11, weight: .regular, design: .monospaced))
-                .foregroundStyle(BrandPalette.textFaint)
+                .foregroundStyle(Color(.tertiaryLabel))
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 18) {
@@ -427,7 +429,7 @@ struct PaywallView: View {
                     Text("PRIVACY")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(1.4)
-                        .foregroundStyle(BrandPalette.textDim)
+                        .foregroundStyle(Color(.secondaryLabel))
                 }
                 .buttonStyle(.plain)
 
@@ -438,7 +440,7 @@ struct PaywallView: View {
                     Text("TERMS")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .tracking(1.4)
-                        .foregroundStyle(BrandPalette.textDim)
+                        .foregroundStyle(Color(.secondaryLabel))
                 }
                 .buttonStyle(.plain)
             }
@@ -461,14 +463,14 @@ struct PaywallView: View {
                     // TODO(i18n)
                     Text("Waiting for approval…")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(BrandPalette.text)
+                        .foregroundStyle(Color(.label))
                 case .error(let message):
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(accent.fade)
                     Text(message)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(BrandPalette.text)
+                        .foregroundStyle(Color(.label))
                 }
                 Spacer()
                 Button {
@@ -476,7 +478,7 @@ struct PaywallView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(BrandPalette.textDim)
+                        .foregroundStyle(Color(.secondaryLabel))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss banner")
@@ -484,10 +486,10 @@ struct PaywallView: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(BrandPalette.surface1)
+                    .fill(Color(.secondarySystemBackground))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(BrandPalette.lineStrong, lineWidth: 1)
+                            .stroke(Color(.separator), lineWidth: 1)
                     )
             )
         }
