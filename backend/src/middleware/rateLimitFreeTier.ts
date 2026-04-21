@@ -108,33 +108,36 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     // 3. Daily-count cap. UTC-midnight key so the reset time is predictable
     //    across timezones. TTL is 2 days — one for the current window plus a
     //    safety margin for rollover.
-    const utcDate = new Date().toISOString().slice(0, 10);
-    const kvKey = `ft:${deviceId}:${utcDate}`;
-    const currentStr = await c.env.RATE_LIMIT.get(kvKey);
-    const currentCount = currentStr ? Number(currentStr) : 0;
-    const safeCount = Number.isFinite(currentCount) ? currentCount : 0;
-    // `-1` is the "unlimited" sentinel in TierCaps.uploadsPerDay — skip the
-    // gate entirely when the tier has no daily cap, otherwise every request
-    // trivially satisfies `safeCount >= -1` and 402s.
-    if (FREE_CAPS.uploadsPerDay >= 0 && safeCount >= FREE_CAPS.uploadsPerDay) {
-      const resetsAt = nextUtcMidnight().toISOString();
-      return problem(
-        c,
-        402,
-        'free_tier_daily_exceeded',
-        'Payment Required',
-        `Free tier is capped at ${FREE_CAPS.uploadsPerDay} uploads per day.`,
-        {
-          limit: FREE_CAPS.uploadsPerDay,
-          used: safeCount,
-          resetsAt,
-          upgrade: UPGRADE_TARGET,
-        },
-      );
+    //
+    // `-1` is the "unlimited" sentinel in TierCaps.uploadsPerDay. When the
+    // tier has no daily cap we skip KV entirely so tests and logs don't show
+    // phantom usage on the override path.
+    if (FREE_CAPS.uploadsPerDay >= 0) {
+      const utcDate = new Date().toISOString().slice(0, 10);
+      const kvKey = `ft:${deviceId}:${utcDate}`;
+      const currentStr = await c.env.RATE_LIMIT.get(kvKey);
+      const currentCount = currentStr ? Number(currentStr) : 0;
+      const safeCount = Number.isFinite(currentCount) ? currentCount : 0;
+      if (safeCount >= FREE_CAPS.uploadsPerDay) {
+        const resetsAt = nextUtcMidnight().toISOString();
+        return problem(
+          c,
+          402,
+          'free_tier_daily_exceeded',
+          'Payment Required',
+          `Free tier is capped at ${FREE_CAPS.uploadsPerDay} uploads per day.`,
+          {
+            limit: FREE_CAPS.uploadsPerDay,
+            used: safeCount,
+            resetsAt,
+            upgrade: UPGRADE_TARGET,
+          },
+        );
+      }
+      await c.env.RATE_LIMIT.put(kvKey, String(safeCount + 1), {
+        expirationTtl: 2 * UTC_DAY_SECONDS,
+      });
     }
-    await c.env.RATE_LIMIT.put(kvKey, String(safeCount + 1), {
-      expirationTtl: 2 * UTC_DAY_SECONDS,
-    });
 
     // Replace the raw request with the clamped body so downstream Zod reads
     // the mutated version. We build a fresh Request because c.req.raw is
