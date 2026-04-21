@@ -91,7 +91,7 @@ const APP_PATH_PREFIXES = [
 ];
 
 function isAppPath(pathname: string): boolean {
-  return APP_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p));
+  return APP_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
 async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
