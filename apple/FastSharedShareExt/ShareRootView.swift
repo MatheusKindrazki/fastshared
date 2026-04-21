@@ -196,17 +196,19 @@ private struct SheetRing: View {
     let progress: Double
     var size: CGFloat = 54
     var stroke: CGFloat = 4
+    /// Override the ring color (defaults to brand violet accent).
+    var tint: Color = FriendlyPalette.accentHot
 
     private var clamped: Double { max(0.02, min(1, progress)) }
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(FriendlyPalette.accentHot.opacity(0.22), lineWidth: stroke)
+                .stroke(tint.opacity(0.22), lineWidth: stroke)
                 .frame(width: size, height: size)
             Circle()
                 .trim(from: 0, to: clamped)
-                .stroke(FriendlyPalette.accentHot, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+                .stroke(tint, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: size, height: size)
         }
@@ -956,25 +958,27 @@ private struct SuccessStage: View {
     }
 
     private var expiryReminder: some View {
-        // Pill compacto centralizado — evita o badge "solto" alinhado à
-        // esquerda que o user reclamou. HStack autofit + frame alignment
-        // center deixa ele ocupando só o necessário.
-        HStack(spacing: 8) {
-            SheetRing(progress: 0.98, size: 16, stroke: 2)
+        // Urgency-warning semantic: amber (not brand accent). Pill compacto
+        // centralizado — HStack autofit + frame alignment center ocupa só o
+        // necessário. Uses UrgencyTier.warning so the pill stays amber even
+        // though the brand accent unified on violet.
+        let warning = FriendlyPalette.UrgencyTier.warning.text
+        return HStack(spacing: 8) {
+            SheetRing(progress: 0.98, size: 16, stroke: 2, tint: warning)
                 .frame(width: 16, height: 16)
 
             Text("\(retentionBodyText) ")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FriendlyPalette.accentHot)
+                .foregroundStyle(warning)
             + Text("before it expires")
                 .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(FriendlyPalette.accentHot.opacity(0.85))
+                .foregroundStyle(warning.opacity(0.85))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(
             Capsule(style: .continuous)
-                .fill(FriendlyPalette.accentHot.opacity(0.12))
+                .fill(warning.opacity(0.12))
         )
         .frame(maxWidth: .infinity, alignment: .center)
     }

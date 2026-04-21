@@ -21,6 +21,22 @@
 
     { "idiom" : "ios-marketing", "size" : "1024x1024", "scale" : "1x", "filename" : "appstore-1024.png" },
 
+    {
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024",
+      "filename" : "ios-1024-dark.png",
+      "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ]
+    },
+    {
+      "idiom" : "universal",
+      "platform" : "ios",
+      "size" : "1024x1024",
+      "filename" : "ios-1024-tinted.png",
+      "appearances" : [ { "appearance" : "luminosity", "value" : "tinted" } ]
+    },
+
+
     { "idiom" : "mac",           "size" : "16x16",     "scale" : "1x", "filename" : "mac-16@1x.png" },
     { "idiom" : "mac",           "size" : "16x16",     "scale" : "2x", "filename" : "mac-16@2x.png" },
     { "idiom" : "mac",           "size" : "32x32",     "scale" : "1x", "filename" : "mac-32@1x.png" },

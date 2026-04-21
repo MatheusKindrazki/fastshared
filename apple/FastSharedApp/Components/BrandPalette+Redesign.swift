@@ -9,11 +9,11 @@ import FastSharedCore
 // `FriendlyPalette` API directly.
 //
 // The `accentHot` / `accentSoft` / `accentFade` / `accentDust` properties
-// stay as inline violet hex literals — they predate the Friendly token
-// consolidation and views in `apple/FastSharedApp/` rely on the violet
-// rendering. The canonical Friendly accent (amber `#ff9f47`) is exposed via
-// `FriendlyPalette.accentHot`; flipping these to amber is a deliberate
-// visual change deferred to a later phase.
+// are inline violet hex literals matching the unified brand accent. The
+// canonical accent now lives in `FriendlyPalette.accentHot` (also violet),
+// so these app-target constants stay in lockstep with the core palette.
+// Amber (`#ff9f47`) is reserved for urgency-warning semantics via
+// `FriendlyPalette.UrgencyTier.warning.text`, not brand CTAs.
 
 extension BrandPalette {
 

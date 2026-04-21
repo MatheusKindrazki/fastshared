@@ -32,7 +32,8 @@ struct FileGlyph: View {
     }
 
     var body: some View {
-        let accent = BrandPalette.amberAccent
+        // Brand accent unified on violet.
+        let accent = BrandPalette.accent
 
         RoundedRectangle(cornerRadius: 6, style: .continuous)
             .fill(accent.hot.opacity(0.10))

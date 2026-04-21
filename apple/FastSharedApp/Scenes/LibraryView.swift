@@ -484,7 +484,7 @@ private struct LibraryDetail: View {
                 Text(label)
                     .font(.system(size: 11, weight: .bold).monospaced())
                     .tracking(0.08 * 11)
-                    .foregroundStyle(BrandPalette.amberAccent.hot)
+                    .foregroundStyle(BrandPalette.accentHot)
             }
 
             HStack(alignment: .firstTextBaseline) {
@@ -697,10 +697,10 @@ private struct LibraryRow: View {
         if link.isBundle {
             ZStack {
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(BrandPalette.amberAccent.hot.opacity(0.14))
+                    .fill(BrandPalette.accentHot.opacity(0.14))
                 Image(systemName: "square.stack.3d.up.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(BrandPalette.amberAccent.hot)
+                    .foregroundStyle(BrandPalette.accentHot)
             }
         } else {
             FileGlyph(contentType: link.contentType, size: 26)

@@ -14,7 +14,9 @@ struct Ring: View {
     var label: String? = nil
     var sub: String? = nil
     /// Override the hot color (useful for tier-based tinting).
-    var tint: Color = BrandPalette.amberAccent.hot
+    /// Defaults to the brand violet accent; callers pass urgency-tier colors
+    /// (critical pink, warning amber) when the ring expresses urgency.
+    var tint: Color = BrandPalette.accent.hot
 
     private var clamped: Double { max(0.02, min(1, progress)) }
 

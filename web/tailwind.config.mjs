@@ -14,6 +14,18 @@ export default {
           fade: '#ff7ad1',
           dust: '#e0d4ff',
         },
+        // `accent` is the unified brand color (violet-hot). Prefer this alias
+        // for new work; the `violet.hot` path stays valid for legacy refs.
+        accent: {
+          DEFAULT: '#9d7aff',
+          soft: '#c1a9ff',
+        },
+        // Amber is urgency-only now (expires <1h, warnings). Do not use for
+        // brand accents, links, labels, or CTAs.
+        warning: {
+          DEFAULT: '#ff9f47',
+          soft: '#ffc487',
+        },
         amber: {
           DEFAULT: '#ff9f47',
           soft: '#ffc487',

@@ -22,7 +22,8 @@ public struct GatedRetentionPicker: View {
     }
 
     public var body: some View {
-        let accent = BrandPalette.amberAccent
+        // Brand accent unified on violet — tier picker is a CTA surface.
+        let accent = BrandPalette.accent
         let options = RetentionPolicy.shareable
 
         return HStack(spacing: 6) {
