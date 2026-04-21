@@ -41,7 +41,7 @@ struct Mono: View {
 #Preview {
     VStack(alignment: .leading, spacing: 10) {
         Mono("next to expire")
-        Mono("manifest · 05", color: BrandPalette.amberAccent.hot)
+        Mono("manifest · 05", color: BrandPalette.accent.hot)
         Mono("sorted: urgency", size: 10, color: BrandPalette.textFaint)
         Mono("no account · no sign-in · no trace", size: 10, track: 1.4, color: BrandPalette.textFaint)
     }

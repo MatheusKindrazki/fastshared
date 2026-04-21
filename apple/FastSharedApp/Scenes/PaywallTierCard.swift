@@ -112,7 +112,7 @@ struct PaywallTierCard: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(BrandPalette.amberAccent.hot)
+                        .foregroundStyle(BrandPalette.accentHot)
                     Text(feature)
                         .font(.body)
                         .foregroundStyle(Color(.secondaryLabel))
@@ -123,7 +123,8 @@ struct PaywallTierCard: View {
     }
 
     private var ctaButton: some View {
-        let accent = BrandPalette.amberAccent
+        // Brand accent unified on violet — CTA fill.
+        let accent = BrandPalette.accent
         return Button(action: onPurchase) {
             HStack(spacing: 8) {
                 if isLoading {
@@ -158,7 +159,7 @@ struct PaywallTierCard: View {
             .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(BrandPalette.amberAccent.hot)
+                    .fill(BrandPalette.accentHot)
             )
     }
 

@@ -82,11 +82,11 @@ public enum BrandPalette {
 
     // MARK: - Semantic accent helper
     //
-    // The redesign ships with **violet** as the default accent. Views that want
-    // the neutral "hot point" should read `BrandPalette.accent` rather than
-    // reaching into a named accent palette directly. Legacy call sites that
-    // still say `BrandPalette.amberAccent` continue to render amber and are
-    // left as-is per the migration plan — new code should prefer `.accent`.
+    // The brand ships with **violet** as the unified accent. Views must read
+    // `BrandPalette.accent` (or the app-target shim `BrandPalette.accentHot`)
+    // rather than reaching into a named accent palette directly. The
+    // `amberAccent` palette is retained only for the urgency-warning gradient
+    // (`BrandPalette.arc`) and the `PlaneArcMark.brandArcAmber` preset.
     public static let accent: Accent = violetAccent
 
     // MARK: - Gradients
@@ -223,11 +223,13 @@ public enum FriendlyPalette {
     }
 
     // MARK: Theme-independent accents
-
-    public static let accentHot   = Color(friendlyHex: "ff9f47")
-    public static let accentSoft  = Color(friendlyHex: "ffc487")
-    public static let accentFade  = Color(friendlyHex: "ff4e7c")
-    public static let accentDust  = Color(friendlyHex: "ffe0b8")
+    //
+    // Brand accent unified on violet. Amber (`#ff9f47`) is reserved for
+    // urgency warning semantics via `UrgencyTier.warning.text`.
+    public static let accentHot   = Color(friendlyHex: "9d7aff")
+    public static let accentSoft  = Color(friendlyHex: "c1a9ff")
+    public static let accentFade  = Color(friendlyHex: "ff7ad1")
+    public static let accentDust  = Color(friendlyHex: "e0d4ff")
     public static let successGreen = Color(friendlyHex: "22c27a")
 
     // MARK: Urgency tiers

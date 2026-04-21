@@ -105,7 +105,8 @@ struct PaywallView: View {
     // MARK: - Header
 
     private var header: some View {
-        let accent = BrandPalette.amberAccent
+        // Brand accent unified on violet.
+        let accent = BrandPalette.accent
         return HStack(alignment: .top) {
             HStack(spacing: 8) {
                 Circle()
@@ -161,7 +162,7 @@ struct PaywallView: View {
             Text(heroMono)
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .tracking(1.6)
-                .foregroundStyle(BrandPalette.amberAccent.hot)
+                .foregroundStyle(BrandPalette.accentHot)
 
             // TODO(i18n): hero headline
             Text(heroHeadline)
@@ -451,7 +452,8 @@ struct PaywallView: View {
     // MARK: - Banner
 
     private func bannerView(_ banner: Banner) -> some View {
-        let accent = BrandPalette.amberAccent
+        // Brand accent unified on violet. `accent.fade` stays pink for error icon.
+        let accent = BrandPalette.accent
         return VStack {
             Spacer()
             HStack(spacing: 10) {
