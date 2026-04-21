@@ -866,7 +866,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
+  html, body { margin: 0; padding: 0; height: 100%; }
   body {
     background:
       radial-gradient(ellipse at 16% 0%, rgba(157,122,255,0.10) 0%, transparent 40%),
@@ -874,8 +874,11 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
       linear-gradient(180deg, #06020f 0%, #070318 100%);
     color: var(--milk);
     font-family: var(--sans);
-    min-height: 100vh;
-    padding: 20px;
+    /* lock bundle preview to a single viewport — scroll lives inside .file-list / .viewer-body */
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -885,9 +888,18 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     width: 100%;
     max-width: 1440px;
     margin: 0 auto;
+    padding: 16px 20px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .shell {
+    /* fill <main>, keep rhythm: topbar / hero / browser (flex) / expires / footer */
+    flex: 1;
+    min-height: 0;
     display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
     gap: 16px;
   }
   .topbar {
@@ -931,6 +943,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
     gap: 16px;
     align-items: stretch;
+    flex-shrink: 0;
   }
   .hero-copy, .hero-stats, .browser {
     border: 1px solid var(--rule);
@@ -940,9 +953,9 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .hero-copy {
     border-radius: 24px;
-    padding: 24px;
+    padding: 18px 20px;
     display: grid;
-    gap: 16px;
+    gap: 12px;
   }
   .hero-label {
     font-family: var(--mono);
@@ -953,8 +966,8 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .hero-copy h1 {
     margin: 0;
-    font-size: clamp(28px, 3.5vw, 54px);
-    line-height: 1.02;
+    font-size: clamp(26px, 3vw, 44px);
+    line-height: 1;
     letter-spacing: -0.045em;
   }
   .hero-copy p {
@@ -989,7 +1002,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .hero-stats {
     border-radius: 24px;
-    padding: 20px;
+    padding: 16px;
     display: grid;
     gap: 8px;
     align-content: start;
@@ -1021,6 +1034,10 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   .browser {
     border-radius: 28px;
+    /* occupy the 1fr row in .shell grid, clip so inner panes handle scroll */
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
   .window-bar {
@@ -1076,13 +1093,17 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   .browser-body {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr);
-    min-height: 700px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
   .sidebar {
     display: flex;
     flex-direction: column;
     background: rgba(255,255,255,0.03);
     border-right: 1px solid var(--rule);
+    min-height: 0;
+    overflow: hidden;
   }
   .sidebar-head {
     padding: 18px 18px 14px;
@@ -1124,7 +1145,9 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     flex-direction: column;
     gap: 8px;
     padding: 14px;
-    overflow: auto;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
   .file-row {
     display: grid;
@@ -1190,6 +1213,8 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     display: grid;
     grid-template-rows: auto 1fr auto;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
   }
   .viewer-head {
     padding: 18px 20px;
@@ -1245,10 +1270,11 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   .viewer-body {
     min-height: 0;
     padding: 18px 18px 0;
+    overflow: auto;
   }
   .preview-frame {
     height: 100%;
-    min-height: 560px;
+    min-height: 0;
     border-radius: 24px;
     overflow: hidden;
     border: 1px solid var(--rule);
@@ -1321,7 +1347,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     font-weight: 650;
   }
   footer {
-    margin: 18px 0 8px;
+    margin: 0;
     text-align: center;
     font-family: var(--mono);
     font-size: 11px;
@@ -1334,7 +1360,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   }
   footer a:hover { color: var(--milk); }
   .expires {
-    margin: 4px 2px 0;
+    margin: 0 2px;
     font-family: var(--mono);
     font-size: 11px;
     color: var(--milk-faint);
@@ -1346,25 +1372,59 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     display: none;
   }
   @media (max-width: 1040px) {
+    /* below desktop, go back to natural document scroll — sidebar stacks above viewer */
+    html, body { height: auto; }
+    body {
+      height: auto;
+      overflow: auto;
+      display: block;
+    }
+    main {
+      height: auto;
+      flex: none;
+      padding: 16px;
+    }
+    .shell {
+      display: grid;
+      grid-template-rows: none;
+      flex: none;
+    }
     .hero {
       grid-template-columns: 1fr;
     }
+    .browser {
+      min-height: 0;
+      overflow: visible;
+      display: block;
+    }
     .browser-body {
       grid-template-columns: 1fr;
+      min-height: 0;
+      overflow: visible;
     }
     .sidebar {
       border-right: 0;
       border-bottom: 1px solid var(--rule);
+      overflow: visible;
+    }
+    .file-list {
+      overflow: visible;
+      flex: none;
+    }
+    .viewer {
+      overflow: visible;
     }
     .viewer-body {
       padding-bottom: 18px;
+      overflow: visible;
     }
     .preview-frame {
       min-height: 420px;
     }
   }
   @media (max-width: 720px) {
-    body { padding: 12px; }
+    body { padding: 0; }
+    main { padding: 12px; }
     .topbar {
       flex-direction: column;
       align-items: flex-start;
