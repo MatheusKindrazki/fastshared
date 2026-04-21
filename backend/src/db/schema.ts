@@ -126,11 +126,48 @@ export const shareLink = pgTable(
     accessCount: bigint('access_count', { mode: 'number' }).notNull().default(0),
     maxAccessCount: bigint('max_access_count', { mode: 'number' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // Bundle links group N assets behind one token; assetId stays NULL and
+    // bundleAssetCount carries the denorm. CHECK constraint in SQL keeps the
+    // two columns in lockstep with isBundle.
+    isBundle: boolean('is_bundle').notNull().default(false),
+    bundleAssetCount: integer('bundle_asset_count'),
   },
   (t) => ({
     assetIdx: index('share_link_asset_idx').on(t.assetId),
     // Partial predicate (link_status = 'active') lives in the SQL migration.
     activeExpiresIdx: index('share_link_active_expires_idx').on(t.expiresAt),
+  }),
+);
+
+// Junction between a bundle share_link and the assets it groups. displayOrder
+// is the stable render order (UNIQUE per link in SQL). Cascading delete on
+// share_link mirrors how single links die when their share row is dropped.
+export const bundleAsset = pgTable(
+  'bundle_asset',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    shareLinkId: uuid('share_link_id')
+      .notNull()
+      .references(() => shareLink.id, { onDelete: 'cascade' }),
+    assetId: uuid('asset_id')
+      .notNull()
+      .references(() => asset.id),
+    // Idempotency key: each presigned slot gets exactly one row. asset_id may
+    // repeat across slots when the user dropped the same file twice — only
+    // (share_link_id, upload_job_id) is unique.
+    uploadJobId: uuid('upload_job_id')
+      .notNull()
+      .references(() => uploadJob.id),
+    displayOrder: integer('display_order').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    linkOrderIdx: index('bundle_asset_link_order_idx').on(t.shareLinkId, t.displayOrder),
+    assetIdx: index('bundle_asset_asset_idx').on(t.assetId),
+    linkOrderUnique: uniqueIndex('bundle_asset_link_order_unique').on(t.shareLinkId, t.displayOrder),
+    linkJobUnique: uniqueIndex('bundle_asset_link_job_unique').on(t.shareLinkId, t.uploadJobId),
   }),
 );
 
@@ -255,3 +292,5 @@ export type DeletionJob = InferSelectModel<typeof deletionJob>;
 export type NewDeletionJob = InferInsertModel<typeof deletionJob>;
 export type Subscription = InferSelectModel<typeof subscription>;
 export type NewSubscription = InferInsertModel<typeof subscription>;
+export type BundleAsset = InferSelectModel<typeof bundleAsset>;
+export type NewBundleAsset = InferInsertModel<typeof bundleAsset>;

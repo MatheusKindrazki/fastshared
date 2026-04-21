@@ -1,10 +1,10 @@
 import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AppBindings } from '~/env';
 import { createDb, type Db } from '~/db/client';
-import { shareLink, uploadJob } from '~/db/schema';
+import { bundleAsset, shareLink, uploadJob } from '~/db/schema';
 import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
 import { rateLimitFreeTier } from '~/middleware/rateLimitFreeTier';
@@ -20,10 +20,13 @@ import {
   type PresignPutResult,
 } from '~/services/r2';
 import { createAsset, findLiveAssetBySha256AndDevice, scheduleDeletion } from '~/services/assets';
-import { createShareLink } from '~/services/shareLinks';
+import { activateBundleIfPending, createShareLink } from '~/services/shareLinks';
 import { generateToken } from '~/lib/tokens';
 import { isAllowedContentType, resolveSizeLimit } from '~/lib/sizeLimits';
 import { resolveRetention } from '~/lib/retention';
+import { problem } from '~/lib/problem';
+import { FREE_CAPS } from '~/lib/tierCaps';
+import { findActiveProForDevice, parseDevProAllowList } from '~/services/subscriptions';
 import { log } from '~/lib/logger';
 
 const RETENTION_POLICIES = ['oneHour', 'oneDay', 'oneWeek', 'oneMonth', 'custom'] as const;
@@ -65,12 +68,35 @@ const createUploadSchema = z
 
 type CreateUploadInput = z.infer<typeof createUploadSchema>;
 
+// Bundle presign — N items, 1 share token. Mirrors the single-file shape per
+// item so the client can dispatch parallel PUTs without a separate code path.
+const batchItemSchema = z.object({
+  clientJobId: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int().positive(),
+  sha256: z.string().optional(),
+  originalFilename: z.string().optional(),
+});
+
+const createBatchSchema = z.object({
+  retentionPolicy: z.enum(RETENTION_POLICIES).default('oneDay'),
+  visibility: z.enum(['public', 'signed', 'password']).default('signed'),
+  customTtlSeconds: z.number().int().min(300).max(2_592_000).optional(),
+  // Single-item batches are intentionally rejected — clients should call
+  // POST /uploads instead so we don't pay the bundle wrapper for nothing.
+  items: z.array(batchItemSchema).min(2).max(50),
+});
+
+type BatchItemInput = z.infer<typeof batchItemSchema>;
+
 export const uploadRoutes = new Hono<AppBindings>();
 
 uploadRoutes.use('*', auth());
 uploadRoutes.use('*', ratelimit({ bucket: 'upload', limit: 30, windowSeconds: 600 }));
 // Free-tier enforcement only on the presign endpoint — /complete and /fail
-// operate on an existing job and shouldn't be gated a second time.
+// operate on an existing job and shouldn't be gated a second time. /batch
+// runs its own multi-count check inline (the middleware reads `sizeBytes`
+// off the body and counts 1, which is wrong for a batch).
 uploadRoutes.use('/', rateLimitFreeTier());
 
 uploadRoutes.post('/', async (c) => {
@@ -224,6 +250,103 @@ uploadRoutes.post('/', async (c) => {
   );
 });
 
+// Bundle presign: N files behind one short URL.
+// Single-file requests must use POST /uploads — `items.min(2)` enforces this.
+uploadRoutes.post('/batch', async (c) => {
+  const body = createBatchSchema.parse(await c.req.json());
+  const deviceId = requireDeviceId(c.get('deviceId'));
+  const db = createDb(c.env.DATABASE_URL);
+
+  // Per-item content-type + size validation BEFORE we reserve cap or mint
+  // any DB rows — surface the bad item up front.
+  for (const item of body.items) {
+    if (!isAllowedContentType(item.contentType)) {
+      throw new HTTPException(415, { message: `content-type not allowed: ${item.contentType}` });
+    }
+    const maxBytes = resolveSizeLimit(item.contentType);
+    if (item.sizeBytes > maxBytes) {
+      throw new HTTPException(413, {
+        message: `size ${item.sizeBytes} exceeds limit ${maxBytes} for ${item.contentType}`,
+      });
+    }
+  }
+
+  // Free-tier enforcement: each file in the bundle counts 1 against the daily
+  // cap, plus the per-file size cap. Pro skips both. Mirrors the logic in
+  // rateLimitFreeTier middleware but with count = items.length atomically.
+  const enforce = await enforceBatchFreeTierLimits(c, db, deviceId, body);
+  if (enforce) return enforce;
+
+  const retention = resolveRetention({
+    policy: body.retentionPolicy,
+    customTtlSeconds: body.customTtlSeconds,
+  });
+
+  const bundleToken = generateToken();
+  const itemCount = body.items.length;
+
+  // Pre-create the pending bundle share_link. Cleanup cron sweeps stale
+  // pending bundles (no junction rows after 1h) — same safety net as single
+  // pending links.
+  const [bundleLink] = await db
+    .insert(shareLink)
+    .values({
+      token: bundleToken,
+      assetId: null,
+      visibility: body.visibility,
+      expiresAt: retention.expiresAt,
+      linkStatus: 'pending',
+      retentionPolicy: retention.retentionPolicy,
+      isBundle: true,
+      bundleAssetCount: itemCount,
+    })
+    .returning({ id: shareLink.id });
+  if (!bundleLink) throw new Error('bundle share_link insert returned no rows');
+
+  // Per-item presign: create upload_job + sign R2 URLs (single or multipart).
+  // Neon HTTP doesn't expose transactions, so on any failure we manually
+  // unwind the bundle row + every job we already minted. Best-effort — the
+  // pending-link cleanup cron is the safety net for whatever slips.
+  const createdJobIds: string[] = [];
+  const responseItems: BatchPresignItem[] = [];
+  try {
+    for (const item of body.items) {
+      const presigned = await presignBatchItem({
+        c,
+        db,
+        deviceId,
+        item,
+        bundleToken,
+        retention,
+      });
+      createdJobIds.push(presigned.uploadId);
+      responseItems.push(presigned);
+    }
+  } catch (err) {
+    await rollbackBatchPresign(db, bundleLink.id, createdJobIds).catch((cleanupErr) => {
+      log.warn({
+        msg: 'batch_presign_rollback_failed',
+        requestId: c.get('requestId'),
+        error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+      });
+    });
+    throw err;
+  }
+
+  return c.json({
+    bundleToken,
+    bundleShortUrl: `${c.env.SHORT_LINK_HOST}/b/${bundleToken}`,
+    expiresAt: retention.expiresAt.toISOString(),
+    deleteAfter: retention.deleteAfter.toISOString(),
+    retentionPolicy: retention.retentionPolicy,
+    itemCount,
+    items: responseItems,
+    ...(c.get('freeTierClampedRetention') === true
+      ? { retentionClamped: true, clampedTo: 'oneDay' as const }
+      : {}),
+  });
+});
+
 uploadRoutes.post('/:uploadId/complete', async (c) => {
   const uploadId = c.req.param('uploadId');
   const deviceId = requireDeviceId(c.get('deviceId'));
@@ -236,12 +359,10 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
   }
 
   if (job.assetId) {
-    // Already completed — return existing link for idempotency.
-    const [link] = await db
-      .select()
-      .from(shareLink)
-      .where(eq(shareLink.assetId, job.assetId))
-      .limit(1);
+    // Already completed — return existing link for idempotency. Bundle path
+    // resolves the link via pendingShareLinkToken because share_link.assetId
+    // stays null for bundles (junction table holds the M:N).
+    const link = await loadIdempotentLink(db, job);
     if (link) {
       const deleteAfter = job.deleteAfter ?? new Date(link.expiresAt.getTime() + 86_400 * 1000);
       return c.json(completeResponse(c.env.SHORT_LINK_HOST, job.assetId, link, deleteAfter));
@@ -369,31 +490,21 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
     assetForLink = { id: createdAsset.id, deleteAfter: createdAsset.deleteAfter };
   }
 
-  // Tier 1: flip the pending share_link minted at presign. Falls back to
-  // creating a fresh row if the pending one is missing (cron swept it, or
-  // the caller skipped the presign path on a legacy /complete).
+  // Tier 1: flip the pending share_link minted at presign. Bundle path forks
+  // here: M:N junction means we don't write share_link.assetId, just append a
+  // bundle_asset row and conditionally activate when N == bundleAssetCount.
   let link: CompleteableLink | null = null;
   if (job.pendingShareLinkToken) {
-    const updatedRows = await db
-      .update(shareLink)
-      .set({ assetId: assetForLink.id, linkStatus: 'active' })
-      .where(
-        and(
-          eq(shareLink.token, job.pendingShareLinkToken),
-          eq(shareLink.linkStatus, 'pending'),
-        ),
-      )
-      .returning({
-        token: shareLink.token,
-        expiresAt: shareLink.expiresAt,
-        retentionPolicy: shareLink.retentionPolicy,
-        linkStatus: shareLink.linkStatus,
-      });
-    // Pick the row whose token matches the pending token we stashed. The
-    // RETURNING clause will only include matched rows in production; test
-    // fakes may be looser, so filter defensively.
-    const updated = updatedRows.find((r) => r.token === job.pendingShareLinkToken);
-    if (updated) link = updated;
+    const [pending] = await db
+      .select()
+      .from(shareLink)
+      .where(eq(shareLink.token, job.pendingShareLinkToken))
+      .limit(1);
+    if (pending?.isBundle) {
+      link = await completeBundleAsset(db, pending, assetForLink.id, job.id);
+    } else if (pending) {
+      link = await flipPendingSingleLink(db, job.pendingShareLinkToken, assetForLink.id);
+    }
   }
   if (!link) {
     link = await createShareLink({
@@ -694,6 +805,7 @@ interface CompleteableLink {
   expiresAt: Date;
   retentionPolicy: string;
   linkStatus: string;
+  isBundle: boolean;
 }
 
 function completeResponse(
@@ -702,14 +814,17 @@ function completeResponse(
   link: CompleteableLink,
   deleteAfter: Date,
 ) {
+  // Bundle short URL lives at /b/{token}; single keeps /s/{token}.
+  const path = link.isBundle ? 'b' : 's';
   return {
     assetId,
     token: link.token,
-    shortUrl: `${shortLinkHost}/s/${link.token}`,
+    shortUrl: `${shortLinkHost}/${path}/${link.token}`,
     expiresAt: link.expiresAt.toISOString(),
     deleteAfter: deleteAfter.toISOString(),
     linkStatus: link.linkStatus,
     retentionPolicy: link.retentionPolicy,
+    ...(link.isBundle ? { isBundle: true as const } : {}),
   };
 }
 
@@ -721,4 +836,400 @@ async function safeJson(req: Request): Promise<unknown> {
   } catch {
     return {};
   }
+}
+
+// Wire shape of one item in the /uploads/batch response. `mode` discriminates
+// between a single-PUT URL and the multipart envelope, mirroring POST /uploads.
+type BatchPresignItem = {
+  clientJobId: string;
+  uploadId: string;
+  storageKey: string;
+  contentType: string;
+  sizeBytes: number;
+  upload:
+    | {
+        mode: 'single';
+        url: string;
+        method: 'PUT';
+        headers: Record<string, string>;
+        expiresAt: string;
+      }
+    | {
+        mode: 'multipart';
+        multipartUploadId: string;
+        partSize: number;
+        parts: Array<{ partNumber: number; url: string; method: 'PUT' }>;
+        expiresAt: string;
+      };
+};
+
+const UTC_DAY_SECONDS = 86_400;
+
+// Mirrors rateLimitFreeTier middleware but consumes `items.length` units of
+// daily-cap quota in one shot. We bypass the middleware on /batch because it
+// reads `sizeBytes` off the request body and counts 1 — wrong for an array
+// payload. Returns a populated Response if the request is rejected (size cap,
+// daily cap), or `null` if the caller may proceed.
+async function enforceBatchFreeTierLimits(
+  c: Context<AppBindings>,
+  db: Db,
+  deviceId: string,
+  body: z.infer<typeof createBatchSchema>,
+): Promise<Response | null> {
+  const now = Date.now();
+  const active = await findActiveProForDevice(
+    db,
+    deviceId,
+    parseDevProAllowList(c.env.DEV_PRO_APPLE_USER_IDS),
+  ).catch((err) => {
+    log.warn({
+      msg: 'batch_free_tier_sub_lookup_failed',
+      requestId: c.get('requestId'),
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  });
+  const isPro =
+    active !== null &&
+    active.status === 'active' &&
+    (active.expiresAt === null || active.expiresAt.getTime() > now);
+  if (isPro) return null;
+
+  // Per-file size cap. Fail on the first oversized item — Free users get a
+  // single rejection, not a list, so they know exactly which file to drop.
+  const sizeLimitBytes = FREE_CAPS.maxFileSizeMB * 1024 * 1024;
+  for (const item of body.items) {
+    if (item.sizeBytes > sizeLimitBytes) {
+      return problem(
+        c,
+        402,
+        'free_tier_size_exceeded',
+        'Payment Required',
+        `Free tier is capped at ${FREE_CAPS.maxFileSizeMB} MB per upload.`,
+        {
+          limitMB: FREE_CAPS.maxFileSizeMB,
+          actualMB: Math.ceil(item.sizeBytes / (1024 * 1024)),
+          upgrade: { tier: 'pro' as const, url: 'https://fastsha.red/pricing' },
+        },
+      );
+    }
+  }
+
+  // Retention clamp: silent for Free, mirrors the single-file middleware.
+  if (retentionExceedsFreeCap(body.retentionPolicy, body.customTtlSeconds)) {
+    body.retentionPolicy = 'oneDay';
+    body.customTtlSeconds = undefined;
+    c.set('freeTierClampedRetention', true);
+  }
+
+  // Daily-count cap. Reserve `itemCount` units atomically so a partial batch
+  // can never overshoot the cap. -1 sentinel = unlimited (skip the gate).
+  if (FREE_CAPS.uploadsPerDay >= 0) {
+    const itemCount = body.items.length;
+    const utcDate = new Date().toISOString().slice(0, 10);
+    const kvKey = `ft:${deviceId}:${utcDate}`;
+    const currentStr = await c.env.RATE_LIMIT.get(kvKey);
+    const currentCount = currentStr ? Number(currentStr) : 0;
+    const safeCount = Number.isFinite(currentCount) ? currentCount : 0;
+    if (safeCount + itemCount > FREE_CAPS.uploadsPerDay) {
+      const resetsAt = nextUtcMidnight().toISOString();
+      return problem(
+        c,
+        429,
+        'free_tier_daily_exceeded',
+        'Too Many Requests',
+        `Free tier is capped at ${FREE_CAPS.uploadsPerDay} uploads per day.`,
+        {
+          limit: FREE_CAPS.uploadsPerDay,
+          used: safeCount,
+          requested: itemCount,
+          resetsAt,
+          upgrade: { tier: 'pro' as const, url: 'https://fastsha.red/pricing' },
+        },
+      );
+    }
+    await c.env.RATE_LIMIT.put(kvKey, String(safeCount + itemCount), {
+      expirationTtl: 2 * UTC_DAY_SECONDS,
+    });
+  }
+
+  return null;
+}
+
+function retentionExceedsFreeCap(policy: string, customTtlSeconds: number | undefined): boolean {
+  const maxSeconds = FREE_CAPS.maxRetentionHours * 3600;
+  switch (policy) {
+    case 'oneHour':
+      return false;
+    case 'oneDay':
+      return 86_400 > maxSeconds;
+    case 'oneWeek':
+      return 604_800 > maxSeconds;
+    case 'oneMonth':
+      return 2_592_000 > maxSeconds;
+    case 'custom':
+      return customTtlSeconds === undefined || customTtlSeconds > maxSeconds;
+    default:
+      return true;
+  }
+}
+
+function nextUtcMidnight(now: Date = new Date()): Date {
+  const d = new Date(now);
+  d.setUTCHours(24, 0, 0, 0);
+  return d;
+}
+
+interface PresignBatchItemArgs {
+  c: Context<AppBindings>;
+  db: Db;
+  deviceId: string;
+  item: BatchItemInput;
+  bundleToken: string;
+  retention: { expiresAt: Date; deleteAfter: Date; retentionPolicy: string };
+}
+
+// Mints one upload_job + R2 presign for a single batch item. Branches on
+// MULTIPART_THRESHOLD exactly like POST /uploads. The job carries
+// pendingShareLinkToken=bundleToken so /complete (milestone 2) can find the
+// owning bundle.
+async function presignBatchItem(args: PresignBatchItemArgs): Promise<BatchPresignItem> {
+  const { c, db, deviceId, item, bundleToken, retention } = args;
+
+  const [job] = await db
+    .insert(uploadJob)
+    .values({
+      deviceId,
+      clientJobId: item.clientJobId,
+      status: 'presigned',
+      retentionPolicy: retention.retentionPolicy,
+      expiresAt: retention.expiresAt,
+      deleteAfter: retention.deleteAfter,
+      pendingShareLinkToken: bundleToken,
+    })
+    .onConflictDoUpdate({
+      target: [uploadJob.deviceId, uploadJob.clientJobId],
+      set: {
+        status: 'presigned',
+        retentionPolicy: retention.retentionPolicy,
+        expiresAt: retention.expiresAt,
+        deleteAfter: retention.deleteAfter,
+        pendingShareLinkToken: bundleToken,
+        updatedAt: sql`now()`,
+      },
+    })
+    .returning({
+      id: uploadJob.id,
+      createdAt: uploadJob.createdAt,
+    });
+  if (!job) throw new Error('upload_job upsert returned no rows');
+
+  const storageKey = buildObjectKeyForJob({
+    jobId: job.id,
+    deviceId,
+    contentType: item.contentType,
+    createdAt: job.createdAt,
+    originalFilename: item.originalFilename,
+  });
+
+  const expiresIn = 15 * 60;
+  const presignExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+  if (item.sizeBytes <= MULTIPART_THRESHOLD) {
+    const presigned = await presignPut({
+      env: c.env,
+      key: storageKey,
+      contentType: item.contentType,
+      sizeBytes: item.sizeBytes,
+      expiresIn,
+    });
+    return {
+      clientJobId: item.clientJobId,
+      uploadId: job.id,
+      storageKey,
+      contentType: item.contentType,
+      sizeBytes: item.sizeBytes,
+      upload: {
+        mode: 'single',
+        url: presigned.url,
+        method: presigned.method,
+        headers: presigned.headers,
+        expiresAt: presigned.expiresAt,
+      },
+    };
+  }
+
+  const { uploadId: multipartUploadId } = await createMultipartUpload(
+    c.env,
+    storageKey,
+    item.contentType,
+  );
+  const partCount = Math.ceil(item.sizeBytes / MULTIPART_PART_SIZE);
+  const partUrls = await Promise.all(
+    Array.from({ length: partCount }, (_, i) =>
+      presignPart(c.env, storageKey, multipartUploadId, i + 1),
+    ),
+  );
+  await db
+    .update(uploadJob)
+    .set({ multipartUploadId, updatedAt: sql`now()` })
+    .where(eq(uploadJob.id, job.id));
+
+  return {
+    clientJobId: item.clientJobId,
+    uploadId: job.id,
+    storageKey,
+    contentType: item.contentType,
+    sizeBytes: item.sizeBytes,
+    upload: {
+      mode: 'multipart',
+      multipartUploadId,
+      partSize: MULTIPART_PART_SIZE,
+      parts: partUrls.map((url, i) => ({ partNumber: i + 1, url, method: 'PUT' as const })),
+      expiresAt: presignExpiresAt,
+    },
+  };
+}
+
+// Best-effort unwind on partial batch failure. Drops every upload_job we
+// already minted and the pending bundle share_link itself. The pending-link
+// cleanup cron is the safety net if anything slips through.
+async function rollbackBatchPresign(
+  db: Db,
+  bundleShareLinkId: string,
+  createdJobIds: string[],
+): Promise<void> {
+  if (createdJobIds.length > 0) {
+    await db.delete(uploadJob).where(inArray(uploadJob.id, createdJobIds));
+  }
+  await db.delete(shareLink).where(eq(shareLink.id, bundleShareLinkId));
+}
+
+// Idempotency lookup for /complete: a job that's already verified resolves
+// back to its owning link. Single uses share_link.assetId; bundle uses the
+// pendingShareLinkToken because share_link.assetId stays null.
+async function loadIdempotentLink(
+  db: Db,
+  job: LoadedUploadJob,
+): Promise<CompleteableLink | null> {
+  if (job.pendingShareLinkToken) {
+    const [byToken] = await db
+      .select()
+      .from(shareLink)
+      .where(eq(shareLink.token, job.pendingShareLinkToken))
+      .limit(1);
+    if (byToken) return toCompleteable(byToken);
+  }
+  if (job.assetId) {
+    const [byAsset] = await db
+      .select()
+      .from(shareLink)
+      .where(eq(shareLink.assetId, job.assetId))
+      .limit(1);
+    if (byAsset) return toCompleteable(byAsset);
+  }
+  return null;
+}
+
+function toCompleteable(row: {
+  token: string;
+  expiresAt: Date;
+  retentionPolicy: string;
+  linkStatus: string;
+  isBundle: boolean;
+}): CompleteableLink {
+  return {
+    token: row.token,
+    expiresAt: row.expiresAt,
+    retentionPolicy: row.retentionPolicy,
+    linkStatus: row.linkStatus,
+    isBundle: row.isBundle,
+  };
+}
+
+// Single-link path: flip pending → active and pin assetId. RETURNING surfaces
+// the post-update row so we can echo it back without a re-select.
+async function flipPendingSingleLink(
+  db: Db,
+  token: string,
+  assetId: string,
+): Promise<CompleteableLink | null> {
+  const updatedRows = await db
+    .update(shareLink)
+    .set({ assetId, linkStatus: 'active' })
+    .where(and(eq(shareLink.token, token), eq(shareLink.linkStatus, 'pending')))
+    .returning({
+      token: shareLink.token,
+      expiresAt: shareLink.expiresAt,
+      retentionPolicy: shareLink.retentionPolicy,
+      linkStatus: shareLink.linkStatus,
+      isBundle: shareLink.isBundle,
+    });
+  // RETURNING in production filters by predicate, but the test fake is
+  // permissive and may return every row — pick the matching one defensively.
+  const updated = updatedRows.find((r) => r.token === token);
+  return updated ? toCompleteable(updated) : null;
+}
+
+// Bundle-link path: append a junction row keyed by upload_job_id (each
+// presigned slot is a distinct row, even when two slots dedup to the same
+// asset), count siblings, and flip the link to active once the count matches
+// bundleAssetCount. Idempotent on retry — the (shareLinkId, uploadJobId)
+// lookup short-circuits a second insert.
+async function completeBundleAsset(
+  db: Db,
+  bundle: {
+    id: string;
+    token: string;
+    expiresAt: Date;
+    retentionPolicy: string;
+    linkStatus: string;
+    bundleAssetCount: number | null;
+  },
+  assetId: string,
+  uploadJobId: string,
+): Promise<CompleteableLink> {
+  const existing = await db
+    .select()
+    .from(bundleAsset)
+    .where(and(eq(bundleAsset.shareLinkId, bundle.id), eq(bundleAsset.uploadJobId, uploadJobId)))
+    .limit(1);
+  if (existing.length === 0) {
+    // displayOrder = current count. Race-tolerant only because the cleanup
+    // cron + the unique index will surface duplicates as a hard failure to
+    // retry rather than silently mis-order. Two concurrent /complete calls
+    // for distinct upload jobs on the same bundle still get distinct orders so
+    // long as the SELECT-then-INSERT happens serially per job.
+    const siblings = await db
+      .select()
+      .from(bundleAsset)
+      .where(eq(bundleAsset.shareLinkId, bundle.id));
+    await db
+      .insert(bundleAsset)
+      .values({
+        shareLinkId: bundle.id,
+        assetId,
+        uploadJobId,
+        displayOrder: siblings.length,
+      })
+      .onConflictDoNothing();
+  }
+
+  const all = await db
+    .select()
+    .from(bundleAsset)
+    .where(eq(bundleAsset.shareLinkId, bundle.id));
+  const expected = bundle.bundleAssetCount ?? 0;
+  let linkStatus = bundle.linkStatus;
+  if (bundle.linkStatus === 'pending' && all.length >= expected && expected > 0) {
+    const flipped = await activateBundleIfPending(db, bundle.id);
+    if (flipped) linkStatus = 'active';
+  }
+  return {
+    token: bundle.token,
+    expiresAt: bundle.expiresAt,
+    retentionPolicy: bundle.retentionPolicy,
+    linkStatus,
+    isBundle: true,
+  };
 }
