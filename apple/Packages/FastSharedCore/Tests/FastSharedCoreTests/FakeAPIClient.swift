@@ -42,6 +42,10 @@ final class FakeAPIClient: APIClientProtocol, @unchecked Sendable {
         throw APIError.transport(underlying: "unimplemented: requestUpload")
     }
 
+    func requestBatchUpload(_ request: BatchPresignRequest) async throws -> BatchPresignResponse {
+        throw APIError.transport(underlying: "unimplemented: requestBatchUpload")
+    }
+
     func completeUpload(uploadId: String, request: CompleteRequest) async throws -> CompleteResponse {
         throw APIError.transport(underlying: "unimplemented: completeUpload")
     }

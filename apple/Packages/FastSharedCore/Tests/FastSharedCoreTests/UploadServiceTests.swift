@@ -450,6 +450,24 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         throw APIError.transport(underlying: "no mock set")
     }
 
+    var batchPresignResponse: BatchPresignResponse?
+    var batchPresignError: Error?
+    /// When set, called instead of returning `batchPresignResponse` directly —
+    /// lets tests echo back the captured clientJobIds so the service can
+    /// match its meta entries against the response items.
+    var batchPresignBuilder: ((BatchPresignRequest) -> BatchPresignResponse)?
+    private(set) var capturedBatchRequest: BatchPresignRequest?
+    private(set) var batchCallCount: Int = 0
+
+    func requestBatchUpload(_ request: BatchPresignRequest) async throws -> BatchPresignResponse {
+        capturedBatchRequest = request
+        batchCallCount += 1
+        if let batchPresignError { throw batchPresignError }
+        if let batchPresignBuilder { return batchPresignBuilder(request) }
+        if let batchPresignResponse { return batchPresignResponse }
+        throw APIError.transport(underlying: "no batch mock set")
+    }
+
     func completeUpload(uploadId: String, request: CompleteRequest) async throws -> CompleteResponse {
         capturedCompleteRequest = request
         if let completeResponse { return completeResponse }

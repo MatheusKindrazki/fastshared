@@ -11,6 +11,10 @@ public protocol APIClientProtocol: Sendable {
         claimingDeviceToken: String?
     ) async throws -> SignInResponse
     func requestUpload(_ request: PresignRequest) async throws -> PresignResponse
+    /// Bundle presign — N items in one round-trip. Returns one bundle token plus
+    /// per-item presigned PUTs; the client fans out R2 uploads then calls
+    /// `/complete` per item (which detects the bundle via pendingShareLinkToken).
+    func requestBatchUpload(_ request: BatchPresignRequest) async throws -> BatchPresignResponse
     func completeUpload(uploadId: String, request: CompleteRequest) async throws -> CompleteResponse
     func failUpload(uploadId: String, errorCode: String, message: String?) async throws
     /// Tier 2: tell the backend to abort a multipart R2 upload that the client
@@ -144,6 +148,10 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
 
     public func requestUpload(_ request: PresignRequest) async throws -> PresignResponse {
         try await perform(endpoint: .requestUpload, body: request)
+    }
+
+    public func requestBatchUpload(_ request: BatchPresignRequest) async throws -> BatchPresignResponse {
+        try await perform(endpoint: .requestBatchUpload, body: request)
     }
 
     public func completeUpload(uploadId: String, request: CompleteRequest) async throws -> CompleteResponse {
