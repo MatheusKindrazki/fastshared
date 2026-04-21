@@ -663,15 +663,16 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
   });
 }
 
-// Bundle preview page — N files behind one short link. Visual tokens come
-// from `web/.impeccable.md`, same palette as the single preview so the brand
-// reads consistently. The "Download all" button is a stub for the M2 cut;
-// ZIP packaging lands in a later milestone.
+// Bundle preview page — N files behind one short link. The page is now an
+// editorial gallery: a summary header, a dense responsive grid, and inline
+// previews per asset. Download remains per-file so the bundle stays ephemal
+// and the browser never needs a ZIP to make the page useful.
 export interface BundlePreviewItem {
   assetId: string;
   filename: string;
   sizeBytes: number;
   contentType: string;
+  previewUrl: string;
   downloadUrl: string;
 }
 
@@ -684,18 +685,111 @@ export interface RenderBundlePreviewPageArgs {
   requestNow?: Date;
 }
 
+type BundlePreviewKind = 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'fallback';
+
+function bundleMediaKindFor(contentType: string): BundlePreviewKind {
+  return previewKindFor(contentType, true);
+}
+
+function bundleTypeLabel(kind: BundlePreviewKind): string {
+  switch (kind) {
+    case 'image':
+      return 'Image';
+    case 'video':
+      return 'Video';
+    case 'audio':
+      return 'Audio';
+    case 'pdf':
+      return 'Document';
+    case 'text':
+      return 'Text';
+    default:
+      return 'File';
+  }
+}
+
+function bundleAccentFor(kind: BundlePreviewKind): string {
+  switch (kind) {
+    case 'image':
+      return 'amber';
+    case 'video':
+      return 'violet-hot';
+    case 'audio':
+      return 'coral';
+    case 'pdf':
+      return 'ember';
+    case 'text':
+      return 'milk-dim';
+    default:
+      return 'violet-soft';
+  }
+}
+
+function renderBundlePreviewMedia(item: BundlePreviewItem, kind: BundlePreviewKind): string {
+  const safePreview = escapeHtml(item.previewUrl);
+  const safeFilename = escapeHtml(item.filename);
+  switch (kind) {
+    case 'image':
+      return `<img src="${safePreview}" alt="${safeFilename}" loading="eager" decoding="async" />`;
+    case 'video':
+      return `<video controls preload="metadata" playsinline src="${safePreview}"></video>`;
+    case 'audio':
+      return `<div class="preview-empty preview-empty-audio"><strong>Audio</strong><span>${safeFilename}</span><audio controls preload="metadata" src="${safePreview}"></audio></div>`;
+    case 'pdf':
+      return `<iframe src="${safePreview}" title="${safeFilename}"></iframe>`;
+    case 'text':
+      return `<iframe src="${safePreview}" title="${safeFilename}"></iframe>`;
+    default:
+      return `<div class="preview-empty"><strong>${safeFilename}</strong><span>Preview unavailable</span></div>`;
+  }
+}
+
+function renderBundlePreviewCard(item: BundlePreviewItem, index: number, selected: boolean): string {
+  const kind = bundleMediaKindFor(item.contentType);
+  const safeFilename = escapeHtml(item.filename);
+  const safeSize = escapeHtml(formatBytes(item.sizeBytes));
+  const safeType = escapeHtml(bundleTypeLabel(kind));
+  const safeIndex = String(index + 1).padStart(2, '0');
+  const accent = bundleAccentFor(kind);
+  return `<button
+  type="button"
+  class="file-row${selected ? ' file-row-selected' : ''}"
+  data-asset-row
+  data-preview-url="${escapeHtml(item.previewUrl)}"
+  data-download-url="${escapeHtml(item.downloadUrl)}"
+  data-filename="${safeFilename}"
+  data-content-type="${escapeHtml(item.contentType)}"
+  data-size="${safeSize}"
+  data-kind="${safeType}"
+  data-kind-accent="${accent}"
+  aria-pressed="${selected ? 'true' : 'false'}"
+>
+  <div class="file-row-index">${safeIndex}</div>
+  <div class="file-row-copy">
+    <div class="file-row-title" title="${safeFilename}">${safeFilename}</div>
+    <div class="file-row-meta">${safeSize} · ${safeType}</div>
+  </div>
+  <div class="file-row-chevron" aria-hidden="true">›</div>
+</button>`;
+}
+
 export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Response {
   const now = args.requestNow ?? new Date();
   const msUntilExpiry = Math.max(0, args.expiresAt.getTime() - now.getTime());
   const humanRemaining = humanizeMs(msUntilExpiry);
   const expiresIso = args.expiresAt.toISOString();
 
-  const safeRemaining = escapeHtml(humanRemaining);
-  const safeCanonical = escapeHtml(args.canonicalUrl);
-  const safeOgImage = escapeHtml(args.ogImageUrl);
-
   const fileCount = args.items.length;
-  const ogTitle = `${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`;
+  const totalBytes = args.items.reduce((sum, item) => sum + item.sizeBytes, 0);
+  const typeCounts = args.items.reduce<Record<string, number>>((acc, item) => {
+    const kind = bundleMediaKindFor(item.contentType);
+    acc[kind] = (acc[kind] ?? 0) + 1;
+    return acc;
+  }, {});
+  const typeSummary = Object.entries(typeCounts)
+    .map(([kind, count]) => `${count} ${bundleTypeLabel(kind as BundlePreviewKind).toLowerCase()}${count === 1 ? '' : 's'}`)
+    .join(' · ');
+
   // OG description: enumerate first two filenames + "+N more" trail.
   const previewNames = args.items.slice(0, 2).map((i) => i.filename);
   const remainder = Math.max(0, fileCount - previewNames.length);
@@ -703,33 +797,19 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     previewNames.length > 0
       ? `${previewNames.join(', ')}${remainder > 0 ? ` +${remainder} more` : ''}`
       : 'Bundle via FastShared';
-  const safeOgTitle = escapeHtml(ogTitle);
+  const safeOgTitle = escapeHtml(`${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`);
   const safeOgDescription = escapeHtml(ogDescription);
-
+  const safeCanonical = escapeHtml(args.canonicalUrl);
+  const safeOgImage = escapeHtml(args.ogImageUrl);
+  const safeRemaining = escapeHtml(humanRemaining);
+  const safeTotalBytes = escapeHtml(formatBytes(totalBytes));
+  const safeTypeSummary = escapeHtml(typeSummary || 'mixed media');
+  const safeHeaderLabel = escapeHtml(`${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`);
+  const selected = args.items[0]!;
+  const selectedKind = bundleMediaKindFor(selected.contentType);
   const cards = args.items
-    .map((item) => {
-      const safeFilename = escapeHtml(item.filename);
-      const safeSize = escapeHtml(formatBytes(item.sizeBytes));
-      const safeCt = escapeHtml(item.contentType);
-      const safeDownload = escapeHtml(item.downloadUrl);
-      const glyph = fileGlyphFor(item.contentType, item.filename);
-      return `<li class="card">
-  <div class="card-glyph" aria-hidden="true">${glyph}</div>
-  <div class="card-meta">
-    <div class="card-name" title="${safeFilename}">${safeFilename}</div>
-    <div class="card-sub">
-      <span>${safeSize}</span>
-      <span class="dot" aria-hidden="true">&middot;</span>
-      <span class="card-ct">${safeCt}</span>
-    </div>
-  </div>
-  <a class="card-dl" href="${safeDownload}" download rel="noopener" aria-label="Download ${safeFilename}">Download</a>
-</li>`;
-    })
+    .map((item, index) => renderBundlePreviewCard(item, index, index === 0))
     .join('\n');
-
-  const headerLabel = `${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`;
-  const safeHeaderLabel = escapeHtml(headerLabel);
 
   const body = `<!doctype html>
 <html lang="en">
@@ -760,160 +840,482 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   :root {
     --ink: ${COLORS.ink};
     --nightshade: ${COLORS.nightshade};
-    --deep-violet: ${COLORS.deepViolet};
+    --panel: rgba(250,250,255,0.04);
+    --panel-strong: rgba(250,250,255,0.06);
+    --rule: rgba(255,255,255,0.08);
+    --rule-soft: rgba(255,255,255,0.05);
     --amber: ${COLORS.amber};
+    --ember: ${COLORS.ember};
     --coral: ${COLORS.coral};
     --milk: ${COLORS.milk};
     --violet-hot: ${COLORS.violetHot};
-    --rule: ${COLORS.rule};
+    --violet-soft: ${COLORS.violetSoft};
     --milk-dim: ${COLORS.milkDim};
     --milk-faint: ${COLORS.milkFaint};
     --milk-ghost: ${COLORS.milkGhost};
-    --sans: 'Bricolage Grotesque', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
     background:
-      radial-gradient(ellipse at 18% -10%, rgba(157,122,255,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 92% 18%, rgba(255,122,209,0.06) 0%, transparent 50%),
-      var(--ink);
+      radial-gradient(ellipse at 16% 0%, rgba(157,122,255,0.08) 0%, transparent 40%),
+      radial-gradient(ellipse at 84% 12%, rgba(255,159,71,0.06) 0%, transparent 36%),
+      linear-gradient(180deg, #06020f 0%, #070318 100%);
     color: var(--milk);
     font-family: var(--sans);
     min-height: 100vh;
-    padding: 24px;
+    padding: 20px;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   main {
+    position: relative;
+    z-index: 1;
     width: 100%;
-    max-width: 720px;
+    max-width: 1440px;
     margin: 0 auto;
   }
-  header { margin-bottom: 24px; }
+  .shell {
+    display: grid;
+    gap: 16px;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 4px 0;
+  }
   .brand {
-    display: inline-block;
-    font-size: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 18px;
     font-weight: 700;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.03em;
     color: var(--milk);
     text-decoration: none;
   }
   .brand-dot { color: var(--violet-hot); }
-  h1 {
-    margin: 24px 0 8px;
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    color: var(--milk);
-  }
-  .countdown {
-    margin: 8px 0 24px;
-    font-family: var(--mono);
-    font-size: 12px;
+  .bundle-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07);
     color: var(--milk-dim);
-    letter-spacing: 0.04em;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
-  .countdown[data-expired="true"] { color: var(--coral); }
-  .list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 24px;
+  .bundle-pill strong {
+    color: var(--milk);
+    font-weight: 600;
+  }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+    gap: 16px;
+    align-items: stretch;
+  }
+  .hero-copy, .hero-stats, .browser {
+    border: 1px solid var(--rule);
+    background: rgba(255,255,255,0.04);
+    box-shadow: 0 18px 60px -42px rgba(0,0,0,0.9);
+    backdrop-filter: blur(12px);
+  }
+  .hero-copy {
+    border-radius: 24px;
+    padding: 24px;
+    display: grid;
+    gap: 16px;
+  }
+  .hero-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .hero-copy h1 {
+    margin: 0;
+    font-size: clamp(28px, 3.5vw, 54px);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+  }
+  .hero-copy p {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--milk-dim);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .hero-meta {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 11px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    color: var(--milk-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .meta-chip strong {
+    color: var(--milk);
+    font-weight: 600;
+  }
+  .hero-stats {
+    border-radius: 24px;
+    padding: 20px;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+  .hero-panel {
+    display: grid;
     gap: 12px;
   }
-  .card {
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .stat-row:last-child { border-bottom: 0; }
+  .stat-row span {
+    color: var(--milk-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .stat-row strong {
+    color: var(--milk);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+  }
+  .browser {
+    border-radius: 28px;
+    overflow: hidden;
+  }
+  .window-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 16px;
-    padding: 16px 18px;
-    background: var(--nightshade);
-    border: 1px solid var(--rule);
-    border-radius: 16px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--rule);
   }
-  .card-glyph {
-    flex: 0 0 auto;
-    font-size: 32px;
-    line-height: 1;
-  }
-  .card-meta {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-  .card-name {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--milk);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .card-sub {
-    margin-top: 4px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--milk-dim);
+  .traffic {
     display: flex;
     gap: 8px;
-    align-items: center;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
   }
-  .card-sub .dot { color: var(--milk-faint); }
-  .card-ct {
+  .traffic span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+  }
+  .traffic span:nth-child(1) { background: #ff5f57; }
+  .traffic span:nth-child(2) { background: #febc2e; }
+  .traffic span:nth-child(3) { background: #28c840; }
+  .window-url {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--milk-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 240px;
   }
-  .card-dl {
-    flex: 0 0 auto;
-    padding: 9px 16px;
-    background: var(--violet-hot);
-    color: var(--ink);
-    border-radius: 999px;
-    text-decoration: none;
-    font-family: var(--sans);
-    font-weight: 600;
-    font-size: 13px;
-    letter-spacing: -0.005em;
-    transition: filter 120ms ease, transform 120ms ease;
-  }
-  .card-dl:hover, .card-dl:focus {
-    filter: brightness(1.08);
-    transform: scale(1.02);
-  }
-  .download-all {
-    display: block;
-    width: 100%;
-    padding: 14px 24px;
-    background: transparent;
-    color: var(--milk-dim);
-    border: 1px dashed var(--milk-ghost);
-    border-radius: 999px;
-    text-align: center;
-    font-family: var(--sans);
-    font-weight: 600;
-    font-size: 14px;
-    letter-spacing: -0.01em;
-    cursor: not-allowed;
-  }
-  .download-all small {
+  .window-actions {
+    display: flex;
+    gap: 8px;
+    color: var(--milk-faint);
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .window-actions span {
+    padding: 6px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .browser-body {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    min-height: 700px;
+  }
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.03);
+    border-right: 1px solid var(--rule);
+  }
+  .sidebar-head {
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    gap: 10px;
+  }
+  .sidebar-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .sidebar-title small {
+    font-family: var(--mono);
+    font-size: 10px;
     color: var(--milk-faint);
     text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .sidebar-sub {
+    color: var(--milk-dim);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .sidebar-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .sidebar-meta .meta-chip {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    overflow: auto;
+  }
+  .file-row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    padding: 12px 12px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    appearance: none;
+    font: inherit;
+  }
+  .file-row:hover,
+  .file-row:focus-visible {
+    outline: none;
+    border-color: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05);
+  }
+  .file-row-selected {
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+    border-color: rgba(255,255,255,0.12);
+  }
+  .file-row-index {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--asset-accent, var(--violet-soft));
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .file-row-title {
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-row-meta {
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--milk-faint);
     letter-spacing: 0.08em;
-    margin-left: 6px;
+    text-transform: uppercase;
+  }
+  .file-row-chevron {
+    color: var(--milk-faint);
+    font-size: 20px;
+    line-height: 1;
+  }
+  .viewer {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-width: 0;
+  }
+  .viewer-head {
+    padding: 18px 20px;
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .viewer-copy {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+  .viewer-title {
+    font-size: clamp(24px, 3vw, 40px);
+    line-height: 1.04;
+    letter-spacing: -0.05em;
+    font-weight: 700;
+    word-break: break-word;
+  }
+  .viewer-sub {
+    color: var(--milk-dim);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .viewer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .viewer-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 12px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--milk);
+  }
+  .viewer-action-primary {
+    background: var(--asset-accent, var(--violet-hot));
+    color: var(--ink);
+    border-color: transparent;
+  }
+  .viewer-body {
+    min-height: 0;
+    padding: 18px 18px 0;
+  }
+  .preview-frame {
+    height: 100%;
+    min-height: 560px;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    background: rgba(0,0,0,0.18);
+    display: grid;
+    place-items: center;
+  }
+  .preview-frame img,
+  .preview-frame video,
+  .preview-frame iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .preview-frame img {
+    object-fit: contain;
+    background: rgba(255,255,255,0.02);
+  }
+  .preview-frame video {
+    background: #000;
+  }
+  .preview-frame iframe {
+    background: #f7f7fb;
+  }
+  .preview-empty {
+    width: 100%;
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    text-align: center;
+    color: var(--milk-dim);
+  }
+  .preview-empty strong {
+    color: var(--milk);
+    display: block;
+    margin-bottom: 8px;
+  }
+  .viewer-foot {
+    display: grid;
+    gap: 12px;
+    padding: 18px 20px 20px;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .expiry-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--milk-faint);
+  }
+  .expiry-value {
+    color: var(--milk);
+  }
+  .gutter {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    font-size: 13px;
+    color: var(--milk-dim);
+  }
+  .gutter strong {
+    color: var(--milk);
+    font-weight: 650;
   }
   footer {
-    margin-top: 32px;
+    margin: 18px 0 8px;
     text-align: center;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 11px;
     color: var(--milk-faint);
   }
   footer a {
@@ -922,24 +1324,156 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     border-bottom: 1px dotted var(--milk-faint);
   }
   footer a:hover { color: var(--milk); }
+  .expires {
+    margin: 4px 2px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--milk-faint);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: right;
+  }
+  .gallery-marker {
+    display: none;
+  }
+  @media (max-width: 1040px) {
+    .hero {
+      grid-template-columns: 1fr;
+    }
+    .browser-body {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .viewer-body {
+      padding-bottom: 18px;
+    }
+    .preview-frame {
+      min-height: 420px;
+    }
+  }
+  @media (max-width: 720px) {
+    body { padding: 12px; }
+    .topbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .hero-copy, .hero-stats, .browser {
+      border-radius: 22px;
+    }
+    .sidebar-meta {
+      grid-template-columns: 1fr;
+    }
+    .window-bar {
+      padding-inline: 12px;
+    }
+    .window-actions {
+      display: none;
+    }
+    .viewer-head {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .viewer-actions {
+      justify-content: flex-start;
+    }
+    .file-row {
+      grid-template-columns: 40px minmax(0, 1fr) auto;
+    }
+    .preview-frame {
+      min-height: 300px;
+    }
+  }
 </style>
 </head>
 <body>
-<main>
-  <header>
+<main class="shell">
+  <div class="topbar">
     <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
-  </header>
+    <div class="bundle-pill"><strong>${safeHeaderLabel}</strong> · native bundle viewer</div>
+  </div>
 
-  <h1>${safeHeaderLabel}</h1>
-  <div class="countdown" data-expires-at="${expiresIso}" data-expired="false" aria-live="polite">expires in ${safeRemaining}</div>
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="hero-label">Bundle preview</div>
+      <h1>${safeHeaderLabel}</h1>
+      <p>A short link for the whole drop. The layout behaves more like an Apple-style file viewer: files on the left, preview on the right, no noisy web chrome.</p>
+      <div class="hero-meta">
+        <span class="meta-chip"><strong>${fileCount}</strong> files</span>
+        <span class="meta-chip"><strong>${safeTotalBytes}</strong> total</span>
+        <span class="meta-chip"><strong>${safeTypeSummary}</strong></span>
+      </div>
+    </div>
+    <aside class="hero-stats" aria-label="Bundle facts">
+      <div class="stat-row">
+        <span>Lead file</span>
+        <strong>${escapeHtml(selected.filename)}</strong>
+      </div>
+      <div class="stat-row">
+        <span>Expires in</span>
+        <strong>${safeRemaining}</strong>
+      </div>
+      <div class="stat-row">
+        <span>Media type</span>
+        <strong>${escapeHtml(bundleTypeLabel(selectedKind))}</strong>
+      </div>
+    </aside>
+  </section>
 
-  <ul class="list">
-    ${cards}
-  </ul>
+  <section class="browser" data-bundle-gallery aria-label="Bundle viewer">
+    <div class="window-bar">
+      <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="window-url">${escapeHtml(args.canonicalUrl)}</div>
+      <div class="window-actions" aria-hidden="true"><span>preview</span><span>share</span></div>
+    </div>
+    <div class="browser-body">
+      <aside class="sidebar" aria-label="Files">
+        <div class="sidebar-head">
+          <div class="sidebar-title">
+            <span>Files</span>
+            <small>${fileCount}</small>
+          </div>
+          <div class="sidebar-sub">${safeTypeSummary} · swipe/click to switch the preview</div>
+          <div class="sidebar-meta">
+            <span class="meta-chip"><strong>${fileCount}</strong> items</span>
+            <span class="meta-chip"><strong>${safeRemaining}</strong> left</span>
+          </div>
+        </div>
+        <div class="file-list" role="listbox" aria-label="Bundle files">
+          ${cards}
+        </div>
+      </aside>
+      <section class="viewer" aria-label="Selected file preview">
+        <div class="viewer-head">
+          <div class="viewer-copy">
+            <div class="viewer-title" data-viewer-title>${escapeHtml(selected.filename)}</div>
+            <div class="viewer-sub" data-viewer-sub>${safeTypeSummary} · ${escapeHtml(formatBytes(selected.sizeBytes))}</div>
+          </div>
+          <div class="viewer-actions">
+            <a class="viewer-action viewer-action-primary" data-viewer-download href="${escapeHtml(selected.downloadUrl)}" download rel="noopener">Download</a>
+            <a class="viewer-action" href="${safeCanonical}" rel="noopener">Open link</a>
+          </div>
+        </div>
+        <div class="viewer-body">
+          <div class="preview-frame" data-viewer-frame>${renderBundlePreviewMedia(selected, selectedKind)}</div>
+        </div>
+        <div class="viewer-foot">
+          <div class="expiry-row">
+            <span>Expires</span>
+            <span class="expiry-value" data-expires-at="${expiresIso}" data-expired="false">${safeRemaining}</span>
+          </div>
+          <div class="gutter">
+            <span>${safeTotalBytes} total across ${fileCount} files</span>
+            <span>FastShared bundle</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
 
-  <button class="download-all" type="button" disabled aria-disabled="true">
-    Download all <small>em breve</small>
-  </button>
+  <div class="expires">expires in ${safeRemaining}</div>
 
   <footer>
     <a href="https://fastsha.red">fastsha.red</a> &middot; share files, watch them expire.
@@ -948,10 +1482,15 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
 
 <script>
 (function () {
-  var el = document.querySelector('[data-expires-at]');
-  if (!el) return;
-  var expiresAt = new Date(el.getAttribute('data-expires-at')).getTime();
+  var expiresEl = document.querySelector('[data-expires-at]');
+  if (!expiresEl) return;
+  var expiresAt = new Date(expiresEl.getAttribute('data-expires-at')).getTime();
   if (!isFinite(expiresAt)) return;
+  var titleEl = document.querySelector('[data-viewer-title]');
+  var subEl = document.querySelector('[data-viewer-sub]');
+  var downloadEl = document.querySelector('[data-viewer-download]');
+  var frameEl = document.querySelector('[data-viewer-frame]');
+  var rows = Array.from(document.querySelectorAll('[data-asset-row]'));
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function fmt(ms) {
     if (ms <= 0) return 'expired';
@@ -959,15 +1498,72 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     var d = Math.floor(s / 86400); s -= d * 86400;
     var h = Math.floor(s / 3600); s -= h * 3600;
     var m = Math.floor(s / 60); s -= m * 60;
-    if (d > 0) return 'expires in ' + d + 'd ' + pad(h) + 'h ' + pad(m) + 'm';
-    if (h > 0) return 'expires in ' + pad(h) + 'h ' + pad(m) + 'm ' + pad(s) + 's';
-    return 'expires in ' + pad(m) + 'm ' + pad(s) + 's';
+    if (d > 0) return d + 'd ' + pad(h) + 'h ' + pad(m) + 'm';
+    if (h > 0) return pad(h) + 'h ' + pad(m) + 'm ' + pad(s) + 's';
+    return pad(m) + 'm ' + pad(s) + 's';
+  }
+  function mediaMarkup(row) {
+    var previewUrl = row.getAttribute('data-preview-url') || '';
+    var filename = row.getAttribute('data-filename') || 'download';
+    var kind = row.getAttribute('data-kind') || 'File';
+    if (kind === 'Image') {
+      return '<img src="' + previewUrl + '" alt="' + escapeAttr(filename) + '" loading="eager" decoding="async" />';
+    }
+    if (kind === 'Video') {
+      return '<video controls preload="metadata" playsinline src="' + previewUrl + '"></video>';
+    }
+    if (kind === 'Audio') {
+      return '<div class="preview-empty"><strong>Audio</strong><span>' + escapeHtmlText(filename) + '</span><audio controls preload="metadata" src="' + previewUrl + '"></audio></div>';
+    }
+    if (kind === 'Document') {
+      return '<iframe src="' + previewUrl + '" title="' + escapeAttr(filename) + '"></iframe>';
+    }
+    if (kind === 'Text') {
+      return '<iframe src="' + previewUrl + '" title="' + escapeAttr(filename) + '"></iframe>';
+    }
+    return '<div class="preview-empty"><strong>' + escapeHtmlText(filename) + '</strong><span>Preview unavailable</span></div>';
+  }
+  function escapeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function escapeHtmlText(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function selectRow(row) {
+    rows.forEach(function (r) {
+      var selected = r === row;
+      r.classList.toggle('file-row-selected', selected);
+      r.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    var previewUrl = row.getAttribute('data-preview-url') || '';
+    var downloadUrl = row.getAttribute('data-download-url') || '#';
+    var filename = row.getAttribute('data-filename') || 'download';
+    var size = row.getAttribute('data-size') || '';
+    var kind = row.getAttribute('data-kind') || '';
+    var accent = row.getAttribute('data-kind-accent') || 'violet-hot';
+    if (titleEl) titleEl.textContent = filename;
+    if (subEl) subEl.textContent = kind + ' · ' + size;
+    if (downloadEl) {
+      downloadEl.setAttribute('href', downloadUrl);
+      downloadEl.setAttribute('style', '--asset-accent: var(--' + accent + ')');
+    }
+    if (frameEl) {
+      frameEl.innerHTML = mediaMarkup(row);
+    }
   }
   function tick() {
     var ms = expiresAt - Date.now();
-    el.textContent = fmt(ms);
-    el.setAttribute('data-expired', ms <= 0 ? 'true' : 'false');
+    var text = fmt(ms);
+    expiresEl.textContent = text;
+    expiresEl.setAttribute('data-expired', ms <= 0 ? 'true' : 'false');
   }
+  function bind(row) {
+    row.addEventListener('click', function () {
+      selectRow(row);
+    });
+  }
+  rows.forEach(bind);
+  if (rows.length > 0) selectRow(rows[0]);
   tick();
   setInterval(tick, 1000);
 })();

@@ -105,7 +105,13 @@ interface SeedBundleArgs {
 interface SeededBundle {
   bundleLinkId: string;
   token: string;
-  assets: Array<{ assetId: string; storageKey: string; originalFilename: string }>;
+  assets: Array<{
+    assetId: string;
+    storageKey: string;
+    originalFilename: string;
+    previewUrl: string;
+    downloadUrl: string;
+  }>;
 }
 
 function seedBundle(args: SeedBundleArgs): SeededBundle {
@@ -165,7 +171,13 @@ function seedBundle(args: SeedBundleArgs): SeededBundle {
       createdAt: new Date(),
     };
     store.bundleAssets.push(j);
-    assets.push({ assetId, storageKey, originalFilename: filename });
+    assets.push({
+      assetId,
+      storageKey,
+      originalFilename: filename,
+      previewUrl: `https://fastsha.red/b/${token}/p/${assetId}`,
+      downloadUrl: `https://fastsha.red/b/${token}/d/${assetId}`,
+    });
   }
   return { bundleLinkId, token, assets };
 }
@@ -192,13 +204,15 @@ describe('bundle redirect (M2)', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toMatch(/text\/html/);
     const body = await res.text();
+    expect(body).toContain('data-bundle-gallery');
     // Each filename appears in the rendered card list.
     for (const a of seeded.assets) {
       expect(body).toContain(a.originalFilename);
     }
-    // Per-asset download URLs are present.
+    // Per-asset preview and download URLs are present.
     for (const a of seeded.assets) {
-      expect(body).toContain(`/b/${seeded.token}/d/${a.assetId}`);
+      expect(body).toContain(a.previewUrl);
+      expect(body).toContain(a.downloadUrl);
     }
   });
 
@@ -244,6 +258,22 @@ describe('bundle redirect (M2)', () => {
     expect(res.headers.get('Content-Type')).toBe('application/octet-stream');
     expect(res.headers.get('Accept-Ranges')).toBe('bytes');
     expect(res.headers.get('Content-Length')).toBe('4');
+    const got = new Uint8Array(await res.arrayBuffer());
+    expect([...got]).toEqual([1, 2, 3, 4]);
+  });
+
+  it('GET /b/:token/p/:assetId serves inline bytes for in-gallery previews', async () => {
+    const seeded = seedBundle({
+      itemCount: 1,
+      perAsset: [{ originalFilename: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 4 }],
+    });
+    const target = seeded.assets[0]!;
+    await putR2Bytes(target.storageKey, new Uint8Array([1, 2, 3, 4]));
+
+    const res = await get(`/b/${seeded.token}/p/${target.assetId}`, { accept: '*/*' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('image/jpeg');
+    expect(res.headers.get('Content-Disposition') ?? '').toMatch(/inline/);
     const got = new Uint8Array(await res.arrayBuffer());
     expect([...got]).toEqual([1, 2, 3, 4]);
   });
