@@ -15,9 +15,7 @@ import UIKit
 // MARK: - Sidebar selection
 
 /// Library sidebar filters. Separate from the legacy `MacSidebarSelection`
-/// (which covered "all / ending soon / this week / expired") because the
-/// redesign's sidebar talks in user-facing categories rather than expiry
-/// buckets.
+/// (expiry-bucket model) — the redesign talks user categories.
 enum LibrarySelection: Hashable, CaseIterable, Identifiable {
     case library
     case screenshots
@@ -34,17 +32,22 @@ enum LibrarySelection: Hashable, CaseIterable, Identifiable {
         case .expiringSoon: return "Expiring soon"
         }
     }
+
+    var symbol: String {
+        switch self {
+        case .library:      return "tray.full"
+        case .screenshots:  return "photo.on.rectangle"
+        case .sentToday:    return "paperplane"
+        case .expiringSoon: return "hourglass"
+        }
+    }
 }
 
 // MARK: - LibraryView
 
-/// Split-view Library for iPad (regular) + macOS. Dense table, cream ground,
-/// amber/violet tokens — matches the `fastshared — Library` prototype.
-///
-/// Shares the same SwiftData container as the iPhone `HistoryView`; we reuse
-/// `HistoryViewModel` for refresh/revoke so the underlying orchestrator
-/// behaviour stays identical across surfaces. Heavy UI lives in a couple of
-/// private structs at the bottom of the file.
+/// Split-view Library for iPad (regular) + macOS. Matches the `Library`
+/// protótipo but respects native HIG weight on macOS (dark mode goes
+/// semantic, light mode keeps Friendly cream).
 struct LibraryView: View {
     @Environment(\.apiClient) private var apiClient
     @Environment(\.uploadService) private var uploadService
@@ -66,10 +69,8 @@ struct LibraryView: View {
     #endif
 
     // MARK: - Palette resolution
-    // Light: Friendly cream branded Hub (intentional, matches protótipo).
-    // Dark: semantic system — FriendlyPalette dark é navy-purple (#0d0625)
-    // que vazou como "Purple background" nos prints dos users. Em dark, vamos
-    // de systemBackground para parecer Mail/Photos.
+    // Light: Friendly cream (brand Hub intent).
+    // Dark: semantic NSColor/UIColor — avoids the #0d0625 navy-purple leak.
 
     private var groundColor: Color {
         colorScheme == .dark ? Color(.systemGroupedBackground) : BrandPalette.friendlyGround
@@ -128,7 +129,7 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: - Counts (for sidebar badges) — always against active universe
+    // MARK: - Counts (sidebar badges, always active universe)
 
     private var activeLinks: [ShareLinkEntity] {
         allLinks.filter { $0.linkStatus == LinkStatus.active.rawValue && $0.expiresAt > Date() }
@@ -147,7 +148,7 @@ struct LibraryView: View {
                 lineColor: lineColor,
                 surfaceColor: surfaceColor
             )
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
             #if os(macOS)
             .background(surfaceColor)
             #endif
@@ -189,6 +190,7 @@ struct LibraryView: View {
             let rows = filtered(allLinks, now: now)
             LibraryDetail(
                 title: titleText(count: rows.count),
+                subtitle: subtitleText(count: rows.count),
                 nextExpiryLabel: nextExpiryLabel(rows: rows, now: now),
                 rows: rows,
                 now: now,
@@ -205,6 +207,10 @@ struct LibraryView: View {
                 textFaintColor: textFaintColor,
                 lineColor: lineColor
             )
+            // WHY: attach onDrop to the whole detail column — SwiftUI on macOS
+            // drops the target hit box if the inner ScrollView is empty (no
+            // content means no hit target); anchoring here guarantees the drop
+            // always fires. The overlay gives visual feedback.
             .onDrop(of: [UTType.fileURL, UTType.item], isTargeted: $isDragTargeted) { providers in
                 handleDropProviders(providers)
                 return true
@@ -235,8 +241,16 @@ struct LibraryView: View {
         }
     }
 
-    /// Amber overline — "NEXT TO EXPIRE · 40S". Nil when no rows or when every
-    /// row has >24h left (calm state).
+    private func subtitleText(count: Int) -> String {
+        switch selection {
+        case .library:      return "Your shares across every device"
+        case .screenshots:  return "Quick screen grabs you sent"
+        case .sentToday:    return "Everything that went out today"
+        case .expiringSoon: return "Less than 24 hours left"
+        }
+    }
+
+    /// Violet overline — "NEXT TO EXPIRE · 40S". Nil when calm (>24h).
     private func nextExpiryLabel(rows: [ShareLinkEntity], now: Date) -> String? {
         guard let nearest = rows.map(\.expiresAt).min() else { return nil }
         let remaining = nearest.timeIntervalSince(now)
@@ -251,9 +265,7 @@ struct LibraryView: View {
         clipboard.copy(link.shortURLString)
     }
 
-    /// Per-platform share dispatch. iOS pops `UIActivityViewController`; macOS
-    /// hands the URL straight to the system browser since AppKit has no in-app
-    /// share sheet equivalent for links.
+    /// Per-platform share: iOS pops activity sheet; macOS opens the link.
     private func shareOrOpen(_ link: ShareLinkEntity) {
         #if os(iOS)
         shareURL = link.shortURL
@@ -281,7 +293,11 @@ struct LibraryView: View {
     }
 
     private func handleDropProviders(_ providers: [NSItemProvider]) {
-        guard let service = uploadService else { return }
+        guard let service = uploadService else {
+            Logger(subsystem: "dev.kindrazki.fastshared", category: "upload")
+                .error("LibraryView drop: uploadService missing in environment")
+            return
+        }
         Task {
             var urls: [URL] = []
             for provider in providers {
@@ -289,7 +305,11 @@ struct LibraryView: View {
                     urls.append(url)
                 }
             }
-            guard !urls.isEmpty else { return }
+            guard !urls.isEmpty else {
+                Logger(subsystem: "dev.kindrazki.fastshared", category: "upload")
+                    .error("LibraryView drop: no URLs resolved from \(providers.count, privacy: .public) provider(s)")
+                return
+            }
             do {
                 _ = try await service.enqueueDrop(urls: urls)
             } catch let gate as SubscriptionGate {
@@ -342,9 +362,8 @@ private struct LibrarySidebar: View {
     let lineColor: Color
     let surfaceColor: Color
 
-    // WHY: iOS `List(selection:)` only takes an Optional binding for the row
-    // tag. We bridge a non-optional `LibrarySelection` here so the parent can
-    // keep its API simple while the underlying List honours its requirement.
+    // WHY: iOS `List(selection:)` takes an Optional binding. We bridge the
+    // non-optional LibrarySelection here so the parent stays simple.
     private var optionalBinding: Binding<LibrarySelection?> {
         Binding(get: { selection }, set: { newValue in
             if let v = newValue { selection = v }
@@ -353,16 +372,16 @@ private struct LibrarySidebar: View {
 
     var body: some View {
         List(selection: optionalBinding) {
-            // Brand header — no section so it sits flush at the top.
+            // Brand header — flush at the top.
             Section {
-                BrandLockup(markSize: 18, textSize: 14)
+                BrandLockup(markSize: 22, textSize: 17)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .padding(.top, 2)
-                    .padding(.bottom, 4)
+                    .padding(.top, 6)
+                    .padding(.bottom, 8)
             }
 
-            // Main filters — bullet dots mimic the protótipo list style.
+            // Main filters with symbol glyphs.
             Section {
                 ForEach(LibrarySelection.allCases) { item in
                     sidebarRow(item)
@@ -370,57 +389,60 @@ private struct LibrarySidebar: View {
                 }
             }
 
-            // Footer device card. Plain section header in mono caps.
+            // Device footer.
             Section {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("ios · mac")
-                        .font(.system(size: 11).monospaced())
-                        .foregroundStyle(textColor)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "laptopcomputer.and.iphone")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(textDimColor)
+                        Text("ios · mac")
+                            .font(.system(size: 12, weight: .medium).monospaced())
+                            .foregroundStyle(textColor)
+                    }
                     Text("····\(deviceShortHash)")
                         .font(.system(size: 11).monospaced())
                         .foregroundStyle(textFaintColor)
                 }
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             } header: {
                 Text("DEVICE")
-                    .font(.system(size: 10, weight: .semibold).monospaced())
-                    .tracking(0.08 * 10)
+                    .font(.system(size: 11, weight: .semibold).monospaced())
+                    .tracking(1.0)
                     .foregroundStyle(textFaintColor)
+                    .padding(.top, 8)
             }
         }
-        #if os(macOS)
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(surfaceColor)
-        #else
-        .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background(surfaceColor)
-        #endif
     }
 
     @ViewBuilder
     private func sidebarRow(_ item: LibrarySelection) -> some View {
         let isActive = selection == item
-        HStack(spacing: 8) {
-            Text("•")
+        HStack(spacing: 10) {
+            Image(systemName: item.symbol)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(isActive ? BrandPalette.accent.hot : textDimColor)
+                .frame(width: 20, alignment: .center)
             Text(item.label)
-                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                #if os(macOS)
+                .font(.system(size: 14, weight: isActive ? .semibold : .regular))
+                #else
+                .font(.system(size: 16, weight: isActive ? .semibold : .regular))
+                #endif
                 .foregroundStyle(isActive ? BrandPalette.accent.hot : textColor)
             Spacer()
         }
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
     }
 
-    /// Pseudo device hash — the mock shows `····6a2f`. We derive a stable 4-char
-    /// suffix from the process identifier + host name so every device gets a
-    /// different tail without reaching into keychain on every render. Good
-    /// enough for a visual affordance; a future pass can wire it to the real
-    /// `DeviceTokenStore.deviceId`.
+    /// Stable 4-char device tail for visual affordance. Good-enough without
+    /// touching keychain on every render.
     private var deviceShortHash: String {
         #if os(macOS)
         let raw = Host.current().localizedName ?? "mac"
@@ -436,6 +458,7 @@ private struct LibrarySidebar: View {
 
 private struct LibraryDetail: View {
     let title: String
+    let subtitle: String
     let nextExpiryLabel: String?
     let rows: [ShareLinkEntity]
     let now: Date
@@ -458,13 +481,23 @@ private struct LibraryDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header
-                    .padding(.horizontal, 28)
-                    .padding(.top, 24)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 28)
+                    .padding(.bottom, 20)
 
-                tableBlock
-                    .padding(.horizontal, 28)
-                    .padding(.top, 18)
-                    .padding(.bottom, 28)
+                if rows.isEmpty {
+                    emptyState
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 24)
+                        .padding(.bottom, 48)
+                } else {
+                    tableHeader
+                        .padding(.horizontal, 32)
+                    Divider().overlay(lineColor)
+                    tableRows
+                        .padding(.bottom, 32)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -479,112 +512,185 @@ private struct LibraryDetail: View {
 
     @ViewBuilder
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             if let label = nextExpiryLabel {
                 Text(label)
-                    .font(.system(size: 11, weight: .bold).monospaced())
-                    .tracking(0.08 * 11)
+                    .font(.system(size: 12, weight: .bold).monospaced())
+                    .tracking(1.2)
                     .foregroundStyle(BrandPalette.accentHot)
             }
 
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.system(size: 32, weight: .bold))
-                    .tracking(-0.02 * 32)
-                    .foregroundStyle(textColor)
+            HStack(alignment: .firstTextBaseline, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        #if os(macOS)
+                        // HIG macOS largeTitle = 26pt bold; push to 34 for hero weight.
+                        .font(.system(size: 34, weight: .bold))
+                        #else
+                        .font(.system(size: 40, weight: .bold))
+                        #endif
+                        .tracking(-0.5)
+                        .foregroundStyle(textColor)
+                    Text(subtitle)
+                        #if os(macOS)
+                        .font(.system(size: 14))
+                        #else
+                        .font(.system(size: 17))
+                        #endif
+                        .foregroundStyle(textDimColor)
+                }
 
                 Spacer(minLength: 16)
 
-                Button(action: onDropFile) {
-                    Text("+ DROP FILE")
-                        .font(.system(size: 11, weight: .bold).monospaced())
-                        .tracking(0.06 * 11)
-                        .foregroundStyle(.white)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(BrandPalette.accent.hot)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Drop file")
+                dropButton
             }
         }
     }
 
-    // MARK: - Table block
+    @ViewBuilder
+    private var dropButton: some View {
+        Button(action: onDropFile) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .bold))
+                Text("DROP FILE")
+                    .font(.system(size: 12, weight: .bold).monospaced())
+                    .tracking(1.0)
+            }
+            .foregroundStyle(.white)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(BrandPalette.accent.hot)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+            .shadow(color: BrandPalette.accent.hot.opacity(0.35), radius: 10, x: 0, y: 4)
+            // WHY: .buttonStyle(.plain) on macOS can lose hit-testing when the
+            // label uses a background modifier — contentShape forces the whole
+            // pill to be tappable.
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        #if os(macOS)
+        .keyboardShortcut("u", modifiers: [.command, .shift])
+        #endif
+        .help("Drop or pick a file (⌘⇧U)")
+        .accessibilityLabel("Drop file")
+    }
+
+    // MARK: - Table header
 
     @ViewBuilder
-    private var tableBlock: some View {
-        VStack(spacing: 0) {
-            // Column headers row (sticky top of the card).
-            HStack(spacing: 0) {
-                headerCell("FILE")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                headerCell("SIZE")
-                    .frame(width: 90, alignment: .leading)
-                headerCell("LINK")
-                    .frame(width: 170, alignment: .leading)
-                headerCell("EXPIRES")
-                    .frame(width: 110, alignment: .leading)
-                Color.clear.frame(width: 34)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(paperColor.opacity(0.6))
-
-            Divider().overlay(lineColor)
-
-            if rows.isEmpty {
-                emptyCard
-            } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(rows.enumerated()), id: \.element.token) { index, link in
-                        if index > 0 {
-                            Divider().overlay(lineColor.opacity(0.7))
-                        }
-                        LibraryRow(
-                            link: link,
-                            now: now,
-                            textColor: textColor,
-                            textDimColor: textDimColor,
-                            textFaintColor: textFaintColor,
-                            onCopy: { onCopy(link) },
-                            onRevoke: { onRevoke(link) },
-                            onShare: { onShare(link) }
-                        )
-                    }
-                }
-            }
+    private var tableHeader: some View {
+        HStack(spacing: 0) {
+            headerCell("FILE")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            headerCell("SIZE")
+                .frame(width: 90, alignment: .leading)
+            headerCell("LINK")
+                .frame(width: 170, alignment: .leading)
+            headerCell("EXPIRES")
+                .frame(width: 120, alignment: .leading)
+            Color.clear.frame(width: 40)
         }
-        .background(paperColor)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(lineColor, lineWidth: 1)
-        )
+        .padding(.vertical, 12)
     }
 
     @ViewBuilder
     private func headerCell(_ s: String) -> some View {
         Text(s)
-            .font(.system(size: 10, weight: .bold).monospaced())
-            .tracking(0.08 * 10)
+            .font(.system(size: 11, weight: .bold).monospaced())
+            .tracking(1.2)
             .foregroundStyle(textFaintColor)
     }
 
+    // MARK: - Table rows
+
     @ViewBuilder
-    private var emptyCard: some View {
-        VStack(spacing: 10) {
-            PlaneArcMark(size: 44)
-                .opacity(0.5)
-            Text("Nothing here yet")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(textDimColor)
+    private var tableRows: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.token) { index, link in
+                LibraryRow(
+                    link: link,
+                    now: now,
+                    textColor: textColor,
+                    textDimColor: textDimColor,
+                    textFaintColor: textFaintColor,
+                    lineColor: lineColor,
+                    onCopy: { onCopy(link) },
+                    onRevoke: { onRevoke(link) },
+                    onShare: { onShare(link) }
+                )
+                .padding(.horizontal, 32)
+                if index < rows.count - 1 {
+                    Divider()
+                        .overlay(lineColor.opacity(0.6))
+                        .padding(.leading, 32)
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 44)
+    }
+
+    // MARK: - Empty state
+
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            // Friendly icon tile — no tiny mystery arc.
+            ZStack {
+                Circle()
+                    .fill(BrandPalette.accent.hot.opacity(0.10))
+                    .frame(width: 96, height: 96)
+                Image(systemName: "paperplane")
+                    .font(.system(size: 42, weight: .medium))
+                    .foregroundStyle(BrandPalette.accent.hot)
+                    .offset(x: -2, y: 1)
+            }
+            .padding(.top, 12)
+
+            VStack(spacing: 8) {
+                Text("No shares yet")
+                    #if os(macOS)
+                    .font(.system(size: 22, weight: .semibold))
+                    #else
+                    .font(.system(size: 24, weight: .semibold))
+                    #endif
+                    .foregroundStyle(textColor)
+                Text("Drop a file into this window, or press ⌘⇧U to pick one.")
+                    #if os(macOS)
+                    .font(.system(size: 14))
+                    #else
+                    .font(.system(size: 16))
+                    #endif
+                    .foregroundStyle(textDimColor)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: onDropFile) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Pick a file")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.vertical, 11)
+                .padding(.horizontal, 22)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(BrandPalette.accent.hot)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: 420)
+        .padding(.vertical, 48)
     }
 }
 
@@ -596,12 +702,14 @@ private struct LibraryRow: View {
     let textColor: Color
     let textDimColor: Color
     let textFaintColor: Color
+    let lineColor: Color
 
     let onCopy: () -> Void
     let onRevoke: () -> Void
     let onShare: () -> Void
 
     @State private var copyFlash = false
+    @State private var isHovering = false
 
     private var remaining: TimeInterval { max(0, link.expiresAt.timeIntervalSince(now)) }
     private var retention: TimeInterval { max(0, link.expiresAt.timeIntervalSince(link.createdAt)) }
@@ -610,31 +718,39 @@ private struct LibraryRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // FILE column — leading urgency strip + glyph + filename.
-            HStack(spacing: 10) {
-                Rectangle()
+            // FILE column — urgency strip + glyph + filename stack.
+            HStack(spacing: 12) {
+                Capsule()
                     .fill(tier.urgencyColor)
-                    .frame(width: 3, height: 36)
-                    .clipShape(Capsule())
+                    .frame(width: 3, height: 28)
 
                 leadingGlyph
-                    .frame(width: 26, height: 26)
+                    .frame(width: 30, height: 30)
 
-                Text(filename)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(textColor)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(filename)
+                        #if os(macOS)
+                        .font(.system(size: 14, weight: .semibold))
+                        #else
+                        .font(.system(size: 16, weight: .semibold))
+                        #endif
+                        .foregroundStyle(textColor)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(RelativeDateTimeFormatter.cached.localizedString(for: link.createdAt, relativeTo: now))
+                        .font(.system(size: 11))
+                        .foregroundStyle(textFaintColor)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // SIZE
             Text(ByteCountFormatter.string(fromByteCount: link.sizeBytes, countStyle: .file))
-                .font(.system(size: 12).monospacedDigit())
+                .font(.system(size: 13, design: .monospaced).monospacedDigit())
                 .foregroundStyle(textDimColor)
                 .frame(width: 90, alignment: .leading)
 
-            // LINK (tap-to-copy). Violet accent per mockup.
+            // LINK — tap to copy.
             Button {
                 onCopy()
                 withAnimation(.easeOut(duration: 0.1)) { copyFlash = true }
@@ -642,27 +758,33 @@ private struct LibraryRow: View {
                     withAnimation(.easeOut(duration: 0.3)) { copyFlash = false }
                 }
             } label: {
-                Text(shortPath)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(copyFlash ? BrandPalette.accent.hot.opacity(0.55) : BrandPalette.accent.hot)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(width: 160, alignment: .leading)
+                HStack(spacing: 4) {
+                    Text(shortPath)
+                        .font(.system(size: 13, design: .monospaced))
+                    Image(systemName: copyFlash ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 10, weight: .semibold))
+                        .opacity(isHovering || copyFlash ? 1 : 0)
+                }
+                .foregroundStyle(copyFlash ? BrandPalette.accent.hot.opacity(0.6) : BrandPalette.accent.hot)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 160, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Copy link")
             .frame(width: 170, alignment: .leading)
 
             // EXPIRES — ring + countdown.
-            HStack(spacing: 6) {
-                UrgencyRing(progress: progress, size: 16, stroke: 2)
+            HStack(spacing: 8) {
+                UrgencyRing(progress: progress, size: 18, stroke: 2.5)
                 Text(ExpiryFormatter.remaining(remaining))
-                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced).monospacedDigit())
                     .foregroundStyle(tier.urgencyColor)
             }
-            .frame(width: 110, alignment: .leading)
+            .frame(width: 120, alignment: .leading)
 
-            // Options menu (⋮).
+            // Options menu.
             Menu {
                 Button { onCopy() } label: { Label("Copy link", systemImage: "doc.on.doc") }
                 Button { onShare() } label: { Label("Share…", systemImage: "square.and.arrow.up") }
@@ -672,17 +794,23 @@ private struct LibraryRow: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 13))
-                    .foregroundStyle(textFaintColor)
-                    .frame(width: 30, height: 30)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(textDimColor)
+                    .frame(width: 32, height: 32)
                     .contentShape(Rectangle())
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
-            .frame(width: 34)
+            .frame(width: 40)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isHovering ? Color.primary.opacity(0.04) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
         .contextMenu {
             Button { onCopy() } label: { Label("Copy link", systemImage: "doc.on.doc") }
             Button { onShare() } label: { Label("Share…", systemImage: "square.and.arrow.up") }
@@ -696,14 +824,14 @@ private struct LibraryRow: View {
     private var leadingGlyph: some View {
         if link.isBundle {
             ZStack {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(BrandPalette.accentHot.opacity(0.14))
                 Image(systemName: "square.stack.3d.up.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(BrandPalette.accentHot)
             }
         } else {
-            FileGlyph(contentType: link.contentType, size: 26)
+            FileGlyph(contentType: link.contentType, size: 30)
         }
     }
 
@@ -715,12 +843,21 @@ private struct LibraryRow: View {
         return link.originalFilename ?? link.token
     }
 
-    /// Renders `/s/{token}` even if the server ships a longer short URL.
-    /// Keeps the column width stable and matches the prototype visual.
+    /// Renders `/s/{token}` even if the server ships a longer URL. Stable width,
+    /// matches the prototype.
     private var shortPath: String {
-        let token = link.token
-        return "/s/\(token)"
+        "/s/\(link.token)"
     }
+}
+
+// MARK: - Relative formatter cache
+
+private extension RelativeDateTimeFormatter {
+    static let cached: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .short
+        return f
+    }()
 }
 
 // MARK: - Drop overlay
@@ -729,23 +866,24 @@ private struct DropOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.08)
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Image(systemName: "square.and.arrow.down.on.square.fill")
-                    .font(.system(size: 32, weight: .semibold))
+                    .font(.system(size: 38, weight: .semibold))
                     .foregroundStyle(BrandPalette.accent.hot)
                 Text("Drop to share")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(BrandPalette.accent.hot)
             }
-            .padding(28)
+            .padding(36)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.92))
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.ultraThinMaterial)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(BrandPalette.accent.hot, style: StrokeStyle(lineWidth: 2, dash: [6]))
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(BrandPalette.accent.hot, style: StrokeStyle(lineWidth: 2, dash: [8]))
             )
+            .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8)
         }
     }
 }
