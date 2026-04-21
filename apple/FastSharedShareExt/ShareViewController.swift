@@ -313,11 +313,20 @@ final class ShareViewController: PlatformViewController {
                 return
             }
 
+            // WHY: observer lets the UI label the 10-15s pre-PUT window
+            // (hash + presign + multipart-init) instead of freezing at 0%.
+            // Emitted off-actor from UploadService, bounced to MainActor here.
+            let vm = viewModel
             let job = try await service.enqueue(
                 stagedURL: first.localURL,
                 contentType: first.contentType,
                 originalFilename: first.filename,
-                retentionPolicy: policy
+                retentionPolicy: policy,
+                prepareObserver: { phase in
+                    Task { @MainActor in
+                        vm.applyPreparePhase(phase)
+                    }
+                }
             )
             log.info("share ext enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
 
