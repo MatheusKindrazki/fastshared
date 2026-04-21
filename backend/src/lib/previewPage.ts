@@ -758,12 +758,13 @@ function renderBundlePreviewCard(item: BundlePreviewItem, index: number, selecte
   const safeFilename = escapeHtml(item.filename);
   const safeSize = escapeHtml(formatBytes(item.sizeBytes));
   const safeType = escapeHtml(bundleTypeLabel(kind));
-  const safeIndex = String(index + 1).padStart(2, '0');
+  const glyph = fileGlyphFor(item.contentType, item.filename);
   const accent = bundleAccentFor(kind);
   return `<button
   type="button"
   class="file-row${selected ? ' file-row-selected' : ''}"
   data-asset-row
+  data-asset-index="${index}"
   data-preview-url="${escapeHtml(item.previewUrl)}"
   data-download-url="${escapeHtml(item.downloadUrl)}"
   data-filename="${safeFilename}"
@@ -773,12 +774,10 @@ function renderBundlePreviewCard(item: BundlePreviewItem, index: number, selecte
   data-kind-accent="${accent}"
   aria-pressed="${selected ? 'true' : 'false'}"
 >
-  <div class="file-row-index">${safeIndex}</div>
-  <div class="file-row-copy">
-    <div class="file-row-title" title="${safeFilename}">${safeFilename}</div>
-    <div class="file-row-meta">${safeSize} · ${safeType}</div>
-  </div>
-  <div class="file-row-chevron" aria-hidden="true">›</div>
+  <div class="file-row-icon" aria-hidden="true">${glyph}</div>
+  <div class="file-row-title" title="${safeFilename}">${safeFilename}</div>
+  <div class="file-row-size">${safeSize}</div>
+  <div class="file-row-type">${safeType}</div>
 </button>`;
 }
 
@@ -895,104 +894,97 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     flex-direction: column;
   }
   .shell {
-    /* fill <main>, keep rhythm: topbar / hero / browser (flex) / expires / footer */
+    /* fill <main>: finder-bar (fixed) / browser (flex) / footer */
     flex: 1;
     min-height: 0;
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-    gap: 16px;
+    gap: 12px;
   }
   .topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 8px 4px 0;
+    padding: 4px 4px 0;
   }
   .brand {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.03em;
     color: var(--milk);
     text-decoration: none;
   }
   .brand-dot { color: var(--violet-hot); }
-  .bundle-pill {
-    display: inline-flex;
+  .finder-bar {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 9px 12px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.07);
-    color: var(--milk-dim);
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--rule);
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+    background: rgba(20, 10, 40, 0.35);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+    height: 44px;
   }
-  .bundle-pill strong {
+  .finder-title {
+    font-size: 13px;
     color: var(--milk);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .finder-title strong {
     font-weight: 600;
   }
-  .hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
-    gap: 16px;
-    align-items: stretch;
-    flex-shrink: 0;
+  .finder-title .finder-title-sep {
+    margin: 0 6px;
+    color: var(--milk-faint);
   }
-  .hero-copy, .hero-stats, .browser {
+  .finder-actions { display: flex; gap: 6px; }
+  .finder-btn {
+    font-size: 12px;
+    color: var(--milk-dim);
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    font-family: var(--sans);
+  }
+  .finder-btn:hover {
+    color: var(--violet-hot);
+    background: rgba(157, 122, 255, 0.08);
+    border-color: rgba(157, 122, 255, 0.2);
+  }
+  .browser {
     border: 1px solid var(--rule);
-    background: rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.03);
     box-shadow: 0 18px 60px -42px rgba(0,0,0,0.9);
     backdrop-filter: blur(12px);
-  }
-  .hero-copy {
-    border-radius: 24px;
-    padding: 18px 20px;
-    display: grid;
-    gap: 12px;
-  }
-  .hero-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--violet-hot);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-  .hero-copy h1 {
-    margin: 0;
-    font-size: clamp(26px, 3vw, 44px);
-    line-height: 1;
-    letter-spacing: -0.045em;
-  }
-  .hero-copy p {
-    margin: 0;
-    max-width: 62ch;
-    color: var(--milk-dim);
-    font-size: 15px;
-    line-height: 1.55;
-  }
-  .hero-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
   }
   .meta-chip {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 9px 11px;
+    padding: 6px 9px;
     border-radius: 999px;
     background: rgba(255,255,255,0.04);
     color: var(--milk-dim);
     font-family: var(--mono);
     font-size: 10px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     border: 1px solid rgba(255,255,255,0.06);
   }
@@ -1000,99 +992,18 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     color: var(--milk);
     font-weight: 600;
   }
-  .hero-stats {
-    border-radius: 24px;
-    padding: 16px;
-    display: grid;
-    gap: 8px;
-    align-content: start;
-  }
-  .hero-panel {
-    display: grid;
-    gap: 12px;
-  }
-  .stat-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .stat-row:last-child { border-bottom: 0; }
-  .stat-row span {
-    color: var(--milk-dim);
-    font-family: var(--mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .stat-row strong {
-    color: var(--milk);
-    font-size: 14px;
-    font-weight: 600;
-    text-align: right;
-  }
   .browser {
-    border-radius: 28px;
+    border-radius: 0 0 14px 14px;
+    border-top: 0;
     /* occupy the 1fr row in .shell grid, clip so inner panes handle scroll */
     min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
-  .window-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px;
-    background: rgba(255,255,255,0.03);
-    border-bottom: 1px solid var(--rule);
-  }
-  .traffic {
-    display: flex;
-    gap: 8px;
-  }
-  .traffic span {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.18);
-  }
-  .traffic span:nth-child(1) { background: #ff5f57; }
-  .traffic span:nth-child(2) { background: #febc2e; }
-  .traffic span:nth-child(3) { background: #28c840; }
-  .window-url {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--milk-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .window-actions {
-    display: flex;
-    gap: 8px;
-    color: var(--milk-faint);
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .window-actions span {
-    padding: 6px 8px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.05);
-  }
   .browser-body {
     display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: minmax(320px, 1.1fr) minmax(0, 1fr);
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -1100,187 +1011,184 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   .sidebar {
     display: flex;
     flex-direction: column;
-    background: rgba(255,255,255,0.03);
+    background: rgba(20, 10, 40, 0.25);
     border-right: 1px solid var(--rule);
     min-height: 0;
     overflow: hidden;
   }
-  .sidebar-head {
-    padding: 18px 18px 14px;
-    border-bottom: 1px solid var(--rule-soft);
+  .file-list-header {
     display: grid;
-    gap: 10px;
-  }
-  .sidebar-title {
-    display: flex;
-    justify-content: space-between;
+    grid-template-columns: 20px minmax(0, 1fr) 90px 70px;
     gap: 12px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-  .sidebar-title small {
+    padding: 8px 14px;
     font-family: var(--mono);
     font-size: 10px;
-    color: var(--milk-faint);
-    text-transform: uppercase;
     letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--milk-faint);
+    border-bottom: 1px solid var(--rule-soft);
+    flex-shrink: 0;
   }
-  .sidebar-sub {
-    color: var(--milk-dim);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-  .sidebar-meta {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-  .sidebar-meta .meta-chip {
-    justify-content: space-between;
-    width: 100%;
-  }
+  .file-list-header .hdr-size,
+  .file-list-header .hdr-type { text-align: right; }
   .file-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 14px;
+    padding: 0;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
   }
   .file-row {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-columns: 20px minmax(0, 1fr) 90px 70px;
     gap: 12px;
     align-items: center;
     width: 100%;
-    padding: 12px 12px;
-    border-radius: 18px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid transparent;
-    color: inherit;
+    padding: 6px 14px;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--milk-dim);
     text-align: left;
     cursor: pointer;
     appearance: none;
     font: inherit;
+    font-size: 13px;
   }
-  .file-row:hover,
+  .file-row:hover {
+    background: rgba(157, 122, 255, 0.06);
+    color: var(--milk);
+  }
   .file-row:focus-visible {
     outline: none;
-    border-color: rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.05);
+    background: rgba(157, 122, 255, 0.1);
   }
-  .file-row-selected {
-    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
-    border-color: rgba(255,255,255,0.12);
+  .file-row-selected,
+  .file-row-selected:hover {
+    background: rgba(157, 122, 255, 0.18);
+    color: var(--milk);
   }
-  .file-row-index {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    display: grid;
-    place-items: center;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--asset-accent, var(--violet-soft));
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.05);
+  .file-row-icon {
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.85;
+    text-align: center;
   }
   .file-row-title {
-    font-size: 14px;
-    font-weight: 650;
-    letter-spacing: -0.015em;
-    line-height: 1.2;
+    font-weight: 500;
+    color: var(--milk);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    letter-spacing: -0.005em;
   }
-  .file-row-meta {
-    margin-top: 4px;
+  .file-row-selected .file-row-title { color: var(--milk); }
+  .file-row-size,
+  .file-row-type {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--milk-faint);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
-  .file-row-chevron {
-    color: var(--milk-faint);
-    font-size: 20px;
-    line-height: 1;
-  }
+  .file-row-selected .file-row-size,
+  .file-row-selected .file-row-type { color: var(--milk-dim); }
   .viewer {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: 1fr auto;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    background: rgba(15, 7, 30, 0.4);
   }
-  .viewer-head {
-    padding: 18px 20px;
+  .viewer-body {
+    min-height: 0;
+    padding: 14px 14px 0;
+    overflow: auto;
     display: flex;
-    align-items: start;
-    justify-content: space-between;
-    gap: 16px;
-    border-bottom: 1px solid var(--rule-soft);
+    flex-direction: column;
+    gap: 12px;
   }
-  .viewer-copy {
+  .preview-frame {
+    flex: 1 1 50%;
+    min-height: 200px;
+    max-height: 55%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    background: rgba(0,0,0,0.25);
     display: grid;
-    gap: 6px;
-    min-width: 0;
+    place-items: center;
   }
-  .viewer-title {
-    font-size: clamp(24px, 3vw, 40px);
-    line-height: 1.04;
-    letter-spacing: -0.05em;
-    font-weight: 700;
+  .viewer-meta {
+    display: grid;
+    gap: 8px;
+    padding: 0 2px;
+  }
+  .viewer-filename {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--milk);
     word-break: break-word;
   }
-  .viewer-sub {
-    color: var(--milk-dim);
-    font-size: 14px;
-    line-height: 1.45;
+  .viewer-dl {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr);
+    gap: 6px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    margin: 0;
   }
-  .viewer-actions {
+  .viewer-dl dt {
+    color: var(--milk-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .viewer-dl dd {
+    margin: 0;
+    color: var(--milk);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .viewer-foot-actions {
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--rule-soft);
     display: flex;
-    flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
+    flex-shrink: 0;
   }
   .viewer-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 9px 12px;
-    border-radius: 999px;
+    padding: 8px 14px;
+    border-radius: 8px;
     text-decoration: none;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.04);
     color: var(--milk);
+  }
+  .viewer-action:hover {
+    background: rgba(255,255,255,0.08);
   }
   .viewer-action-primary {
     background: var(--asset-accent, var(--violet-hot));
     color: var(--ink);
     border-color: transparent;
+    font-weight: 600;
   }
-  .viewer-body {
-    min-height: 0;
-    padding: 18px 18px 0;
-    overflow: auto;
-  }
-  .preview-frame {
-    height: 100%;
-    min-height: 0;
-    border-radius: 24px;
-    overflow: hidden;
-    border: 1px solid var(--rule);
-    background: rgba(0,0,0,0.18);
-    display: grid;
-    place-items: center;
+  .viewer-action-primary:hover {
+    background: var(--asset-accent, var(--violet-hot));
+    filter: brightness(1.08);
   }
   .preview-frame img,
   .preview-frame video,
@@ -1314,38 +1222,6 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     display: block;
     margin-bottom: 8px;
   }
-  .viewer-foot {
-    display: grid;
-    gap: 12px;
-    padding: 18px 20px 20px;
-    border-top: 1px solid var(--rule-soft);
-  }
-  .expiry-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    font-family: var(--mono);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--milk-faint);
-  }
-  .expiry-value {
-    color: var(--milk);
-  }
-  .gutter {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    font-size: 13px;
-    color: var(--milk-dim);
-  }
-  .gutter strong {
-    color: var(--milk);
-    font-weight: 650;
-  }
   footer {
     margin: 0;
     text-align: center;
@@ -1359,15 +1235,6 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     border-bottom: 1px dotted var(--milk-faint);
   }
   footer a:hover { color: var(--milk); }
-  .expires {
-    margin: 0 2px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--milk-faint);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    text-align: right;
-  }
   .gallery-marker {
     display: none;
   }
@@ -1389,9 +1256,6 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
       grid-template-rows: none;
       flex: none;
     }
-    .hero {
-      grid-template-columns: 1fr;
-    }
     .browser {
       min-height: 0;
       overflow: visible;
@@ -1410,16 +1274,19 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     .file-list {
       overflow: visible;
       flex: none;
+      max-height: 320px;
+      overflow-y: auto;
     }
     .viewer {
       overflow: visible;
     }
     .viewer-body {
-      padding-bottom: 18px;
+      padding-bottom: 14px;
       overflow: visible;
     }
     .preview-frame {
-      min-height: 420px;
+      min-height: 360px;
+      max-height: none;
     }
   }
   @media (max-width: 720px) {
@@ -1429,30 +1296,20 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
       flex-direction: column;
       align-items: flex-start;
     }
-    .hero-copy, .hero-stats, .browser {
-      border-radius: 22px;
-    }
-    .sidebar-meta {
-      grid-template-columns: 1fr;
-    }
-    .window-bar {
+    .finder-bar {
       padding-inline: 12px;
     }
-    .window-actions {
-      display: none;
+    .finder-title {
+      font-size: 12px;
     }
-    .viewer-head {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .viewer-actions {
-      justify-content: flex-start;
-    }
+    .file-list-header,
     .file-row {
-      grid-template-columns: 40px minmax(0, 1fr) auto;
+      grid-template-columns: 20px minmax(0, 1fr) 70px;
     }
+    .file-list-header .hdr-type,
+    .file-row-type { display: none; }
     .preview-frame {
-      min-height: 300px;
+      min-height: 240px;
     }
   }
 </style>
@@ -1461,88 +1318,53 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
 <main class="shell">
   <div class="topbar">
     <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
-    <div class="bundle-pill"><strong>${safeHeaderLabel}</strong> · native bundle viewer</div>
+    <span class="meta-chip" data-expires-at="${expiresIso}" data-expired="false">${safeRemaining}</span>
   </div>
 
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="hero-label">Bundle preview</div>
-      <h1>${safeHeaderLabel}</h1>
-      <p>A short link for the whole drop. The layout behaves more like an Apple-style file viewer: files on the left, preview on the right, no noisy web chrome.</p>
-      <div class="hero-meta">
-        <span class="meta-chip"><strong>${fileCount}</strong> files</span>
-        <span class="meta-chip"><strong>${safeTotalBytes}</strong> total</span>
-        <span class="meta-chip"><strong>${safeTypeSummary}</strong></span>
-      </div>
+  <header class="finder-bar">
+    <div class="finder-title">
+      <strong>${fileCount}</strong> ${fileCount === 1 ? 'file' : 'files'}
+      <span class="finder-title-sep">·</span>
+      ${safeTotalBytes}
     </div>
-    <aside class="hero-stats" aria-label="Bundle facts">
-      <div class="stat-row">
-        <span>Lead file</span>
-        <strong>${escapeHtml(selected.filename)}</strong>
-      </div>
-      <div class="stat-row">
-        <span>Expires in</span>
-        <strong>${safeRemaining}</strong>
-      </div>
-      <div class="stat-row">
-        <span>Media type</span>
-        <strong>${escapeHtml(bundleTypeLabel(selectedKind))}</strong>
-      </div>
-    </aside>
-  </section>
+    <div class="finder-actions">
+      <a class="finder-btn" href="${safeCanonical}" rel="noopener">Copy link</a>
+      <a class="finder-btn" data-viewer-download-top href="${escapeHtml(selected.downloadUrl)}" download rel="noopener">Download</a>
+    </div>
+  </header>
 
   <section class="browser" data-bundle-gallery aria-label="Bundle viewer">
-    <div class="window-bar">
-      <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
-      <div class="window-url">${escapeHtml(args.canonicalUrl)}</div>
-      <div class="window-actions" aria-hidden="true"><span>preview</span><span>share</span></div>
-    </div>
     <div class="browser-body">
       <aside class="sidebar" aria-label="Files">
-        <div class="sidebar-head">
-          <div class="sidebar-title">
-            <span>Files</span>
-            <small>${fileCount}</small>
-          </div>
-          <div class="sidebar-sub">${safeTypeSummary} · swipe/click to switch the preview</div>
-          <div class="sidebar-meta">
-            <span class="meta-chip"><strong>${fileCount}</strong> items</span>
-            <span class="meta-chip"><strong>${safeRemaining}</strong> left</span>
-          </div>
+        <div class="file-list-header" aria-hidden="true">
+          <span></span>
+          <span>Name</span>
+          <span class="hdr-size">Size</span>
+          <span class="hdr-type">Kind</span>
         </div>
         <div class="file-list" role="listbox" aria-label="Bundle files">
           ${cards}
         </div>
       </aside>
       <section class="viewer" aria-label="Selected file preview">
-        <div class="viewer-head">
-          <div class="viewer-copy">
-            <div class="viewer-title" data-viewer-title>${escapeHtml(selected.filename)}</div>
-            <div class="viewer-sub" data-viewer-sub>${safeTypeSummary} · ${escapeHtml(formatBytes(selected.sizeBytes))}</div>
-          </div>
-          <div class="viewer-actions">
-            <a class="viewer-action viewer-action-primary" data-viewer-download href="${escapeHtml(selected.downloadUrl)}" download rel="noopener">Download</a>
-            <a class="viewer-action" href="${safeCanonical}" rel="noopener">Open link</a>
-          </div>
-        </div>
         <div class="viewer-body">
           <div class="preview-frame" data-viewer-frame>${renderBundlePreviewMedia(selected, selectedKind)}</div>
+          <div class="viewer-meta">
+            <div class="viewer-filename" data-viewer-title>${escapeHtml(selected.filename)}</div>
+            <dl class="viewer-dl">
+              <dt>Kind</dt><dd data-viewer-kind>${escapeHtml(bundleTypeLabel(selectedKind))}</dd>
+              <dt>Size</dt><dd data-viewer-size>${escapeHtml(formatBytes(selected.sizeBytes))}</dd>
+              <dt>Type</dt><dd>${escapeHtml(selected.contentType)}</dd>
+            </dl>
+          </div>
         </div>
-        <div class="viewer-foot">
-          <div class="expiry-row">
-            <span>Expires</span>
-            <span class="expiry-value" data-expires-at="${expiresIso}" data-expired="false">${safeRemaining}</span>
-          </div>
-          <div class="gutter">
-            <span>${safeTotalBytes} total across ${fileCount} files</span>
-            <span>FastShared bundle</span>
-          </div>
+        <div class="viewer-foot-actions">
+          <a class="viewer-action" href="${safeCanonical}" rel="noopener">Open link</a>
+          <a class="viewer-action viewer-action-primary" data-viewer-download href="${escapeHtml(selected.downloadUrl)}" download rel="noopener">Download</a>
         </div>
       </section>
     </div>
   </section>
-
-  <div class="expires">expires in ${safeRemaining}</div>
 
   <footer>
     <a href="https://fastsha.red">fastsha.red</a> &middot; share files, watch them expire.
@@ -1556,8 +1378,10 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   var expiresAt = new Date(expiresEl.getAttribute('data-expires-at')).getTime();
   if (!isFinite(expiresAt)) return;
   var titleEl = document.querySelector('[data-viewer-title]');
-  var subEl = document.querySelector('[data-viewer-sub]');
+  var kindEl = document.querySelector('[data-viewer-kind]');
+  var sizeEl = document.querySelector('[data-viewer-size]');
   var downloadEl = document.querySelector('[data-viewer-download]');
+  var downloadTopEl = document.querySelector('[data-viewer-download-top]');
   var frameEl = document.querySelector('[data-viewer-frame]');
   var rows = Array.from(document.querySelectorAll('[data-asset-row]'));
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
@@ -1611,10 +1435,14 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     var kind = row.getAttribute('data-kind') || '';
     var accent = row.getAttribute('data-kind-accent') || 'violet-hot';
     if (titleEl) titleEl.textContent = filename;
-    if (subEl) subEl.textContent = kind + ' · ' + size;
+    if (kindEl) kindEl.textContent = kind;
+    if (sizeEl) sizeEl.textContent = size;
     if (downloadEl) {
       downloadEl.setAttribute('href', downloadUrl);
       downloadEl.setAttribute('style', '--asset-accent: var(--' + accent + ')');
+    }
+    if (downloadTopEl) {
+      downloadTopEl.setAttribute('href', downloadUrl);
     }
     if (frameEl) {
       frameEl.innerHTML = mediaMarkup(row);
