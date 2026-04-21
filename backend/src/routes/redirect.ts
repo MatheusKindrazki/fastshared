@@ -452,6 +452,7 @@ bundleRedirectRoutes.use(
 );
 
 bundleRedirectRoutes.get('/:token', (c) => bundlePreviewHandler(c));
+bundleRedirectRoutes.get('/:token/p/:assetId', (c) => bundleAssetPreviewHandler(c));
 bundleRedirectRoutes.get('/:token/d/:assetId', (c) => bundleAssetDownloadHandler(c));
 
 interface LoadedBundle {
@@ -531,9 +532,41 @@ async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> 
       filename: row.asset.originalFilename ?? 'download',
       sizeBytes: row.asset.sizeBytes,
       contentType: row.asset.contentType,
+      previewUrl: `${c.env.SHORT_LINK_HOST}/b/${token}/p/${row.asset.id}`,
       downloadUrl: `${c.env.SHORT_LINK_HOST}/b/${token}/d/${row.asset.id}`,
     })),
   });
+}
+
+async function bundleAssetPreviewHandler(c: Context<AppBindings>): Promise<Response> {
+  const token = c.req.param('token') ?? '';
+  const assetId = c.req.param('assetId') ?? '';
+  if (!token || !assetId) return goneOrNotFoundJson(c, 404, 'not_found', 'missing token or asset');
+  const db = createDb(c.env.DATABASE_URL);
+
+  const link = await findByToken(db, token);
+  if (!link || !link.isBundle) return goneOrNotFoundJson(c, 404, 'not_found', 'unknown bundle');
+  if (link.linkStatus === 'revoked') return goneOrNotFoundJson(c, 410, 'gone', 'revoked');
+  if (link.linkStatus === 'pending') return goneOrNotFoundJson(c, 404, 'not_found', 'bundle still uploading');
+  if (link.expiresAt.getTime() <= Date.now()) {
+    return goneOrNotFoundJson(c, 410, 'gone', 'expired');
+  }
+
+  const junctionRows = await db
+    .select()
+    .from(bundleAsset)
+    .where(and(eq(bundleAsset.shareLinkId, link.id), eq(bundleAsset.assetId, assetId)))
+    .limit(1);
+  if (junctionRows.length === 0) {
+    return goneOrNotFoundJson(c, 404, 'not_found', 'asset not in bundle');
+  }
+
+  const [a] = await db.select().from(asset).where(eq(asset.id, assetId)).limit(1);
+  if (!a || a.deletedAt !== null || a.status === 'deleted') {
+    return goneOrNotFoundJson(c, 410, 'gone', 'deleted');
+  }
+
+  return streamAssetBytes(c, a, 'inline');
 }
 
 async function bundleAssetDownloadHandler(c: Context<AppBindings>): Promise<Response> {
@@ -582,4 +615,3 @@ async function bundleAssetDownloadHandler(c: Context<AppBindings>): Promise<Resp
   };
   return streamAssetBytes(c, a, 'attachment', onLeadingHit);
 }
-
