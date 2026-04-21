@@ -12,14 +12,14 @@ interface Swatch {
 }
 
 const palette: Swatch[] = [
-  { name: 'ink',        hex: '#070318', role: 'ground' },
-  { name: 'nightshade', hex: '#1d0d4b', role: 'surface 1' },
-  { name: 'violet',     hex: '#3b1f86', role: 'surface 2' },
-  { name: 'amber',      hex: '#ff9f47', role: 'pulse (primary)', onLight: true },
-  { name: 'ember',      hex: '#ffc487', role: 'pulse (soft)',    onLight: true },
-  { name: 'coral',      hex: '#ff4e7c', role: 'farewell (fade)' },
-  { name: 'cream',      hex: '#ffe0b8', role: 'particle',        onLight: true },
-  { name: 'milk',       hex: '#fafaff', role: 'typography',      onLight: true },
+  { name: 'ink',         hex: '#070318', role: 'ground' },
+  { name: 'nightshade',  hex: '#1d0d4b', role: 'surface 1' },
+  { name: 'violet',      hex: '#3b1f86', role: 'surface 2' },
+  { name: 'violet-hot',  hex: '#9d7aff', role: 'pulse (primary)', onLight: true },
+  { name: 'violet-soft', hex: '#c1a9ff', role: 'pulse (soft)',    onLight: true },
+  { name: 'warning',     hex: '#ff9f47', role: 'urgency (<1h)',   onLight: true },
+  { name: 'coral',       hex: '#ff4e7c', role: 'farewell (fade)' },
+  { name: 'milk',        hex: '#fafaff', role: 'typography',      onLight: true },
 ];
 
 interface Asset {
@@ -51,7 +51,7 @@ const assets: Asset[] = [
       <div class="mb-10">
         <PlaneArc size={120} framed ambient ariaLabel="FastShared mark" />
       </div>
-      <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-amber mb-6">
+      <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-violet-hot mb-6">
         Press kit · v1.0 · 2026
       </p>
       <h1
@@ -72,7 +72,7 @@ const assets: Asset[] = [
           should cost one gesture and should not leave permanent residue on
           the internet. Every link has an expiry you pick. When the window
           ends, the link returns
-          <code class="font-mono text-[14px] text-amber">410 Gone</code> and
+          <code class="font-mono text-[14px] text-violet-hot">410 Gone</code> and
           the underlying file is hard-deleted from a private Cloudflare R2
           bucket. No accounts. No tracking. No "keep forever" option.
           That's the product.
@@ -112,7 +112,7 @@ const assets: Asset[] = [
         </div>
         <div>
           <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Landing</dt>
-          <dd class="text-milk/85 text-[17px]"><a href="https://www.fastsha.red" class="text-amber hover:underline">www.fastsha.red</a></dd>
+          <dd class="text-milk/85 text-[17px]"><a href="https://www.fastsha.red" class="text-violet-hot hover:underline">www.fastsha.red</a></dd>
         </div>
         <div>
           <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Short links</dt>
@@ -121,7 +121,7 @@ const assets: Asset[] = [
         <div>
           <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Press contact</dt>
           <dd class="text-milk/85 text-[17px]">
-            <a href="mailto:press@fastsha.red" class="text-amber hover:underline">press@fastsha.red</a>
+            <a href="mailto:press@fastsha.red" class="text-violet-hot hover:underline">press@fastsha.red</a>
             <span class="font-mono text-[11px] text-milk/40 ml-2">&lt;-- TODO confirm inbox</span>
           </dd>
         </div>
@@ -139,16 +139,16 @@ const assets: Asset[] = [
       </header>
       <p class="text-milk/60 text-[15px] max-w-[640px] mb-8">
         Logo, mark, and icon exports. Please do not recolor the arc — the
-        amber-to-coral fade is the concept. Full identity spec lives at
-        <code class="font-mono text-[13px] text-amber">brand/README.md</code>
+        violet-to-coral fade is the concept. Full identity spec lives at
+        <code class="font-mono text-[13px] text-violet-hot">brand/README.md</code>
         in the repository.
       </p>
       <ul class="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/8 max-w-[960px]">
         {assets.map((asset) => (
           <li class="bg-ink p-6 md:p-7 flex flex-col gap-2 hover:bg-[#0d0622] transition-colors">
-            <a href={asset.href} download class="font-display font-semibold text-milk hover:text-amber transition-colors text-[17px]" style="letter-spacing: -0.01em;">
+            <a href={asset.href} download class="font-display font-semibold text-milk hover:text-violet-hot transition-colors text-[17px]" style="letter-spacing: -0.01em;">
               {asset.label}
-              <span class="ml-2 text-amber" aria-hidden="true">↓</span>
+              <span class="ml-2 text-violet-hot" aria-hidden="true">↓</span>
             </a>
             <span class="font-mono text-[12px] tracking-[0.04em] text-milk/45">{asset.meta}</span>
           </li>
@@ -187,7 +187,7 @@ const assets: Asset[] = [
       <p class="text-milk/60 text-[13px] mb-6 font-mono tracking-[0.06em] uppercase">
         Paste-ready blurb for journalists · ≤ 100 words
       </p>
-      <blockquote class="text-milk/85 text-[18px] md:text-[20px] leading-[1.65] font-display font-light max-w-[780px] border-l-2 border-amber pl-6" style="letter-spacing: -0.005em;">
+      <blockquote class="text-milk/85 text-[18px] md:text-[20px] leading-[1.65] font-display font-light max-w-[780px] border-l-2 border-violet-hot pl-6" style="letter-spacing: -0.005em;">
         FastShared is a native iOS, iPadOS, and macOS utility that collapses
         the everyday "share a file" chore into one gesture. Any file from any
         app becomes a temporary short URL on your clipboard, with a
