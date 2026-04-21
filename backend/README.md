@@ -215,6 +215,56 @@ curl -sS -X POST http://127.0.0.1:8787/v1/uploads/$UPLOAD_ID/complete \
 The response includes `token`, `shortUrl` (`https://fastsha.red/s/<token>`),
 `expiresAt`, `deleteAfter`, `linkStatus`, and `retentionPolicy`.
 
+### Bundle uploads — `POST /uploads/batch`
+
+When the client sends N (>=2) files together, the backend mints a single
+bundle link (`https://fastsha.red/b/{token}`) that aggregates every asset.
+Single-file flow (`/uploads` + `/s/{token}`) is unchanged.
+
+Request:
+
+```jsonc
+{
+  "retentionPolicy": "oneDay",
+  "visibility": "public",
+  "items": [
+    {
+      "clientJobId": "a",
+      "contentType": "image/jpeg",
+      "sizeBytes": 1024,
+      "sha256": "...",                  // optional
+      "originalFilename": "photo1.jpg"  // optional
+    },
+    { "clientJobId": "b", "contentType": "image/jpeg", "sizeBytes": 2048 }
+  ]
+}
+```
+
+Response:
+
+```jsonc
+{
+  "bundleToken": "abc123",
+  "bundleShortUrl": "https://fastsha.red/b/abc123",
+  "expiresAt": "2026-04-21T12:00:00Z",
+  "items": [
+    { "clientJobId": "a", "uploadId": "...", "putUrl": "..." },
+    { "clientJobId": "b", "uploadId": "...", "multipart": { /* ... */ } }
+  ]
+}
+```
+
+Each file in the batch counts as one event against the daily cap (free tier
+= 3/day) — a batch of 4 from a free user fails fast with `429` before any
+DB insert. Junction-table idempotency is keyed on `(share_link_id,
+upload_job_id)`: re-completing the same `uploadId` is a no-op. Two slots
+that dedup to the same R2 asset still occupy two distinct junction rows
+(one per `uploadJobId`).
+
+`GET /b/:token` renders an HTML preview listing every asset in the bundle.
+`GET /b/:token/d/:assetId` streams an individual asset (validated against
+the junction table — a stray `assetId` from another bundle returns 404).
+
 Revoke a live link:
 
 ```bash

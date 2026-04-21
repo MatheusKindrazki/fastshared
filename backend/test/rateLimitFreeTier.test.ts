@@ -11,6 +11,22 @@ import {
 
 installDrizzleFake();
 
+// FREE_CAPS in production is temporarily mirrored onto PRO_CAPS while the
+// Apple Paid Apps Agreement is pending (see tierCaps.ts). Restore canonical
+// Free values here so the gate behaviour these tests cover stays exercised.
+vi.mock('~/lib/tierCaps', async () => {
+  const actual = await vi.importActual<typeof import('~/lib/tierCaps')>('~/lib/tierCaps');
+  return {
+    ...actual,
+    FREE_CAPS: {
+      uploadsPerDay: 3,
+      maxFileSizeMB: 100,
+      maxRetentionHours: 24,
+      allowsCloudSync: false,
+    },
+  };
+});
+
 // R2 presigns are not the subject of these tests; mock them out so
 // /v1/uploads/ returns a clean success without hitting the AWS SDK.
 vi.mock('~/services/r2', async () => {

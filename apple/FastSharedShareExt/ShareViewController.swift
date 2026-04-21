@@ -265,7 +265,8 @@ final class ShareViewController: PlatformViewController {
         // Activity in the process that owns the widget descriptors — at
         // which point the Dynamic Island animates for whatever state the
         // upload is in (usually already completed by then).
-        guard let first = await viewModel.items.first else {
+        let stagedItems = await viewModel.items
+        guard let first = stagedItems.first else {
             log.error("performUpload invoked with zero staged items")
             return
         }
@@ -291,6 +292,27 @@ final class ShareViewController: PlatformViewController {
 
         let policy = await viewModel.retentionPolicy
         do {
+            // M4: bundle branch. Multi-file shares mint one bundle token +
+            // aggregated short URL. Single-file path is unchanged.
+            if stagedItems.count > 1 {
+                let bundle = try await service.enqueueBundle(
+                    stagedURLs: stagedItems.map { $0.localURL },
+                    retentionPolicy: policy
+                )
+                log.info("share ext enqueued bundle token=\(bundle.bundleToken, privacy: .public) files=\(stagedItems.count, privacy: .public)")
+                let fileCount = stagedItems.count
+                let shortUrl = bundle.bundleShortUrl
+                await MainActor.run {
+                    viewModel.startObservingBundle(bundle: bundle) { [weak self] in
+                        // Stream finished — orchestrator already wrote the
+                        // history row + clipboard, so we just flip the phase.
+                        self?.viewModel.reportBundleSuccess(fileCount: fileCount,
+                                                            shortUrl: shortUrl)
+                    }
+                }
+                return
+            }
+
             let job = try await service.enqueue(
                 stagedURL: first.localURL,
                 contentType: first.contentType,
@@ -305,19 +327,6 @@ final class ShareViewController: PlatformViewController {
                     filename: first.filename,
                     totalBytes: first.sizeBytes
                 )
-            }
-
-            // Fire-and-forget additional items — UI tracks only the first.
-            let remaining = await viewModel.items.dropFirst()
-            for item in remaining {
-                Task.detached {
-                    _ = try? await service.enqueue(
-                        stagedURL: item.localURL,
-                        contentType: item.contentType,
-                        originalFilename: item.filename,
-                        retentionPolicy: policy
-                    )
-                }
             }
         } catch let gate as SubscriptionGate {
             await MainActor.run {

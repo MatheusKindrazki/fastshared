@@ -7,7 +7,7 @@ public protocol UploadServiceProtocol: Sendable {
                  contentType: String,
                  originalFilename: String?,
                  retentionPolicy: RetentionPolicy) async throws -> UploadJob
-    func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy) async throws -> [UploadJob]
+    func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy) async throws -> EnqueueResult
 }
 
 public extension UploadServiceProtocol {
@@ -20,8 +20,91 @@ public extension UploadServiceProtocol {
                           retentionPolicy: .default)
     }
 
-    func enqueueDrop(urls: [URL]) async throws -> [UploadJob] {
+    func enqueueDrop(urls: [URL]) async throws -> EnqueueResult {
         try await enqueueDrop(urls: urls, retentionPolicy: .default)
+    }
+}
+
+/// Outcome of `enqueueDrop`: a single drop becomes one `UploadJob`; a multi-file
+/// drop becomes a `BundleUploadJob` with an aggregated short URL. Callers switch
+/// on this so the UI can render either single-file progress or a bundle headline.
+public enum EnqueueResult: Sendable {
+    case single(UploadJob)
+    case bundle(BundleUploadJob)
+}
+
+/// Per-asset payload handed to `UploadOrchestrator.recordBundleSuccess` after
+/// every item's `/complete` lands. Carries the canonical asset id minted by
+/// the backend plus the metadata we need to render the local history row.
+public struct BundleCompletedAsset: Sendable, Equatable {
+    public let assetId: UUID
+    public let filename: String
+    public let sizeBytes: Int64
+    public let contentType: String
+
+    public init(assetId: UUID, filename: String, sizeBytes: Int64, contentType: String) {
+        self.assetId = assetId
+        self.filename = filename
+        self.sizeBytes = sizeBytes
+        self.contentType = contentType
+    }
+}
+
+/// Aggregate descriptor for a bundle in flight. `aggregateProgress` emits the
+/// summed-bytes fraction (0..1) so a single Live Activity / banner can drive
+/// from one stream regardless of per-job parallelism.
+public struct BundleUploadJob: Sendable {
+    public let bundleToken: String
+    public let bundleShortUrl: URL
+    public let jobs: [UploadJob]
+    public let totalBytes: Int64
+    public let aggregateProgress: AsyncStream<Double>
+
+    public init(bundleToken: String,
+                bundleShortUrl: URL,
+                jobs: [UploadJob],
+                totalBytes: Int64,
+                aggregateProgress: AsyncStream<Double>) {
+        self.bundleToken = bundleToken
+        self.bundleShortUrl = bundleShortUrl
+        self.jobs = jobs
+        self.totalBytes = totalBytes
+        self.aggregateProgress = aggregateProgress
+    }
+}
+
+/// Coalesces per-job byte counters into a single normalized 0..1 stream.
+/// Actor isolation makes the cross-task updates race-free without a lock.
+actor BundleProgressAggregator {
+    private var perJob: [UUID: Int64] = [:]
+    private let totalBytes: Int64
+    private let continuation: AsyncStream<Double>.Continuation
+    /// Optional second sink so the Live Activity can be ticked without
+    /// multi-consuming the AsyncStream (which only supports one observer).
+    private let onTick: (@Sendable (_ bytes: Int64, _ fraction: Double) -> Void)?
+
+    init(totalBytes: Int64,
+         continuation: AsyncStream<Double>.Continuation,
+         onTick: (@Sendable (_ bytes: Int64, _ fraction: Double) -> Void)? = nil) {
+        self.totalBytes = max(1, totalBytes) // guard /0 on empty bundles
+        self.continuation = continuation
+        self.onTick = onTick
+    }
+
+    func update(jobId: UUID, bytes: Int64) {
+        // Monotonic floor — late deliveries can't regress a counter past peak.
+        let prior = perJob[jobId] ?? 0
+        perJob[jobId] = max(prior, bytes)
+        let summed = perJob.values.reduce(0, +)
+        let fraction = min(1.0, Double(summed) / Double(totalBytes))
+        continuation.yield(fraction)
+        onTick?(summed, fraction)
+    }
+
+    func finish() {
+        continuation.yield(1.0)
+        continuation.finish()
+        onTick?(totalBytes, 1.0)
     }
 }
 
@@ -186,31 +269,319 @@ public actor UploadService: UploadServiceProtocol {
         }
     }
 
-    public func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy = .default) async throws -> [UploadJob] {
-        var jobs: [UploadJob] = []
-        let stagingRoot = try AppGroupPaths.stagingDirectory()
-        for url in urls {
-            // WHY: SwiftUI's `fileImporter` and UIDocumentPicker hand back
-            // security-scoped URLs — reading them in a sandboxed Release build
-            // (TestFlight / App Store) fails silently unless we enter the scope
-            // first. `startAccessingSecurityScopedResource()` returns `false` when
-            // the URL isn't scoped (e.g. it came from the share extension's
-            // staging path), so the call is harmless on non-scoped inputs. We
-            // always pair it with `stopAccessing...` via `defer`.
-            let didStart = url.startAccessingSecurityScopedResource()
-            defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-
-            let filename = url.lastPathComponent
-            let destination = stagingRoot.appendingPathComponent(UUID().uuidString).appendingPathExtension(url.pathExtension)
-            try FileManager.default.copyItem(at: url, to: destination)
-            let ct = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-            let job = try await enqueue(stagedURL: destination,
-                                        contentType: ct,
-                                        originalFilename: filename,
+    public func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy = .default) async throws -> EnqueueResult {
+        if urls.count == 1 {
+            let staged = try stageDroppedURL(urls[0])
+            let job = try await enqueue(stagedURL: staged.url,
+                                        contentType: staged.contentType,
+                                        originalFilename: staged.filename,
                                         retentionPolicy: retentionPolicy)
+            return .single(job)
+        }
+        let staged = try urls.map { try stageDroppedURL($0) }
+        let bundle = try await enqueueBundle(stagedItems: staged, retentionPolicy: retentionPolicy)
+        return .bundle(bundle)
+    }
+
+    /// Stages a user-provided URL into the App Group staging dir and resolves
+    /// MIME / filename. Extracted so single + bundle drop paths share one
+    /// security-scope dance and one MIME inference.
+    private func stageDroppedURL(_ url: URL) throws -> StagedDrop {
+        // WHY: SwiftUI's `fileImporter` and UIDocumentPicker hand back
+        // security-scoped URLs — sandboxed Release builds (TestFlight / App
+        // Store) silently refuse reads outside an active scope. Harmless on
+        // non-scoped inputs (returns `false` and the defer no-ops).
+        let didStart = url.startAccessingSecurityScopedResource()
+        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+
+        let stagingRoot = try AppGroupPaths.stagingDirectory()
+        let filename = url.lastPathComponent
+        let destination = stagingRoot.appendingPathComponent(UUID().uuidString).appendingPathExtension(url.pathExtension)
+        try FileManager.default.copyItem(at: url, to: destination)
+        let ct = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        return StagedDrop(url: destination, filename: filename, contentType: ct)
+    }
+
+    private struct StagedDrop {
+        let url: URL
+        let filename: String
+        let contentType: String
+    }
+
+    /// Bundle entry point: hash + size + presign in one batch round-trip, then
+    /// fan out PUT R2 in parallel and `/complete` per item. Returns a
+    /// `BundleUploadJob` whose `aggregateProgress` stream the UI consumes for
+    /// the headline "Sending N files · X%". The actual /complete + history
+    /// persistence is delegated to `UploadOrchestrator.recordBundleSuccess`
+    /// once the last per-item /complete returns.
+    public func enqueueBundle(stagedURLs: [URL], retentionPolicy: RetentionPolicy) async throws -> BundleUploadJob {
+        let staged = try stagedURLs.map { url -> StagedDrop in
+            // Files at this entry point are already inside the App Group
+            // staging dir (caller's responsibility), so we skip the
+            // copy-to-staging dance — but still infer mime from the extension.
+            let filename = url.lastPathComponent
+            let ct = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+            return StagedDrop(url: url, filename: filename, contentType: ct)
+        }
+        return try await enqueueBundle(stagedItems: staged, retentionPolicy: retentionPolicy)
+    }
+
+    private func enqueueBundle(stagedItems: [StagedDrop],
+                               retentionPolicy: RetentionPolicy) async throws -> BundleUploadJob {
+        _ = try await ensureDeviceToken()
+
+        // 1. Per-file metadata + sha256 in parallel — server batch handler
+        // accepts optional sha256 (lets it dedup early on the fast path).
+        var metas: [ItemMeta] = []
+        try await withThrowingTaskGroup(of: ItemMeta.self) { group in
+            for staged in stagedItems {
+                let relative = try self.relativePath(for: staged.url)
+                let attrs = try FileManager.default.attributesOfItem(atPath: staged.url.path)
+                let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+                group.addTask {
+                    let sha = try await SHA256Streamer.hash(fileAt: staged.url)
+                    return ItemMeta(staged: staged,
+                                    size: size,
+                                    sha256: sha,
+                                    clientJobId: UUID(),
+                                    stagedRelative: relative)
+                }
+            }
+            for try await meta in group { metas.append(meta) }
+        }
+        // Stable order by clientJobId so the response items[] line-up is
+        // deterministic in tests; backend keys by clientJobId regardless.
+        metas.sort { $0.clientJobId.uuidString < $1.clientJobId.uuidString }
+
+        // 2. Preflight: total payload size + per-file caps (the daily-cap
+        // gate runs server-side over `items.length` atomically, so we only
+        // enforce per-file size + retention locally for early UX feedback).
+        for meta in metas {
+            try await preflightQuotaAndCaps(size: meta.size, retention: retentionPolicy)
+        }
+
+        // 3. One presign batch round-trip.
+        let batchItems = metas.map {
+            BatchUploadItemRequest(clientJobId: $0.clientJobId.uuidString,
+                                   contentType: $0.staged.contentType,
+                                   sizeBytes: $0.size,
+                                   sha256: $0.sha256,
+                                   originalFilename: $0.staged.filename)
+        }
+        // WHY hardcoded "signed": backend's batch endpoint accepts only
+        // public|signed|password (mirrors short-link auth model). Unlisted is
+        // a client-side concept; signed is the safest default for new bundles.
+        let response = try await apiClient.requestBatchUpload(BatchPresignRequest(
+            retentionPolicy: retentionPolicy.rawValue,
+            visibility: "signed",
+            items: batchItems
+        ))
+
+        // 4. Build local UploadJob rows mirroring backend upload_job ids,
+        // then PUT bytes in parallel. We don't go through the background
+        // scheduler — bundles are a foreground-blocking flow with their own
+        // /complete dispatch, and reusing the BG session would serialize PUTs.
+        let totalBytes = metas.map(\.size).reduce(0, +)
+        var continuationOpt: AsyncStream<Double>.Continuation?
+        let stream = AsyncStream<Double> { continuationOpt = $0 }
+        guard let continuation = continuationOpt else {
+            throw APIError.transport(underlying: "failed to wire bundle progress stream")
+        }
+        // Snapshot the bundle token outside the actor closure so the LA tick
+        // doesn't capture `self` (which would force the closure non-Sendable).
+        let bundleTokenForTick = response.bundleToken
+        let totalBytesForTick = totalBytes
+        let aggregator = BundleProgressAggregator(
+            totalBytes: totalBytes,
+            continuation: continuation,
+            onTick: { bytes, fraction in
+                Task {
+                    await LiveActivityController.shared.updateBundleProgress(
+                        bundleToken: bundleTokenForTick,
+                        bytesUploaded: bytes,
+                        totalBytes: totalBytesForTick,
+                        progress: fraction
+                    )
+                }
+            }
+        )
+
+        var jobs: [UploadJob] = []
+        for item in response.items {
+            guard let meta = metas.first(where: { $0.clientJobId.uuidString == item.clientJobId }) else { continue }
+            let job = UploadJob(clientJobId: meta.clientJobId,
+                                status: .uploading,
+                                contentType: meta.staged.contentType,
+                                sizeBytes: meta.size,
+                                sha256: meta.sha256,
+                                originalFilename: meta.staged.filename,
+                                remoteUploadId: item.uploadId,
+                                stagedRelativePath: meta.stagedRelative,
+                                retentionPolicy: retentionPolicy,
+                                expiresAt: response.expiresAt,
+                                deleteAfter: response.deleteAfter)
+            try await repository.create(job)
+            try await repository.setPresign(clientJobId: job.clientJobId, uploadId: item.uploadId)
             jobs.append(job)
         }
-        return jobs
+
+        let bundleShortUrl = response.bundleShortUrl
+        let bundleToken = response.bundleToken
+
+        // 5. Fan out PUT R2 + /complete per item, collect completed assets.
+        let bundleJob = BundleUploadJob(bundleToken: bundleToken,
+                                        bundleShortUrl: bundleShortUrl,
+                                        jobs: jobs,
+                                        totalBytes: totalBytes,
+                                        aggregateProgress: stream)
+
+        // Single source of truth for bundle Live Activity start. Same
+        // `startOrDefer` rationale as single uploads — share ext can't render
+        // the Activity, so the request is parked for the main app to drain.
+        await LiveActivityController.shared.startBundleOrDefer(
+            bundleToken: bundleToken,
+            fileCount: metas.count,
+            totalBytes: totalBytes,
+            // Cap at 5 names so the activity payload stays well under Apple's
+            // ~4 KB content limit; the widget shows "+(N-3) more" anyway.
+            filenames: Array(metas.prefix(5).map { $0.staged.filename }),
+            retentionPolicy: retentionPolicy.rawValue
+        )
+
+        // Detach so the caller can return immediately with the bundle handle
+        // and watch `aggregateProgress` while uploads run in the background.
+        let api = apiClient
+        let orch = orchestrator
+        Task { [aggregator] in
+            await self.runBundleUploads(items: response.items,
+                                        metas: metas,
+                                        aggregator: aggregator,
+                                        bundleJob: bundleJob,
+                                        api: api,
+                                        orchestrator: orch)
+        }
+        return bundleJob
+    }
+
+    private func runBundleUploads(items: [BatchPresignItem],
+                                  metas: [ItemMeta],
+                                  aggregator: BundleProgressAggregator,
+                                  bundleJob: BundleUploadJob,
+                                  api: APIClientProtocol,
+                                  orchestrator: UploadOrchestrator) async {
+        // WHY: collect successes; on any failure abort multipart + mark job
+        // failed but let other parallel uploads finish (best-effort bundle
+        // recovery). The backend's pending bundle cleanup sweeps stragglers.
+        let session = background.multipartURLSession
+        var completed: [BundleCompletedAsset] = []
+        await withTaskGroup(of: BundleCompletedAsset?.self) { group in
+            for item in items {
+                guard let meta = metas.first(where: { $0.clientJobId.uuidString == item.clientJobId }) else { continue }
+                group.addTask { [repository, log] in
+                    do {
+                        let multi: CompleteRequest.MultipartCompletion?
+                        switch item.upload {
+                        case .single(let single):
+                            try await Self.putR2Single(session: session,
+                                                       url: single.url,
+                                                       headers: single.headers,
+                                                       method: single.method,
+                                                       fileURL: meta.staged.url,
+                                                       totalBytes: meta.size,
+                                                       jobId: meta.clientJobId,
+                                                       aggregator: aggregator)
+                            multi = nil
+                        case .multipart(let plan):
+                            // Reuse MultipartUploader for parallel part PUTs;
+                            // aggregator sums fractions across all parts.
+                            let uploader = MultipartUploader(session: session)
+                            let uPlan = MultipartUploader.Plan(
+                                multipartUploadId: plan.multipartUploadId,
+                                partSize: plan.partSize,
+                                parts: plan.parts.map { .init(partNumber: $0.partNumber, url: $0.url) }
+                            )
+                            let result = try await uploader.upload(
+                                fileURL: meta.staged.url,
+                                fileSize: meta.size,
+                                plan: uPlan,
+                                progress: { fraction in
+                                    let bytes = Int64(Double(meta.size) * fraction)
+                                    Task { await aggregator.update(jobId: meta.clientJobId, bytes: bytes) }
+                                }
+                            )
+                            multi = CompleteRequest.MultipartCompletion(
+                                parts: result.parts.map { .init(partNumber: $0.partNumber, eTag: $0.eTag) }
+                            )
+                        }
+                        let resp = try await api.completeUpload(
+                            uploadId: item.uploadId,
+                            request: CompleteRequest(contentType: meta.staged.contentType,
+                                                     sizeBytes: meta.size,
+                                                     sha256: meta.sha256,
+                                                     originalFilename: meta.staged.filename,
+                                                     multipart: multi)
+                        )
+                        try await repository.markCompleted(clientJobId: meta.clientJobId,
+                                                           assetId: resp.assetId,
+                                                           shortURL: resp.shortUrl,
+                                                           expiresAt: resp.expiresAt,
+                                                           deleteAfter: resp.deleteAfter)
+                        await aggregator.update(jobId: meta.clientJobId, bytes: meta.size)
+                        return BundleCompletedAsset(assetId: resp.assetId,
+                                                    filename: meta.staged.filename,
+                                                    sizeBytes: meta.size,
+                                                    contentType: meta.staged.contentType)
+                    } catch {
+                        log.error("bundle item upload failed: \(error.localizedDescription, privacy: .public)")
+                        try? await repository.markFailed(clientJobId: meta.clientJobId,
+                                                        error: error.localizedDescription)
+                        return nil
+                    }
+                }
+            }
+            for await maybe in group {
+                if let asset = maybe { completed.append(asset) }
+            }
+        }
+        await aggregator.finish()
+        if !completed.isEmpty {
+            await orchestrator.recordBundleSuccess(bundle: bundleJob, completedAssets: completed)
+        }
+    }
+
+    /// Single-PUT R2 upload with per-byte progress wired into the bundle
+    /// aggregator. Uses a foreground URLSession (background session would
+    /// serialize). No retry — errors bubble; bundle aggregator finishes via
+    /// caller's task group.
+    private static func putR2Single(session: URLSession,
+                                    url: URL,
+                                    headers: [String: String],
+                                    method: String,
+                                    fileURL: URL,
+                                    totalBytes: Int64,
+                                    jobId: UUID,
+                                    aggregator: BundleProgressAggregator) async throws {
+        var request = URLRequest(url: url)
+        request.httpMethod = method.uppercased()
+        for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
+        let (_, response) = try await session.upload(for: request, fromFile: fileURL)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            throw APIError.http(status: status, problem: nil)
+        }
+        // URLSession.upload(for:fromFile:) doesn't expose progress callbacks
+        // without a delegate, so we count the file as fully uploaded on
+        // success. For sub-100MB items this lands within seconds; for larger
+        // items the multipart branch supplies fine-grained progress.
+        await aggregator.update(jobId: jobId, bytes: totalBytes)
+    }
+
+    private struct ItemMeta: Sendable {
+        let staged: StagedDrop
+        let size: Int64
+        let sha256: String
+        let clientJobId: UUID
+        let stagedRelative: String
     }
 
     /// Pre-flight quota + caps check. Runs before any network work so

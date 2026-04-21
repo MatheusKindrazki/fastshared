@@ -10,7 +10,7 @@ import { deviceRoutes } from '~/routes/devices';
 import { uploadRoutes } from '~/routes/uploads';
 import { historyRoutes } from '~/routes/history';
 import { assetRoutes } from '~/routes/assets';
-import { redirectRoutes } from '~/routes/redirect';
+import { bundleRedirectRoutes, redirectRoutes } from '~/routes/redirect';
 import { revokeRoutes } from '~/routes/revoke';
 import { wellKnownRoutes } from '~/routes/wellKnown';
 import { assetsPublicRoutes } from '~/routes/assetsPublic';
@@ -60,6 +60,7 @@ app.route('/v1/links', revokeRoutes);
 app.route('/v1/iap', iapRoutes);
 app.route('/v1/me', meRoutes);
 app.route('/s', redirectRoutes);
+app.route('/b', bundleRedirectRoutes);
 app.route('/.well-known', wellKnownRoutes);
 app.route('/', assetsPublicRoutes);
 
@@ -80,6 +81,8 @@ const PAGES_ORIGIN = 'https://fastshared-web.pages.dev';
 const APP_PATH_PREFIXES = [
   '/s',
   '/s/',
+  '/b',
+  '/b/',
   '/v1',
   '/v1/',
   '/.well-known',

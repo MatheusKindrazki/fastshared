@@ -219,6 +219,90 @@ public actor UploadOrchestrator {
         }
     }
 
+    /// Bundle finished: 1 row for the bundle link, N child rows for each asset.
+    /// Clipboard gets the bundle URL exactly once; usage counter takes one bump
+    /// per file (cap is per-file, not per-bundle).
+    public func recordBundleSuccess(bundle: BundleUploadJob,
+                                    completedAssets: [BundleCompletedAsset]) async {
+        let context = store.backgroundContext()
+        let token = bundle.bundleToken
+        let descriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.token == token })
+        do {
+            let existing = try context.fetch(descriptor).first
+            // Earliest expiry across the bundle wins — the server enforces
+            // policy uniformly, so all jobs share it; pick the first non-nil.
+            let expires = bundle.jobs.compactMap(\.expiresAt).min() ?? Date().addingTimeInterval(86_400)
+            let deleteAfter = bundle.jobs.compactMap(\.deleteAfter).max() ?? expires.addingTimeInterval(86_400)
+            // Aggregate display values. Filename/contentType collapse to a
+            // synthetic "N files" descriptor — the bundle preview page renders
+            // the real list; this is only for the local history row's headline.
+            let aggregateSize = completedAssets.map(\.sizeBytes).reduce(0, +)
+            let headlineFilename = "\(completedAssets.count) files"
+
+            let entity: ShareLinkEntity
+            if let existing {
+                existing.shortURLString = bundle.bundleShortUrl.absoluteString
+                existing.expiresAt = expires
+                existing.deleteAfter = deleteAfter
+                existing.linkStatus = LinkStatus.active.rawValue
+                existing.contentType = "application/x-bundle"
+                existing.sizeBytes = aggregateSize
+                existing.originalFilename = headlineFilename
+                existing.isBundle = true
+                // Replace any prior children to keep displayOrder consistent.
+                existing.bundledAssets.removeAll()
+                entity = existing
+            } else {
+                entity = ShareLinkEntity(token: token,
+                                         assetId: ShareLinkEntity.bundleSentinelAssetId,
+                                         shortURLString: bundle.bundleShortUrl.absoluteString,
+                                         createdAt: Date(),
+                                         visibility: .unlisted,
+                                         expiresAt: expires,
+                                         deleteAfter: deleteAfter,
+                                         linkStatus: LinkStatus.active.rawValue,
+                                         retentionPolicy: bundle.jobs.first?.retentionPolicy.rawValue ?? RetentionPolicy.default.rawValue,
+                                         contentType: "application/x-bundle",
+                                         sizeBytes: aggregateSize,
+                                         originalFilename: headlineFilename,
+                                         isBundle: true,
+                                         bundledAssets: [])
+                context.insert(entity)
+            }
+
+            for (index, completed) in completedAssets.enumerated() {
+                let child = BundledAssetEntity(assetId: completed.assetId,
+                                               filename: completed.filename,
+                                               sizeBytes: completed.sizeBytes,
+                                               contentType: completed.contentType,
+                                               displayOrder: index,
+                                               shareLink: entity)
+                context.insert(child)
+                entity.bundledAssets.append(child)
+            }
+            try context.save()
+            await persistenceEvents.emit(existing == nil
+                                         ? .shareLinkInserted(token: token)
+                                         : .shareLinkUpdated(token: token))
+        } catch {
+            log.error("recordBundleSuccess persist failed: \(error.localizedDescription, privacy: .public)")
+        }
+
+        clipboard.copy(bundle.bundleShortUrl.absoluteString)
+        // Per-file cap accounting — N files = N quota units.
+        for _ in 0..<bundle.jobs.count {
+            _ = await usageTracker.increment()
+        }
+        // End the bundle Live Activity. No-op on macOS; on iOS the success
+        // pill briefly stays on the DI before the dismissal policy collects.
+        let expires = bundle.jobs.compactMap(\.expiresAt).min() ?? Date().addingTimeInterval(86_400)
+        await LiveActivityController.shared.finishBundleSuccess(
+            bundleToken: bundle.bundleToken,
+            bundleShortUrl: bundle.bundleShortUrl.absoluteString,
+            expiresAt: expires
+        )
+    }
+
     private func writeShareLink(token: String,
                                 assetId: UUID,
                                 shortURL: URL,

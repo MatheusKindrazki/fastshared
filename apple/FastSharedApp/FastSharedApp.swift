@@ -75,6 +75,8 @@ struct FastSharedApp: App {
         // the request in an App Group queue; the main app drains it here
         // on cold launch (and again on background wake via the app delegate).
         Task { await LiveActivityController.shared.drainPendingStarts() }
+        // M4: same drain loop for bundle activities (multi-file share-ext drops).
+        Task { await LiveActivityController.shared.drainPendingBundleStarts() }
         // Sweep Live Activities from previous runs — prior builds left the
         // dismissal policy at `expiresAt + 5 min` so successful uploads kept
         // their pill on the Dynamic Island for up to 24 h. Clean those up on
@@ -187,6 +189,7 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
         // died — the main app is the only process with the widget descriptors,
         // so the Activity has to be created (and later updated) here.
         Task { await LiveActivityController.shared.drainPendingStarts() }
+        Task { await LiveActivityController.shared.drainPendingBundleStarts() }
     }
 }
 #endif

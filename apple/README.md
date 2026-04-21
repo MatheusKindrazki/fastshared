@@ -16,6 +16,17 @@ Key pieces (Plan B):
 
 QA: `docs/plan/pro-feature-B-apple-qa-matrix.md`.
 
+## Bundle uploads
+
+For batches of 2+ files, use `UploadService.enqueueBundle(stagedURLs:retentionPolicy:)`
+or the polymorphic `enqueueDrop(urls:)` (which returns `EnqueueResult.single`
+or `EnqueueResult.bundle`). The backend mints one bundle link
+(`https://fastsha.red/b/{token}`) that covers every file in the batch, the
+clipboard receives a single URL, history persists one `ShareLinkEntity` with
+`isBundle=true` plus `BundledAssetEntity` children, and the Live Activity
+aggregates byte-level progress across all files. Single-file flow remains on
+`/s/{token}` and is otherwise untouched.
+
 ## Requirements
 
 - Xcode 15 or newer

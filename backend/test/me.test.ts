@@ -8,7 +8,7 @@ import {
   ctx,
   seedDevice,
 } from './support';
-import { FREE_CAPS, PRO_CAPS } from '~/lib/tierCaps';
+import { FREE_CAPS, PRO_CAPS, toWireCaps, type TierCapsWire } from '~/lib/tierCaps';
 
 installDrizzleFake();
 
@@ -62,12 +62,12 @@ describe('GET /v1/me', () => {
     const body = (await res.json()) as {
       tier: string;
       expiresAt: string | null;
-      caps: typeof FREE_CAPS;
+      caps: TierCapsWire;
       subscription: unknown;
     };
     expect(body.tier).toBe('free');
     expect(body.expiresAt).toBeNull();
-    expect(body.caps).toEqual(FREE_CAPS);
+    expect(body.caps).toEqual(toWireCaps(FREE_CAPS));
     expect(body.subscription).toBeNull();
   });
 
@@ -78,11 +78,11 @@ describe('GET /v1/me', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       tier: string;
-      caps: typeof PRO_CAPS;
+      caps: TierCapsWire;
       subscription: { status: string; autoRenewStatus: boolean } | null;
     };
     expect(body.tier).toBe('monthly');
-    expect(body.caps).toEqual(PRO_CAPS);
+    expect(body.caps).toEqual(toWireCaps(PRO_CAPS));
     expect(body.subscription?.status).toBe('active');
     expect(body.subscription?.autoRenewStatus).toBe(true);
   });
@@ -94,11 +94,11 @@ describe('GET /v1/me', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       tier: string;
-      caps: typeof FREE_CAPS;
+      caps: TierCapsWire;
       subscription: unknown;
     };
     expect(body.tier).toBe('free');
-    expect(body.caps).toEqual(FREE_CAPS);
+    expect(body.caps).toEqual(toWireCaps(FREE_CAPS));
     expect(body.subscription).toBeNull();
   });
 
@@ -115,10 +115,10 @@ describe('GET /v1/me', () => {
     const res = await get('/v1/me', { authorization: `Bearer ${token}` });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      caps: typeof PRO_CAPS;
+      caps: TierCapsWire;
       subscription: { status: string } | null;
     };
-    expect(body.caps).toEqual(PRO_CAPS);
+    expect(body.caps).toEqual(toWireCaps(PRO_CAPS));
     expect(body.subscription?.status).toBe('active');
   });
 
@@ -129,11 +129,11 @@ describe('GET /v1/me', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       tier: string;
-      caps: typeof PRO_CAPS;
+      caps: TierCapsWire;
       expiresAt: string | null;
     };
     expect(body.tier).toBe('lifetime');
-    expect(body.caps).toEqual(PRO_CAPS);
+    expect(body.caps).toEqual(toWireCaps(PRO_CAPS));
     expect(body.expiresAt).toBeNull();
   });
 });

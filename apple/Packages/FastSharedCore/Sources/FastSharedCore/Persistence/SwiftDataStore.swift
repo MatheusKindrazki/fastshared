@@ -96,6 +96,10 @@ public final class UploadJobEntity {
 @Model
 public final class ShareLinkEntity {
     @Attribute(.unique) public var token: String
+    // Bundle links carry no canonical asset (junction table holds N children).
+    // We keep this non-optional to avoid a SwiftData migration churn across
+    // call sites; bundle rows store `bundleSentinelAssetId` (all-zero UUID)
+    // and bundledAssets carries the real per-file rows.
     public var assetId: UUID
     public var shortURLString: String
     public var createdAt: Date
@@ -111,6 +115,11 @@ public final class ShareLinkEntity {
     public var sizeBytes: Int64
     public var originalFilename: String?
     public var isFavorited: Bool
+    // M3: bundle support. Defaults preserve existing single-link rows on
+    // SwiftData lightweight migration (new prop with default → no-op upgrade).
+    public var isBundle: Bool = false
+    @Relationship(deleteRule: .cascade, inverse: \BundledAssetEntity.shareLink)
+    public var bundledAssets: [BundledAssetEntity] = []
 
     public init(token: String,
                 assetId: UUID,
@@ -127,7 +136,9 @@ public final class ShareLinkEntity {
                 contentType: String,
                 sizeBytes: Int64,
                 originalFilename: String?,
-                isFavorited: Bool = false) {
+                isFavorited: Bool = false,
+                isBundle: Bool = false,
+                bundledAssets: [BundledAssetEntity] = []) {
         self.token = token
         self.assetId = assetId
         self.shortURLString = shortURLString
@@ -144,6 +155,8 @@ public final class ShareLinkEntity {
         self.sizeBytes = sizeBytes
         self.originalFilename = originalFilename
         self.isFavorited = isFavorited
+        self.isBundle = isBundle
+        self.bundledAssets = bundledAssets
     }
 
     public var visibility: Visibility {
@@ -165,6 +178,41 @@ public final class ShareLinkEntity {
     }
 }
 
+public extension ShareLinkEntity {
+    /// Sentinel UUID for bundle rows where there is no canonical single asset.
+    /// All-zero UUID is impossible to collide with a real asset id from
+    /// `gen_random_uuid()`. UI/sync layers must skip row resolution when the
+    /// link reports `isBundle == true` and read `bundledAssets` instead.
+    static let bundleSentinelAssetId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+}
+
+/// Per-asset row inside a bundled `ShareLinkEntity`. Mirrors the backend
+/// `bundle_asset` junction (asset metadata is denormalized so the iOS
+/// history list can render without a /b/{token} fetch).
+@Model
+public final class BundledAssetEntity {
+    public var assetId: UUID
+    public var filename: String
+    public var sizeBytes: Int64
+    public var contentType: String
+    public var displayOrder: Int
+    public var shareLink: ShareLinkEntity?
+
+    public init(assetId: UUID,
+                filename: String,
+                sizeBytes: Int64,
+                contentType: String,
+                displayOrder: Int,
+                shareLink: ShareLinkEntity? = nil) {
+        self.assetId = assetId
+        self.filename = filename
+        self.sizeBytes = sizeBytes
+        self.contentType = contentType
+        self.displayOrder = displayOrder
+        self.shareLink = shareLink
+    }
+}
+
 public actor SwiftDataStore {
     public static let shared: SwiftDataStore = {
         do {
@@ -179,7 +227,7 @@ public actor SwiftDataStore {
     public nonisolated let modelContainer: ModelContainer
 
     public init() throws {
-        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self])
+        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self])
         guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroupPaths.groupIdentifier) != nil else {
             throw AppGroupError.missingContainer(AppGroupPaths.groupIdentifier)
         }
@@ -193,7 +241,7 @@ public actor SwiftDataStore {
     }
 
     public init(inMemory: Bool) {
-        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self])
+        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self])
         let configuration = ModelConfiguration("FastShared", schema: schema, isStoredInMemoryOnly: true)
         self.modelContainer = (try? ModelContainer(for: schema, configurations: configuration)) ?? {
             fatalError("Unable to create in-memory SwiftData container")

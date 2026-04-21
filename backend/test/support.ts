@@ -42,7 +42,7 @@ export interface AssetRow {
 export interface ShareLinkRow {
   id: string;
   token: string;
-  assetId: string;
+  assetId: string | null;
   visibility: string;
   expiresAt: Date;
   hits: number;
@@ -52,6 +52,16 @@ export interface ShareLinkRow {
   lastAccessedAt: Date | null;
   accessCount: number;
   maxAccessCount: number | null;
+  createdAt: Date;
+  isBundle?: boolean;
+  bundleAssetCount?: number | null;
+}
+export interface BundleAssetRow {
+  id: string;
+  shareLinkId: string;
+  assetId: string;
+  uploadJobId: string;
+  displayOrder: number;
   createdAt: Date;
 }
 export interface UploadJobRow {
@@ -95,6 +105,7 @@ export interface Store {
   uploadJobs: UploadJobRow[];
   deletionJobs: DeletionJobRow[];
   subscriptions: SubscriptionRow[];
+  bundleAssets: BundleAssetRow[];
 }
 
 export const store: Store = emptyStore();
@@ -108,6 +119,7 @@ function emptyStore(): Store {
     uploadJobs: [],
     deletionJobs: [],
     subscriptions: [],
+    bundleAssets: [],
   };
 }
 
@@ -119,6 +131,7 @@ export function resetStore(): void {
   store.uploadJobs.length = 0;
   store.deletionJobs.length = 0;
   store.subscriptions.length = 0;
+  store.bundleAssets.length = 0;
 }
 
 export const TEST_ENV: Env = {
@@ -296,6 +309,27 @@ export function installDrizzleFake(): void {
                   (r, conds) => conds.length === 0 || conds.some((c) => c === r.id),
                 );
               }
+              if (name === 'bundle_asset') {
+                return chain<BundleAssetRow>(
+                  () => store.bundleAssets,
+                  (r, conds) => {
+                    if (conds.length === 0) return true;
+                    // All extracted predicates must hit a field on the row.
+                    // bundle_asset queries appear in two shapes:
+                    //   - eq(shareLinkId)              → siblings list,
+                    //   - and(eq(shareLinkId), eq(id)) → existence guard.
+                    // OR semantics would let the guard match any junction
+                    // sharing the bundle, masking real duplicates.
+                    return conds.every(
+                      (c) =>
+                        c === r.id ||
+                        c === r.shareLinkId ||
+                        c === r.assetId ||
+                        c === r.uploadJobId,
+                    );
+                  },
+                );
+              }
               if (name === 'subscription') {
                 return chain<SubscriptionRow>(
                   () => store.subscriptions,
@@ -372,7 +406,7 @@ export function installDrizzleFake(): void {
                     const row: ShareLinkRow = {
                       id: crypto.randomUUID(),
                       token: (v.token as string) ?? Math.random().toString(36).slice(2, 9),
-                      assetId: v.assetId as string,
+                      assetId: (v.assetId as string | null) ?? null,
                       visibility: (v.visibility as string) ?? 'signed',
                       expiresAt: v.expiresAt as Date,
                       hits: 0,
@@ -383,8 +417,21 @@ export function installDrizzleFake(): void {
                       accessCount: 0,
                       maxAccessCount: (v.maxAccessCount as number | null) ?? null,
                       createdAt: new Date(),
+                      isBundle: (v.isBundle as boolean) ?? false,
+                      bundleAssetCount: (v.bundleAssetCount as number | null) ?? null,
                     };
                     store.shareLinks.push(row);
+                    out.push(row);
+                  } else if (name === 'bundle_asset') {
+                    const row: BundleAssetRow = {
+                      id: (v.id as string) ?? crypto.randomUUID(),
+                      shareLinkId: v.shareLinkId as string,
+                      assetId: v.assetId as string,
+                      uploadJobId: v.uploadJobId as string,
+                      displayOrder: Number(v.displayOrder),
+                      createdAt: new Date(),
+                    };
+                    store.bundleAssets.push(row);
                     out.push(row);
                   } else if (name === 'upload_job') {
                     const matchIdx = store.uploadJobs.findIndex(

@@ -12,6 +12,7 @@ public enum APIEndpoint: Sendable {
     case registerDevice
     case signInApple
     case requestUpload
+    case requestBatchUpload
     case completeUpload(uploadId: String)
     case failUpload(uploadId: String)
     case abortMultipartUpload(uploadId: String)
@@ -27,6 +28,7 @@ public enum APIEndpoint: Sendable {
         case .registerDevice: return "/v1/devices"
         case .signInApple: return "/v1/auth/apple"
         case .requestUpload: return "/v1/uploads"
+        case .requestBatchUpload: return "/v1/uploads/batch"
         case .completeUpload(let id): return "/v1/uploads/\(id)/complete"
         case .failUpload(let id): return "/v1/uploads/\(id)/fail"
         case .abortMultipartUpload(let id): return "/v1/uploads/\(id)/abort-multipart"
@@ -41,7 +43,7 @@ public enum APIEndpoint: Sendable {
 
     public var method: HTTPMethod {
         switch self {
-        case .registerDevice, .signInApple, .requestUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
+        case .registerDevice, .signInApple, .requestUpload, .requestBatchUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
         case .fetchHistory, .me, .pricingFlags: return .get
         case .deleteAsset: return .delete
         }
@@ -284,6 +286,110 @@ public struct PresignResponse: Sendable, Codable, Equatable {
         self.shortUrl = shortUrl
         self.linkStatus = linkStatus
         self.deduped = deduped
+    }
+}
+
+// MARK: - Bundle batch presign
+
+/// Per-item slot in `POST /uploads/batch`. `clientJobId` is sent as a string to
+/// match the backend zod schema; UUID-typed callers stringify on encode.
+public struct BatchUploadItemRequest: Sendable, Codable, Equatable {
+    public let clientJobId: String
+    public let contentType: String
+    public let sizeBytes: Int64
+    public let sha256: String?
+    public let originalFilename: String?
+
+    public init(clientJobId: String,
+                contentType: String,
+                sizeBytes: Int64,
+                sha256: String? = nil,
+                originalFilename: String? = nil) {
+        self.clientJobId = clientJobId
+        self.contentType = contentType
+        self.sizeBytes = sizeBytes
+        self.sha256 = sha256
+        self.originalFilename = originalFilename
+    }
+}
+
+/// Request body for `POST /uploads/batch`. Mirrors the single-file `PresignRequest`
+/// shape but in array form. Server enforces 2..=50 items.
+public struct BatchPresignRequest: Sendable, Codable, Equatable {
+    public let retentionPolicy: String
+    public let visibility: String
+    public let customTtlSeconds: Int?
+    public let items: [BatchUploadItemRequest]
+
+    public init(retentionPolicy: String,
+                visibility: String,
+                customTtlSeconds: Int? = nil,
+                items: [BatchUploadItemRequest]) {
+        self.retentionPolicy = retentionPolicy
+        self.visibility = visibility
+        self.customTtlSeconds = customTtlSeconds
+        self.items = items
+    }
+}
+
+/// One item in the bundle presign response. `upload` reuses `UploadInstruction`
+/// so single-PUT and multipart paths flow through the same code as POST /uploads.
+public struct BatchPresignItem: Sendable, Codable, Equatable {
+    public let clientJobId: String
+    public let uploadId: String
+    public let storageKey: String
+    public let contentType: String
+    public let sizeBytes: Int64
+    public let upload: UploadInstruction
+
+    public init(clientJobId: String,
+                uploadId: String,
+                storageKey: String,
+                contentType: String,
+                sizeBytes: Int64,
+                upload: UploadInstruction) {
+        self.clientJobId = clientJobId
+        self.uploadId = uploadId
+        self.storageKey = storageKey
+        self.contentType = contentType
+        self.sizeBytes = sizeBytes
+        self.upload = upload
+    }
+}
+
+/// Response for `POST /uploads/batch`. The server pre-mints the bundle share_link
+/// (status=pending) and returns presigned URLs for every item; client fans out
+/// PUT R2 in parallel and posts /complete per item.
+public struct BatchPresignResponse: Sendable, Codable, Equatable {
+    public let bundleToken: String
+    public let bundleShortUrl: URL
+    public let expiresAt: Date
+    public let deleteAfter: Date
+    public let retentionPolicy: String
+    public let itemCount: Int
+    public let items: [BatchPresignItem]
+    /// Set when Free-tier silently clamped a longer retention back to oneDay.
+    public let retentionClamped: Bool?
+    public let clampedTo: String?
+
+    public init(bundleToken: String,
+                bundleShortUrl: URL,
+                expiresAt: Date,
+                deleteAfter: Date,
+                retentionPolicy: String,
+                itemCount: Int,
+                items: [BatchPresignItem],
+                retentionClamped: Bool? = nil,
+                clampedTo: String? = nil) {
+        self.bundleToken = bundleToken
+        self.bundleShortUrl = bundleShortUrl
+        self.expiresAt = expiresAt
+        self.deleteAfter = deleteAfter
+        self.retentionPolicy = retentionPolicy
+        self.itemCount = itemCount
+        self.items = items
+        self.retentionClamped = retentionClamped
+        self.clampedTo = clampedTo
     }
 }
 

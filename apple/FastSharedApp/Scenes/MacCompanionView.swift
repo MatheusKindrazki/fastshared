@@ -37,6 +37,12 @@ struct MacCompanionView: View {
     @State private var viewModel: HistoryViewModel?
     @State private var showFileImporter: Bool = false
 
+    // M4: aggregated bundle upload card. Shown while a multi-file drop runs
+    // and dismissed shortly after completion; single uploads keep the existing
+    // history-row indicator (orchestrator drives the row's progress directly).
+    @State private var bundleCard: MacBundleCard? = nil
+    @State private var bundleObserverTask: Task<Void, Never>? = nil
+
     // MARK: - Adaptive palette helpers
 
     private var groundColor: Color {
@@ -113,6 +119,20 @@ struct MacCompanionView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(groundColor)
+        .overlay(alignment: .bottomTrailing) {
+            if let card = bundleCard {
+                MacBundleProgressCard(card: card,
+                                      canvasColor: canvasColor,
+                                      surface0Color: surface0Color,
+                                      textColor: textColor,
+                                      textDimColor: textDimColor,
+                                      lineColor: lineColor,
+                                      onCopyLink: { clipboard.copy(card.shortUrl.absoluteString) })
+                    .padding(20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: bundleCard?.isComplete)
         .task {
             if viewModel == nil {
                 viewModel = HistoryViewModel(apiClient: apiClient, orchestrator: orchestrator)
@@ -442,9 +462,7 @@ struct MacCompanionView: View {
 
     private func handleImport(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, let service = uploadService else { return }
-        Task {
-            _ = try? await service.enqueueDrop(urls: urls)
-        }
+        Task { await runDrop(urls: urls, service: service) }
     }
 
     private func handleDropProviders(_ providers: [NSItemProvider]) {
@@ -457,7 +475,56 @@ struct MacCompanionView: View {
                 }
             }
             guard !urls.isEmpty else { return }
-            _ = try? await service.enqueueDrop(urls: urls)
+            await runDrop(urls: urls, service: service)
+        }
+    }
+
+    /// M4: dispatches a drop and, when the result is `.bundle`, watches the
+    /// aggregate progress stream so the floating card can render
+    /// "Sending {N} files · X%". Single uploads return immediately — their UI
+    /// lives in the history row.
+    @MainActor
+    private func runDrop(urls: [URL], service: UploadServiceProtocol) async {
+        do {
+            switch try await service.enqueueDrop(urls: urls) {
+            case .single:
+                // Single-file drop — history row tracks progress.
+                return
+            case .bundle(let bundle):
+                let count = bundle.jobs.count
+                let total = bundle.totalBytes
+                bundleCard = MacBundleCard(fileCount: count,
+                                           progress: 0,
+                                           bytesUploaded: 0,
+                                           totalBytes: total,
+                                           shortUrl: bundle.bundleShortUrl,
+                                           isComplete: false)
+                bundleObserverTask?.cancel()
+                bundleObserverTask = Task { @MainActor in
+                    for await fraction in bundle.aggregateProgress {
+                        let bytes = Int64(Double(total) * max(0, min(1, fraction)))
+                        bundleCard = MacBundleCard(fileCount: count,
+                                                   progress: fraction,
+                                                   bytesUploaded: bytes,
+                                                   totalBytes: total,
+                                                   shortUrl: bundle.bundleShortUrl,
+                                                   isComplete: fraction >= 1.0)
+                    }
+                    // Stream finished. Hold the success card briefly so the
+                    // user sees confirmation + clipboard hint.
+                    bundleCard = MacBundleCard(fileCount: count,
+                                               progress: 1.0,
+                                               bytesUploaded: total,
+                                               totalBytes: total,
+                                               shortUrl: bundle.bundleShortUrl,
+                                               isComplete: true)
+                    try? await Task.sleep(nanoseconds: 4_500_000_000)
+                    bundleCard = nil
+                }
+            }
+        } catch {
+            // Errors surface via the orchestrator's per-job failure markers;
+            // we don't have a dedicated bundle error toast in this iteration.
         }
     }
 
@@ -592,6 +659,127 @@ private struct MacShareRow: View {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
+    }
+}
+
+// MARK: - Bundle progress card (M4)
+
+/// Snapshot of an in-flight bundle upload, pushed into the overlay each tick.
+struct MacBundleCard: Equatable {
+    let fileCount: Int
+    let progress: Double
+    let bytesUploaded: Int64
+    let totalBytes: Int64
+    let shortUrl: URL
+    let isComplete: Bool
+}
+
+/// Floating bottom-right card that shows aggregate bundle progress while a
+/// drop is uploading; flips to a "Bundle ready" state when complete.
+private struct MacBundleProgressCard: View {
+    let card: MacBundleCard
+    let canvasColor: Color
+    let surface0Color: Color
+    let textColor: Color
+    let textDimColor: Color
+    let lineColor: Color
+    let onCopyLink: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(BrandPalette.accentHot.opacity(card.isComplete ? 0.0 : 0.18))
+                        .frame(width: 38, height: 38)
+                    if card.isComplete {
+                        ZStack {
+                            Circle()
+                                .fill(BrandPalette.accentHot)
+                                .frame(width: 38, height: 38)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 16, weight: .heavy))
+                                .foregroundStyle(.white)
+                        }
+                    } else {
+                        Image(systemName: "square.stack.3d.up.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(BrandPalette.accentHot)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(headline)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(textColor)
+                    Text(subline)
+                        .font(.system(size: 11).monospacedDigit())
+                        .foregroundStyle(textDimColor)
+                }
+
+                Spacer(minLength: 0)
+
+                if card.isComplete {
+                    Button(action: onCopyLink) {
+                        Text("Copy link")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(BrandPalette.accentHot)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if !card.isComplete {
+                MacBundleProgressBar(progress: card.progress, lineColor: lineColor)
+            }
+        }
+        .padding(14)
+        .frame(width: 320)
+        .background(canvasColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(lineColor, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+    }
+
+    private var headline: String {
+        card.isComplete ? "\(card.fileCount) files shared" : "Sending \(card.fileCount) files"
+    }
+
+    private var subline: String {
+        if card.isComplete {
+            return card.shortUrl.absoluteString
+        }
+        let sent = ByteCountFormatter.string(fromByteCount: card.bytesUploaded, countStyle: .file)
+        let total = ByteCountFormatter.string(fromByteCount: card.totalBytes, countStyle: .file)
+        return "\(sent) / \(total) · \(Int((card.progress * 100).rounded()))%"
+    }
+}
+
+private struct MacBundleProgressBar: View {
+    let progress: Double
+    let lineColor: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(lineColor)
+                    .frame(height: 5)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(BrandPalette.accentHot)
+                    .frame(width: max(0, geo.size.width * CGFloat(min(1, max(0, progress)))),
+                           height: 5)
+            }
+        }
+        .frame(height: 5)
     }
 }
 

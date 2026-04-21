@@ -27,7 +27,13 @@ enum ShareUploadPhase: Sendable {
     case idle
     case preparing
     case uploading(progress: Double, bytesSent: Int64, bytesTotal: Int64)
+    /// M4: aggregated bundle progress (N>1 files). Single uploads stay on
+    /// `.uploading`/`.success`. Drives the "Sending {N} files · {bytes}" headline.
+    case uploadingBundle(fileCount: Int, progress: Double, bytesUploaded: Int64, totalBytes: Int64)
     case success(link: FastSharedCore.ShareLink, filename: String, deduped: Bool)
+    /// M4: bundle finished — short URL is already on the clipboard (orchestrator
+    /// did the copy). UI shows a celebratory headline + count.
+    case bundleSuccess(fileCount: Int, shortUrl: URL)
     case failed(reason: String, requestId: String)
 }
 
@@ -76,6 +82,40 @@ final class ShareViewModel {
                 try? await Task.sleep(nanoseconds: 150_000_000)
             }
         }
+    }
+
+    /// Bundle counterpart of `startObserving`. Consumes the aggregator stream
+    /// from `BundleUploadJob` so the headline ("Sending N files · X / Y") and
+    /// progress bar update in real time. Calls `onComplete` when the stream
+    /// finishes (1.0); the caller resolves into `.bundleSuccess`.
+    func startObservingBundle(bundle: BundleUploadJob,
+                              onComplete: @escaping () -> Void) {
+        pollTask?.cancel()
+        let fileCount = bundle.jobs.count
+        let totalBytes = bundle.totalBytes
+        phase = .uploadingBundle(fileCount: fileCount,
+                                 progress: 0,
+                                 bytesUploaded: 0,
+                                 totalBytes: totalBytes)
+        pollTask = Task { @MainActor [weak self] in
+            for await fraction in bundle.aggregateProgress {
+                guard let self else { return }
+                let bytes = Int64(Double(totalBytes) * max(0, min(1, fraction)))
+                self.phase = .uploadingBundle(fileCount: fileCount,
+                                              progress: fraction,
+                                              bytesUploaded: bytes,
+                                              totalBytes: totalBytes)
+            }
+            // Stream finished — orchestrator has copied bundleShortUrl by now.
+            onComplete()
+        }
+    }
+
+    /// Flips the view into `.bundleSuccess`. Caller (controller) invokes after
+    /// the aggregator stream finishes; orchestrator already wrote the local
+    /// history row + clipboard.
+    func reportBundleSuccess(fileCount: Int, shortUrl: URL) {
+        phase = .bundleSuccess(fileCount: fileCount, shortUrl: shortUrl)
     }
 
     func reportEnqueueFailure(error: Error, requestId: UUID) {

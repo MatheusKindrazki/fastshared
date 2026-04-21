@@ -14,11 +14,13 @@ public actor LiveActivityController {
 
     private let log = Logger(subsystem: Log.subsystem, category: "liveActivity")
     private var activities: [UUID: Activity<FastSharedActivityAttributes>] = [:]
+    private var bundleActivities: [String: Activity<BundleUploadAttributes>] = [:]
 
     // WHY: ActivityKit rejects updates beyond ~5-6 Hz. We throttle to one update every 250ms
     // (4 Hz) per job — well under the limit, imperceptible to humans, and cheap enough that
     // the background URLSession delegate thread stays uncongested.
     private var lastUpdateAt: [UUID: Date] = [:]
+    private var lastBundleUpdateAt: [String: Date] = [:]
     private let minUpdateInterval: TimeInterval = 0.25
 
     public init() {}
@@ -231,6 +233,167 @@ public actor LiveActivityController {
         }
     }
 
+    // MARK: - Bundle Live Activity
+
+    /// Bundle equivalent of `startOrDefer`. Same extension detection: when
+    /// invoked from a sandboxed extension we park the request in App Group
+    /// defaults and the main app drains it via `drainPendingBundleStarts()`.
+    @discardableResult
+    public func startBundleOrDefer(bundleToken: String,
+                                   fileCount: Int,
+                                   totalBytes: Int64,
+                                   filenames: [String],
+                                   retentionPolicy: String) -> String? {
+        if Self.isRunningInAppExtension {
+            Self.enqueuePendingBundle(PendingBundleStart(
+                bundleToken: bundleToken,
+                fileCount: fileCount,
+                totalBytes: totalBytes,
+                filenames: filenames,
+                retentionPolicy: retentionPolicy
+            ))
+            log.info("deferred bundle live activity start for \(bundleToken, privacy: .public) (extension)")
+            return nil
+        }
+        return startBundle(
+            bundleToken: bundleToken,
+            fileCount: fileCount,
+            totalBytes: totalBytes,
+            filenames: filenames,
+            retentionPolicy: retentionPolicy
+        )
+    }
+
+    public func drainPendingBundleStarts() {
+        let pending = Self.loadPendingBundles()
+        guard !pending.isEmpty else { return }
+        Self.clearPendingBundles()
+        for req in pending {
+            _ = startBundle(
+                bundleToken: req.bundleToken,
+                fileCount: req.fileCount,
+                totalBytes: req.totalBytes,
+                filenames: req.filenames,
+                retentionPolicy: req.retentionPolicy
+            )
+        }
+        log.info("drained \(pending.count, privacy: .public) pending bundle live-activity starts")
+    }
+
+    @discardableResult
+    public func startBundle(bundleToken: String,
+                            fileCount: Int,
+                            totalBytes: Int64,
+                            filenames: [String],
+                            retentionPolicy: String) -> String? {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            log.info("Live Activities disabled by user; skipping bundle start for \(bundleToken, privacy: .public)")
+            return nil
+        }
+        if let existing = bundleActivities[bundleToken] {
+            return existing.id
+        }
+        let attributes = BundleUploadAttributes(bundleToken: bundleToken,
+                                                fileCount: fileCount,
+                                                totalBytes: totalBytes,
+                                                filenames: filenames,
+                                                retentionPolicy: retentionPolicy)
+        let state = BundleUploadAttributes.ContentState(phase: .uploading,
+                                                        bytesUploaded: 0,
+                                                        progress: 0)
+        do {
+            let activity: Activity<BundleUploadAttributes>
+            if #available(iOS 16.2, *) {
+                let content = ActivityContent(state: state, staleDate: nil)
+                activity = try Activity.request(attributes: attributes,
+                                                content: content,
+                                                pushType: nil)
+            } else {
+                activity = try Activity.request(attributes: attributes,
+                                                contentState: state,
+                                                pushType: nil)
+            }
+            bundleActivities[bundleToken] = activity
+            lastBundleUpdateAt[bundleToken] = Date()
+            log.info("started bundle live activity \(activity.id, privacy: .public) for token \(bundleToken, privacy: .public)")
+            return activity.id
+        } catch {
+            log.error("Bundle Activity.request failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    public func updateBundleProgress(bundleToken: String,
+                                     bytesUploaded: Int64,
+                                     totalBytes: Int64,
+                                     progress: Double) async {
+        guard let activity = await resolveBundleActivity(bundleToken: bundleToken) else { return }
+        let now = Date()
+        if let last = lastBundleUpdateAt[bundleToken],
+           now.timeIntervalSince(last) < minUpdateInterval,
+           progress < 1.0 {
+            return
+        }
+        lastBundleUpdateAt[bundleToken] = now
+        let state = BundleUploadAttributes.ContentState(phase: .uploading,
+                                                        bytesUploaded: bytesUploaded,
+                                                        progress: max(0, min(1, progress)))
+        if #available(iOS 16.2, *) {
+            await activity.update(ActivityContent(state: state, staleDate: nil))
+        } else {
+            await activity.update(using: state)
+        }
+    }
+
+    public func finishBundleSuccess(bundleToken: String,
+                                    bundleShortUrl: String,
+                                    expiresAt: Date) async {
+        guard let activity = await resolveBundleActivity(bundleToken: bundleToken) else { return }
+        let state = BundleUploadAttributes.ContentState(phase: .completed,
+                                                        bytesUploaded: activity.attributes.totalBytes,
+                                                        progress: 1.0,
+                                                        bundleShortUrl: bundleShortUrl,
+                                                        expiresAt: expiresAt)
+        let dismissAt = Date().addingTimeInterval(30)
+        if #available(iOS 16.2, *) {
+            let content = ActivityContent(state: state, staleDate: expiresAt)
+            await activity.end(content, dismissalPolicy: .after(dismissAt))
+        } else {
+            await activity.end(using: state, dismissalPolicy: .after(dismissAt))
+        }
+        bundleActivities.removeValue(forKey: bundleToken)
+        lastBundleUpdateAt.removeValue(forKey: bundleToken)
+    }
+
+    public func finishBundleFailure(bundleToken: String, reason: String) async {
+        guard let activity = await resolveBundleActivity(bundleToken: bundleToken) else { return }
+        let state = BundleUploadAttributes.ContentState(phase: .failed,
+                                                        bytesUploaded: 0,
+                                                        progress: 0,
+                                                        errorReason: reason)
+        let dismissAt = Date().addingTimeInterval(60)
+        if #available(iOS 16.2, *) {
+            let content = ActivityContent(state: state, staleDate: dismissAt)
+            await activity.end(content, dismissalPolicy: .after(dismissAt))
+        } else {
+            await activity.end(using: state, dismissalPolicy: .after(dismissAt))
+        }
+        bundleActivities.removeValue(forKey: bundleToken)
+        lastBundleUpdateAt.removeValue(forKey: bundleToken)
+    }
+
+    private func resolveBundleActivity(bundleToken: String) async -> Activity<BundleUploadAttributes>? {
+        if let cached = bundleActivities[bundleToken] {
+            return cached
+        }
+        for activity in Activity<BundleUploadAttributes>.activities
+        where activity.attributes.bundleToken == bundleToken {
+            bundleActivities[bundleToken] = activity
+            return activity
+        }
+        return nil
+    }
+
     // MARK: - Extension detection + pending queue
 
     /// True when this code is running inside an app extension target (share
@@ -251,7 +414,19 @@ public actor LiveActivityController {
         let bytesTotal: Int64
     }
 
+    /// Bundle counterpart of `PendingStart` — written from the share ext when a
+    /// multi-file drop spawns a bundle Activity that the ext can't actually
+    /// render. Drained from the main app on launch / wake.
+    private struct PendingBundleStart: Codable {
+        let bundleToken: String
+        let fileCount: Int
+        let totalBytes: Int64
+        let filenames: [String]
+        let retentionPolicy: String
+    }
+
     private static let pendingStartsKey = "liveactivity.pending_starts.v1"
+    private static let pendingBundleStartsKey = "liveactivity.pending_bundle_starts.v1"
 
     private static func appGroupDefaults() -> UserDefaults? {
         UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
@@ -276,6 +451,27 @@ public actor LiveActivityController {
 
     private static func clearPending() {
         appGroupDefaults()?.removeObject(forKey: pendingStartsKey)
+    }
+
+    private static func enqueuePendingBundle(_ req: PendingBundleStart) {
+        guard let defaults = appGroupDefaults() else { return }
+        var current = loadPendingBundles()
+        current.append(req)
+        if let data = try? JSONEncoder().encode(current) {
+            defaults.set(data, forKey: pendingBundleStartsKey)
+        }
+    }
+
+    private static func loadPendingBundles() -> [PendingBundleStart] {
+        guard let defaults = appGroupDefaults(),
+              let data = defaults.data(forKey: pendingBundleStartsKey),
+              let decoded = try? JSONDecoder().decode([PendingBundleStart].self, from: data)
+        else { return [] }
+        return decoded
+    }
+
+    private static func clearPendingBundles() {
+        appGroupDefaults()?.removeObject(forKey: pendingBundleStartsKey)
     }
 
     // MARK: - Cross-process resolution
@@ -344,6 +540,37 @@ public actor LiveActivityController {
                               expiresAt: Date) async {}
 
     public func finishFailure(clientJobId: UUID, reason: String) async {}
+
+    @discardableResult
+    public func startBundleOrDefer(bundleToken: String,
+                                   fileCount: Int,
+                                   totalBytes: Int64,
+                                   filenames: [String],
+                                   retentionPolicy: String) -> String? {
+        nil
+    }
+
+    public func drainPendingBundleStarts() {}
+
+    @discardableResult
+    public func startBundle(bundleToken: String,
+                            fileCount: Int,
+                            totalBytes: Int64,
+                            filenames: [String],
+                            retentionPolicy: String) -> String? {
+        nil
+    }
+
+    public func updateBundleProgress(bundleToken: String,
+                                     bytesUploaded: Int64,
+                                     totalBytes: Int64,
+                                     progress: Double) async {}
+
+    public func finishBundleSuccess(bundleToken: String,
+                                    bundleShortUrl: String,
+                                    expiresAt: Date) async {}
+
+    public func finishBundleFailure(bundleToken: String, reason: String) async {}
 }
 
 #endif

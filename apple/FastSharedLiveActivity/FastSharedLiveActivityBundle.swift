@@ -5,5 +5,6 @@ import WidgetKit
 struct FastSharedLiveActivityBundle: WidgetBundle {
     var body: some Widget {
         FastSharedUploadLiveActivity()
+        FastSharedBundleUploadLiveActivity()
     }
 }
