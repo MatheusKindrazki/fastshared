@@ -13,6 +13,7 @@ struct RootView: View {
     @Environment(\.colorScheme) private var colorScheme
     #if os(iOS)
     @State private var screenshotDetector = ScreenshotDetector()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
 
     // WHY: owned here (not in SignInView) because revocation can fire on any
@@ -109,12 +110,22 @@ struct RootView: View {
     @ViewBuilder
     private var mainContent: some View {
         #if os(iOS)
-        NavigationStack {
-            HistoryView()
-                // WHY: the Friendly redesign owns its own header (BrandLockup +
-                // gear). We hide the system nav bar here so the custom header
-                // can breathe — navigation destinations still push normally.
-                .toolbar(.hidden, for: .navigationBar)
+        Group {
+            // WHY: iPad in regular width gets the split-view Library layout
+            // (sidebar + dense table). Compact (iPad portrait slim /
+            // multitasking / all iPhones) keeps the native HistoryView hub.
+            if horizontalSizeClass == .regular {
+                LibraryView()
+            } else {
+                NavigationStack {
+                    HistoryView()
+                        // WHY: the Friendly redesign owns its own header
+                        // (BrandLockup + gear). We hide the system nav bar
+                        // here so the custom header can breathe —
+                        // navigation destinations still push normally.
+                        .toolbar(.hidden, for: .navigationBar)
+                }
+            }
         }
         // WHY: the redesign ships with violet as the default accent; tinting
         // the whole NavigationStack here propagates to system-default chrome
@@ -152,13 +163,12 @@ struct RootView: View {
         .animation(BrandMotion.transition, value: UploadProgressMonitor.shared.current?.id)
         .animation(BrandMotion.transition, value: UploadProgressMonitor.shared.current?.phase)
         #else
-        NavigationSplitView {
-            MacSidebar()
-        } detail: {
-            HistoryView()
-        }
-        .tint(BrandPalette.accent.hot)
-        .background(groundBackground)
+        // WHY: macOS uses the shared split-view Library surface (sidebar + dense
+        // table, cream ground) — replaces the legacy MacSidebar/HistoryView
+        // combo to match the Library prototype.
+        LibraryView()
+            .tint(BrandPalette.accent.hot)
+            .background(groundBackground)
         .overlay(alignment: .top) {
             if let upload = UploadProgressMonitor.shared.current {
                 UploadProgressBanner(upload: upload)

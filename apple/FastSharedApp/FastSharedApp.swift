@@ -122,7 +122,10 @@ struct FastSharedApp: App {
     var body: some Scene {
         WindowGroup {
             #if os(macOS)
-            MacCompanionView()
+            // WHY: redesigned macOS window — `LibraryView` is the shared
+            // sidebar+table surface (also used on iPad regular). Replaces the
+            // legacy `MacCompanionView` companion layout.
+            LibraryView()
                 .environment(\.apiClient, apiClient)
                 .environment(\.uploadService, uploadService)
                 .environment(\.uploadOrchestrator, orchestrator)

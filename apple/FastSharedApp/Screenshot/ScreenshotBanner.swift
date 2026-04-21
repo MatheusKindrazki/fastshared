@@ -22,18 +22,13 @@ struct ScreenshotBanner: View {
 
     // MARK: - Theme helpers
 
-    private var canvasColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
-    }
-    private var textColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
-    }
-    private var textDimColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
-    }
-    private var lineColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
-    }
+    // Semantic tokens respect Dark Mode natively — FriendlyPalette dark
+    // (#140a38) was bleeding purple into the screenshot banner.
+
+    private var canvasColor: Color { Color(.secondarySystemBackground) }
+    private var textColor: Color { Color(.label) }
+    private var textDimColor: Color { Color(.secondaryLabel) }
+    private var lineColor: Color { Color(.separator) }
 
     var body: some View {
         VStack(spacing: 0) {

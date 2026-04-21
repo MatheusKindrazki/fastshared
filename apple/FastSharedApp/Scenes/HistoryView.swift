@@ -42,23 +42,16 @@ struct HistoryView: View {
         .bool(forKey: "dismissed_guest_hint_v1") ?? false
     @State private var showSignInSheet: Bool = false
 
-    // MARK: - Resolved tokens (light/dark adaptive)
+    // MARK: - Resolved tokens (semantic, dark-mode-aware)
+    // Direto de UIKit — respeita Dark Mode do sistema. FriendlyPalette dark
+    // (#0d0625 navy-purple) vazou por esses computed getters; users reclamaram
+    // que a Home ficava roxa no dark mode. Agora é .systemBackground / etc.
 
-    private var groundColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
-    }
-    private var canvasColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
-    }
-    private var textColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
-    }
-    private var textDimColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
-    }
-    private var lineColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
-    }
+    private var groundColor: Color { Color(.systemGroupedBackground) }
+    private var canvasColor: Color { Color(.systemBackground) }
+    private var textColor: Color { Color(.label) }
+    private var textDimColor: Color { Color(.secondaryLabel) }
+    private var lineColor: Color { Color(.separator) }
 
     // MARK: - Filtered / snapshot
 
