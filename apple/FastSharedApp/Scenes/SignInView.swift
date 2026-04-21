@@ -26,19 +26,11 @@ struct SignInView: View {
     // token. Built from the same App Group suite the rest of the app uses.
     private let tokenStore = DeviceTokenStore()
 
-    // Adaptive tokens
-    private var groundColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
-    }
-    private var textColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
-    }
-    private var textDim: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
-    }
-    private var textFaint: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextFaintDark : BrandPalette.friendlyTextFaint
-    }
+    // Adaptive tokens — HIG semantic; adapts to light/dark.
+    private var groundColor: Color { Color(.systemBackground) }
+    private var textColor: Color { Color(.label) }
+    private var textDim: Color { Color(.secondaryLabel) }
+    private var textFaint: Color { Color(.tertiaryLabel) }
 
     var body: some View {
         ZStack {

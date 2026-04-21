@@ -23,29 +23,15 @@ struct MacMenuBarView: View {
     @State private var isDragTargeted: Bool = false
     @State private var isUploading: Bool = false
 
-    // MARK: - Adaptive palette
+    // MARK: - Adaptive palette — HIG semantic (NSColor bridges).
 
-    private var groundColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
-    }
-    private var canvasColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyCanvasDark : BrandPalette.friendlyCanvas
-    }
-    private var surface0Color: Color {
-        colorScheme == .dark ? BrandPalette.friendlySurface0Dark : BrandPalette.friendlySurface0
-    }
-    private var textColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDark : BrandPalette.friendlyText
-    }
-    private var textDimColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextDimDark : BrandPalette.friendlyTextDim
-    }
-    private var textFaintColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyTextFaintDark : BrandPalette.friendlyTextFaint
-    }
-    private var lineColor: Color {
-        colorScheme == .dark ? BrandPalette.friendlyLineDark : BrandPalette.friendlyLine
-    }
+    private var groundColor: Color { Color(nsColor: .windowBackgroundColor) }
+    private var canvasColor: Color { Color(nsColor: .controlBackgroundColor) }
+    private var surface0Color: Color { Color(nsColor: .underPageBackgroundColor) }
+    private var textColor: Color { Color(nsColor: .labelColor) }
+    private var textDimColor: Color { Color(nsColor: .secondaryLabelColor) }
+    private var textFaintColor: Color { Color(nsColor: .tertiaryLabelColor) }
+    private var lineColor: Color { Color(nsColor: .separatorColor) }
 
     // MARK: - Derived data
 

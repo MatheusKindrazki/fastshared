@@ -121,11 +121,10 @@ struct RootView: View {
         // (nav back button, toolbar icons, progress views) without touching
         // every child.
         .tint(BrandPalette.accent.hot)
-        // WHY: ground the whole window with the brand ink so every pixel outside
-        // the safe area (notch/dynamic-island column, home-indicator strip, side
-        // margins on landscape) reads with the brand surface — not the default
-        // window white. Uses `friendlyGround` so light scheme gets the warm
-        // cream; dark scheme gets the brand night.
+        // WHY: ground the whole window with a HIG-semantic surface so every
+        // pixel outside the safe area (notch/dynamic-island column, home-
+        // indicator strip, side margins on landscape) reads as system
+        // background — adapts to light/dark, no hard-coded cream/ink.
         .background(groundBackground.ignoresSafeArea())
         .overlay(alignment: .top) {
             if let pending = screenshotDetector.pending {
@@ -174,10 +173,14 @@ struct RootView: View {
         #endif
     }
 
-    /// Theme-adaptive ground color. Light → warm cream `#fbf8f1`, dark → brand
-    /// night `#0d0625`. Uses the Friendly palette tokens.
+    /// HIG-semantic window ground. Adapts to light/dark automatically; no
+    /// hard-coded brand cream/ink.
     private var groundBackground: Color {
-        colorScheme == .dark ? BrandPalette.friendlyGroundDark : BrandPalette.friendlyGround
+        #if os(iOS)
+        Color(.systemBackground)
+        #else
+        Color(nsColor: .windowBackgroundColor)
+        #endif
     }
 
     // WHY: the app-group suite is shared with the share extension, so onboarding state is consistent
