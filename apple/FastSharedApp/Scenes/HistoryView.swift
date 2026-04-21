@@ -516,6 +516,9 @@ struct HistoryView: View {
         guard case .success(let urls) = result, let service = uploadService else { return }
         Task(priority: .userInitiated) {
             do {
+                // M3: result is polymorphic (.single / .bundle) — UI for the
+                // bundle headline lands in M4; for now we discard the result
+                // since success/failure is surfaced via Live Activity + history.
                 _ = try await service.enqueueDrop(urls: urls)
             } catch let gate as SubscriptionGate {
                 await MainActor.run { routePaywall(for: gate) }

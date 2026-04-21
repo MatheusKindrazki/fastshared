@@ -93,8 +93,10 @@ struct ShareRootView: View {
         case .idle: return 0
         case .preparing: return 1
         case .uploading: return 2
-        case .success: return 3
-        case .failed: return 4
+        case .uploadingBundle: return 3
+        case .success: return 4
+        case .bundleSuccess: return 5
+        case .failed: return 6
         }
     }
 
@@ -122,12 +124,28 @@ struct ShareRootView: View {
                       uploadProgress: progress,
                       bytesSent: sent,
                       bytesTotal: total)
+        case .uploadingBundle(let count, let progress, let sent, let total):
+            // M4: same IdleStage chrome — file card swaps to a bundle headline
+            // and the progress bar drives off the aggregate stream.
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel,
+                      uploadProgress: progress,
+                      bytesSent: sent,
+                      bytesTotal: total,
+                      bundleFileCount: count)
         case .success(let link, let filename, let deduped):
             SuccessStage(link: link,
                          filename: filename,
                          deduped: deduped,
                          retention: viewModel.retentionPolicy,
                          onDone: onDismiss)
+        case .bundleSuccess(let count, let shortUrl):
+            BundleSuccessStage(fileCount: count,
+                               shortUrl: shortUrl,
+                               retention: viewModel.retentionPolicy,
+                               onDone: onDismiss)
         case .failed(let reason, let requestId):
             FailureStage(reason: reason,
                          requestId: requestId,
@@ -333,6 +351,32 @@ private struct SheetFileIcon: View {
     }
 }
 
+/// M4: bundle counterpart of `SheetFileIcon`. Stacked-squares glyph + count.
+private struct SheetBundleStackIcon: View {
+    let count: Int
+    var size: CGFloat = 48
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(bg)
+                .frame(width: size, height: size)
+            VStack(spacing: 2) {
+                Image(systemName: "square.stack.3d.up.fill")
+                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .foregroundStyle(FriendlyPalette.accentHot)
+                Text("\(count)")
+                    .font(.system(size: size * 0.22, weight: .heavy).monospacedDigit())
+                    .foregroundStyle(FriendlyPalette.accentHot)
+            }
+        }
+    }
+}
+
 // MARK: - Progress bar atom
 
 private struct SheetProgressBar: View {
@@ -369,6 +413,9 @@ private struct IdleStage: View {
     var uploadProgress: Double? = nil
     var bytesSent: Int64 = 0
     var bytesTotal: Int64 = 0
+    /// M4: when set (>1), the file card swaps to "Sending {N} files · {bytes}"
+    /// instead of single-file metadata.
+    var bundleFileCount: Int? = nil
 
     @State private var tier: Tier = .free
     @Environment(\.colorScheme) private var colorScheme
@@ -434,7 +481,23 @@ private struct IdleStage: View {
     private var fileCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
-                if let first = viewModel.items.first {
+                if let count = bundleFileCount, count > 1 {
+                    // M4: bundle headline — synthetic stack icon + N-files copy.
+                    SheetBundleStackIcon(count: count, size: 48)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Sending \(count) files")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(textColor)
+                            .lineLimit(1)
+                        Text("\(ByteCountFormatter.string(fromByteCount: bytesSent, countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: bytesTotal, countStyle: .file))")
+                            .font(.system(size: 12, weight: .regular).monospacedDigit())
+                            .foregroundStyle(textDimColor)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 0)
+                } else if let first = viewModel.items.first {
                     SheetFileIcon(contentType: first.contentType, size: 48)
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -804,6 +867,112 @@ private struct SuccessStage: View {
         // already on the pasteboard from the upload completion, so re-copy and
         // let the user paste wherever. The Done button dismisses the sheet.
         copyIfNeeded()
+    }
+}
+
+// MARK: - Bundle success stage
+
+/// M4: shown after a bundle upload completes. Mirrors `SuccessStage` chrome
+/// but headlines "{N} files shared!" and the link card uses the bundle short
+/// URL (fastsha.red/b/{token}). Clipboard copy already done by the orchestrator.
+private struct BundleSuccessStage: View {
+    let fileCount: Int
+    let shortUrl: URL
+    let retention: RetentionPolicy
+    let onDone: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
+    private var canvasColor: Color  { FriendlyPalette.canvas(colorScheme) }
+    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+
+            SheetPlaneArc(size: 100, framed: false, ambient: true)
+                .overlay(alignment: .bottomTrailing) {
+                    ZStack {
+                        Circle()
+                            .fill(FriendlyPalette.successGreen)
+                            .frame(width: 40, height: 40)
+                        Text("✓")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(.white)
+                    }
+                    .offset(x: 4, y: 4)
+                }
+                .padding(.top, 24)
+
+            Text("\(fileCount) files shared!")
+                .font(.system(size: 30, weight: .bold))
+                .tracking(-30 * 0.025)
+                .foregroundStyle(textColor)
+                .multilineTextAlignment(.center)
+                .padding(.top, 28)
+
+            Text("One link, every file. Expires in \(retentionBodyText).")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(textDimColor)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 280)
+                .padding(.top, 8)
+
+            // Bundle link card — same shape as single, but shows /b/ path.
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("YOUR BUNDLE LINK")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(textDimColor)
+                    Text(shortUrl.absoluteString)
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(textColor)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 0)
+                Text("✓")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(FriendlyPalette.successGreen)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .background(canvasColor, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(lineColor, lineWidth: 1)
+            )
+            .padding(.top, 20)
+
+            Button(action: onDone) {
+                Text("Done")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(FriendlyPalette.text(.light))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 20)
+            #if os(iOS)
+            .keyboardShortcut(.defaultAction)
+            #endif
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var retentionBodyText: String {
+        switch retention {
+        case .oneHour: return "1 hour"
+        case .oneDay: return "24 hours"
+        case .oneWeek: return "7 days"
+        case .oneMonth: return "30 days"
+        default: return retention.displayName
+        }
     }
 }
 
