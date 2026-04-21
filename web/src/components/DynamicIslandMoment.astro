@@ -1,5 +1,5 @@
 ---
-// Dynamic Island moment — mocked iPhone notch + three rotating states.
+// Dynamic Island moment — mocked iPhone on a warm cream stage.
 // States cycle every 2s via the script in src/scripts/hero.ts when JS is on.
 // Under prefers-reduced-motion or no-JS, the completed state is shown statically.
 ---
@@ -9,31 +9,35 @@
     <div>
       <h2
         id="island-heading"
-        class="font-display text-milk"
+        class="font-display text-charcoal"
         style="font-size: clamp(40px, 7vw, 112px); line-height: 0.95; letter-spacing: -0.05em;"
       >
         <span class="block font-bold">Live in the Island.</span>
-        <span class="block font-light text-milk/75">Watch your upload breathe.</span>
+        <span class="block font-light text-charcoal/60">Watch your upload breathe.</span>
       </h2>
-      <p class="mt-8 font-mono text-[13px] leading-[1.6] tracking-[0.04em] text-milk/55">
+      <p class="mt-8 font-mono text-[13px] leading-[1.6] tracking-[0.04em] text-charcoal/50">
         iPhone 14 Pro and newer · Lock Screen on any iPhone.
       </p>
     </div>
 
-    <!-- mocked iPhone notch -->
+    <!-- mocked iPhone — light frame, dark island -->
     <div class="relative mx-auto w-full max-w-[420px]" data-island-root>
-      <!-- phone top bezel -->
+      <!-- phone body -->
       <div
-        class="relative mx-auto aspect-[9/10] w-full rounded-[48px] border border-white/10"
+        class="relative mx-auto aspect-[9/10] w-full rounded-[48px]"
         style="
-          background: radial-gradient(120% 80% at 50% 0%, #1d0d4b 0%, #070318 60%);
-          box-shadow: 0 40px 80px -30px rgba(90,30,160,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+          background: var(--canvas);
+          border: 1px solid rgba(0,0,0,0.08);
+          box-shadow:
+            0 32px 80px -24px rgba(0,0,0,0.10),
+            0 1px 3px rgba(0,0,0,0.06),
+            inset 0 1px 0 rgba(255,255,255,0.6);
         "
       >
         <!-- the Dynamic Island -->
         <div
           class="absolute left-1/2 -translate-x-1/2 top-6 h-[110px] min-w-[220px] max-w-[360px] w-[70%] rounded-[55px] flex items-center justify-between gap-4 px-6"
-          style="background: #070318; box-shadow: 0 0 0 1px rgba(255,255,255,0.04);"
+          style="background: #0d0d0d; box-shadow: 0 0 0 1px rgba(255,255,255,0.06);"
           role="img"
           aria-label="Dynamic Island — upload state preview"
         >
@@ -56,8 +60,8 @@
               />
             </svg>
             <div class="flex flex-col justify-center">
-              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-milk/50">uploading</span>
-              <span class="font-mono text-[15px] font-medium text-violet-hot tabular-nums">71<span class="text-milk/40">%</span></span>
+              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-white/50">uploading</span>
+              <span class="font-mono text-[15px] font-medium text-violet-hot tabular-nums">71<span class="text-white/40">%</span></span>
             </div>
           </div>
 
@@ -68,8 +72,8 @@
               <path d="M13 20.5 L18 26 L27.5 15" fill="none" stroke="#9d7aff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
             <div class="flex flex-col justify-center">
-              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-milk/50">copied</span>
-              <span class="font-mono text-[14px] text-milk truncate">fastsha.red/s/abc<span class="text-milk/40">…</span></span>
+              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-white/50">copied</span>
+              <span class="font-mono text-[14px] text-white truncate">fastsha.red/s/abc<span class="text-white/40">…</span></span>
             </div>
           </div>
 
@@ -81,18 +85,18 @@
               <span class="w-1 h-1 rounded-full bg-coral opacity-35"></span>
             </div>
             <div class="flex flex-col justify-center">
-              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-milk/40">expired</span>
+              <span class="font-mono text-[11px] tracking-[0.1em] uppercase text-white/40">expired</span>
               <span class="font-mono text-[18px] text-coral">—</span>
             </div>
           </div>
         </div>
 
-        <!-- faint time stamp in the corner to sell the "phone" -->
-        <div class="absolute top-8 left-8 font-mono text-[12px] tracking-wider text-milk/40">9:41</div>
-        <div class="absolute top-8 right-8 flex items-center gap-1.5 text-milk/40" aria-hidden="true">
-          <span class="inline-block w-1 h-1 rounded-full bg-milk/60"></span>
-          <span class="inline-block w-1 h-1 rounded-full bg-milk/50"></span>
-          <span class="inline-block w-1 h-1 rounded-full bg-milk/40"></span>
+        <!-- faint time stamp -->
+        <div class="absolute top-8 left-8 font-mono text-[12px] tracking-wider text-charcoal/40">9:41</div>
+        <div class="absolute top-8 right-8 flex items-center gap-1.5 text-charcoal/40" aria-hidden="true">
+          <span class="inline-block w-1 h-1 rounded-full bg-charcoal/60"></span>
+          <span class="inline-block w-1 h-1 rounded-full bg-charcoal/50"></span>
+          <span class="inline-block w-1 h-1 rounded-full bg-charcoal/40"></span>
         </div>
       </div>
     </div>
