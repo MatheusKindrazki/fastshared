@@ -26,10 +26,19 @@ public struct StagedItem: Identifiable, Sendable {
 enum ShareUploadPhase: Sendable {
     case idle
     case preparing
+    /// Pre-presign hash pass. Determinate bar when `totalBytes` known.
+    /// Exists so a 125 MB video doesn't freeze the UI at 0% for ~4s while
+    /// SHA-256 streams the file.
+    case hashing(bytesHashed: Int64, totalBytes: Int64)
+    /// Presign (and multipart init for >10 MB) round-trip. Indeterminate.
+    case presigning
     case uploading(progress: Double, bytesSent: Int64, bytesTotal: Int64)
     /// M4: aggregated bundle progress (N>1 files). Single uploads stay on
     /// `.uploading`/`.success`. Drives the "Sending {N} files · {bytes}" headline.
     case uploadingBundle(fileCount: Int, progress: Double, bytesUploaded: Int64, totalBytes: Int64)
+    /// POST /complete in flight (multipart path only — single-PUT finalize
+    /// happens in the background session after the extension closes).
+    case finalizing
     case success(link: FastSharedCore.ShareLink, filename: String, deduped: Bool)
     /// M4: bundle finished — short URL is already on the clipboard (orchestrator
     /// did the copy). UI shows a celebratory headline + count.
@@ -60,10 +69,33 @@ final class ShareViewModel {
         self.retentionPolicy = stored.flatMap(RetentionPolicy.init(rawValue:)) ?? .default
     }
 
+    /// Mirrors a `UploadPreparePhase` emission from UploadService into the UI.
+    /// Called synchronously on MainActor from the share extension's upload
+    /// callback before the SwiftData status poll sees anything.
+    func applyPreparePhase(_ phase: FastSharedCore.UploadPreparePhase) {
+        // Ignore once we've reached a terminal state to avoid a late observer
+        // emission flashing back to hashing/presigning after success/failure.
+        switch self.phase {
+        case .success, .bundleSuccess, .failed: return
+        default: break
+        }
+        switch phase {
+        case .hashing(let done, let total):
+            self.phase = .hashing(bytesHashed: done, totalBytes: total)
+        case .presigning:
+            self.phase = .presigning
+        case .finalizing:
+            self.phase = .finalizing
+        }
+    }
+
     func startObserving(clientJobId: UUID, filename: String, totalBytes: Int64) {
         pollTask?.cancel()
         activeJobId = clientJobId
-        phase = .preparing
+        // Don't clobber a more-specific prepare phase the observer already set.
+        if case .hashing = phase {} else if case .presigning = phase {} else if case .finalizing = phase {} else if case .uploading = phase {} else {
+            phase = .preparing
+        }
 
         let repo = UploadJobRepository(store: SwiftDataStore.shared)
         pollTask = Task { @MainActor [weak self] in
@@ -139,13 +171,20 @@ final class ShareViewModel {
         case .queued, .presigning:
             if case .success = phase { return }
             if case .failed = phase { return }
+            // Prefer the finer-grained prepare phases the UploadService
+            // observer already set; `.presigning` status in SwiftData is a
+            // coarser label than the observer's `hashing`/`presigning`.
+            if case .hashing = phase { return }
+            if case .presigning = phase { return }
+            if case .uploading = phase { return }
             phase = .preparing
         case .uploading:
             let bytesSent = Int64(Double(totalBytes) * snapshot.progress)
             phase = .uploading(progress: snapshot.progress, bytesSent: bytesSent, bytesTotal: totalBytes)
         case .completing:
-            // Server-side finalizing — keep progress bar at 100% rather than snapping back.
-            phase = .uploading(progress: 1.0, bytesSent: totalBytes, bytesTotal: totalBytes)
+            // Server-side finalizing — show the finalizing label so users
+            // aren't staring at a frozen 100% bar during the /complete RTT.
+            phase = .finalizing
         case .completed:
             if let link = shareLink {
                 phase = .success(link: link, filename: filename, deduped: false)

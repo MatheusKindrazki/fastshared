@@ -92,11 +92,14 @@ struct ShareRootView: View {
         switch viewModel.phase {
         case .idle: return 0
         case .preparing: return 1
-        case .uploading: return 2
-        case .uploadingBundle: return 3
-        case .success: return 4
-        case .bundleSuccess: return 5
-        case .failed: return 6
+        case .hashing: return 2
+        case .presigning: return 3
+        case .uploading: return 4
+        case .uploadingBundle: return 5
+        case .finalizing: return 6
+        case .success: return 7
+        case .bundleSuccess: return 8
+        case .failed: return 9
         }
     }
 
@@ -115,7 +118,27 @@ struct ShareRootView: View {
                       paywallCoordinator: paywallCoordinator,
                       onUpload: onUpload,
                       onCancel: onCancel,
-                      isPreparing: true)
+                      prepareKind: .preparing)
+        case .hashing(let done, let total):
+            // Determinate bar — total is always known from FileManager attrs.
+            let frac = total > 0 ? Double(done) / Double(total) : 0
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel,
+                      prepareKind: .hashing(progress: frac))
+        case .presigning:
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel,
+                      prepareKind: .presigning)
+        case .finalizing:
+            IdleStage(viewModel: viewModel,
+                      paywallCoordinator: paywallCoordinator,
+                      onUpload: onUpload,
+                      onCancel: onCancel,
+                      prepareKind: .finalizing)
         case .uploading(let progress, let sent, let total):
             IdleStage(viewModel: viewModel,
                       paywallCoordinator: paywallCoordinator,
@@ -402,14 +425,79 @@ private struct SheetProgressBar: View {
     }
 }
 
+/// Indeterminate shimmer bar for prepare phases without a measurable fraction
+/// (presign request, /complete RTT). 1.4s linear loop matches the project's
+/// existing motion language without pulling in BrandMotion (extension target).
+private struct SheetIndeterminateBar: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var animate = false
+
+    private var trackColor: Color { Color(.separator) }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(trackColor)
+                    .frame(height: 6)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                FriendlyPalette.accentHot.opacity(0),
+                                FriendlyPalette.accentHot,
+                                FriendlyPalette.accentHot.opacity(0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: w * 0.4, height: 6)
+                    .offset(x: animate ? w * 0.6 : -w * 0.4)
+                    .animation(
+                        .linear(duration: 1.4).repeatForever(autoreverses: false),
+                        value: animate
+                    )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .onAppear { animate = true }
+        }
+        .frame(height: 6)
+    }
+}
+
 // MARK: - Idle / Preparing / Uploading stage
+
+/// Pre-PUT phases the IdleStage card surfaces. Determinate when the underlying
+/// work has a known total (`hashing`); indeterminate otherwise.
+enum PreparePhaseKind: Equatable {
+    case preparing                       // legacy catch-all
+    case hashing(progress: Double)       // determinate 0…1
+    case presigning                      // indeterminate
+    case finalizing                      // indeterminate
+
+    var label: String {
+        switch self {
+        case .preparing:  return "Preparing…"
+        case .hashing:    return "Preparing file…"
+        case .presigning: return "Creating link…"
+        case .finalizing: return "Finalizing…"
+        }
+    }
+
+    var determinateProgress: Double? {
+        if case .hashing(let p) = self { return p }
+        return nil
+    }
+}
 
 private struct IdleStage: View {
     @Bindable var viewModel: ShareViewModel
     @Bindable var paywallCoordinator: PaywallCoordinator
     let onUpload: () async -> Void
     let onCancel: () -> Void
-    var isPreparing: Bool = false
+    var prepareKind: PreparePhaseKind? = nil
     var uploadProgress: Double? = nil
     var bytesSent: Int64 = 0
     var bytesTotal: Int64 = 0
@@ -432,6 +520,7 @@ private struct IdleStage: View {
     }
 
     private var isUploading: Bool { uploadProgress != nil }
+    private var isPreparing: Bool { prepareKind != nil }
     private var effectiveProgress: Double { uploadProgress ?? 0 }
     private var progressPercent: Int { Int((effectiveProgress * 100).rounded()) }
     private var canSubmit: Bool { !viewModel.items.isEmpty && !isPreparing && !isUploading }
@@ -524,18 +613,41 @@ private struct IdleStage: View {
                 }
             }
 
-            // Progress bar row — only when uploading/preparing
+            // Progress bar row — only when uploading/preparing.
+            // WHY split: hashing has a real fraction; presigning/finalizing
+            // are server round-trips with no progress signal — show a
+            // shimmer instead of a fake/frozen percentage.
             if isPreparing || isUploading {
-                HStack(spacing: 10) {
-                    SheetProgressBar(progress: isPreparing ? 0.12 : effectiveProgress)
-                        .frame(maxWidth: .infinity)
-
-                    Text("\(isPreparing ? 0 : progressPercent)%")
-                        .font(.system(size: 12, weight: .bold).monospacedDigit())
-                        .foregroundStyle(FriendlyPalette.accentHot)
-                        .frame(minWidth: 36, alignment: .trailing)
+                if isUploading {
+                    HStack(spacing: 10) {
+                        SheetProgressBar(progress: effectiveProgress)
+                            .frame(maxWidth: .infinity)
+                        Text("\(progressPercent)%")
+                            .font(.system(size: 12, weight: .bold).monospacedDigit())
+                            .foregroundStyle(FriendlyPalette.accentHot)
+                            .frame(minWidth: 36, alignment: .trailing)
+                    }
+                    .padding(.top, 14)
+                } else if let kind = prepareKind {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let det = kind.determinateProgress {
+                            HStack(spacing: 10) {
+                                SheetProgressBar(progress: det)
+                                    .frame(maxWidth: .infinity)
+                                Text("\(Int((det * 100).rounded()))%")
+                                    .font(.system(size: 12, weight: .bold).monospacedDigit())
+                                    .foregroundStyle(FriendlyPalette.accentHot)
+                                    .frame(minWidth: 36, alignment: .trailing)
+                            }
+                        } else {
+                            SheetIndeterminateBar()
+                        }
+                        Text(kind.label)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(textDimColor)
+                    }
+                    .padding(.top, 14)
                 }
-                .padding(.top, 14)
             }
         }
         .padding(16)
@@ -667,7 +779,16 @@ private struct IdleStage: View {
 
     private var ctaButton: some View {
         let uploading = isPreparing || isUploading
-        let labelText = uploading ? "Uploading…" : "Create link →"
+        let labelText: String
+        if isUploading {
+            labelText = "Uploading…"
+        } else if let kind = prepareKind {
+            labelText = kind.label
+        } else if uploading {
+            labelText = "Uploading…"
+        } else {
+            labelText = "Create link →"
+        }
 
         return Button {
             Task { await onUpload() }

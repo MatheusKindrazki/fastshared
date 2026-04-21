@@ -2,6 +2,21 @@ import Foundation
 import OSLog
 import UniformTypeIdentifiers
 
+/// Fine-grained prepare/finalize phases emitted by `UploadService.enqueue` so
+/// the share-extension UI can label the 10-15s gap between tap and first PUT
+/// byte (hashing a 125 MB video eats ~4s on iPhone; multipart presign adds
+/// another 2-3s). Without this the user sees "0%" frozen and thinks the app hung.
+public enum UploadPreparePhase: Sendable {
+    /// Hashing the local file. `totalBytes` is always known; `bytesHashed`
+    /// ticks every 1 MB chunk so the bar is determinate.
+    case hashing(bytesHashed: Int64, totalBytes: Int64)
+    /// Presign request in flight (+ multipart init for files > 10 MB).
+    /// Indeterminate — server latency is not measurable client-side.
+    case presigning
+    /// POST /complete in flight after the last R2 PUT landed.
+    case finalizing
+}
+
 public protocol UploadServiceProtocol: Sendable {
     func enqueue(stagedURL: URL,
                  contentType: String,
@@ -140,6 +155,22 @@ public actor UploadService: UploadServiceProtocol {
                         contentType: String,
                         originalFilename: String?,
                         retentionPolicy: RetentionPolicy = .default) async throws -> UploadJob {
+        try await enqueue(stagedURL: stagedURL,
+                          contentType: contentType,
+                          originalFilename: originalFilename,
+                          retentionPolicy: retentionPolicy,
+                          prepareObserver: nil)
+    }
+
+    /// Overload that emits `UploadPreparePhase` events to `prepareObserver`
+    /// during the pre-R2-PUT window (hash + presign + multipart-init) and
+    /// around the POST /complete finalize. Share-ext uses it to keep the UI
+    /// alive during the 10-15s pause that used to show a frozen 0% bar.
+    public func enqueue(stagedURL: URL,
+                        contentType: String,
+                        originalFilename: String?,
+                        retentionPolicy: RetentionPolicy = .default,
+                        prepareObserver: (@Sendable (UploadPreparePhase) -> Void)?) async throws -> UploadJob {
         _ = try await ensureDeviceToken()
         let attrs = try FileManager.default.attributesOfItem(atPath: stagedURL.path)
         let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
@@ -158,9 +189,17 @@ public actor UploadService: UploadServiceProtocol {
 
         do {
             try await repository.updateStatus(clientJobId: job.clientJobId, status: .presigning)
+            // Emit hashing immediately so the UI swaps "Preparing…" → determinate bar.
+            prepareObserver?(.hashing(bytesHashed: 0, totalBytes: size))
             // Hash and presign run concurrently; sha256 is sent at /complete.
             // Trade: first upload of a new hash skips server-side dedup fast-path.
-            async let hashFuture = SHA256Streamer.hash(fileAt: stagedURL)
+            async let hashFuture = SHA256Streamer.hash(fileAt: stagedURL, progress: { bytes in
+                prepareObserver?(.hashing(bytesHashed: bytes, totalBytes: size))
+            })
+            // Presign races alongside hash. Flip to `.presigning` so the UI
+            // swaps to an indeterminate shimmer while the server returns
+            // multipart part URLs (2-3s for 125 MB files).
+            prepareObserver?(.presigning)
             async let presignFuture = apiClient.requestUpload(PresignRequest(
                 clientJobId: job.clientJobId,
                 contentType: contentType,
@@ -220,7 +259,8 @@ public actor UploadService: UploadServiceProtocol {
                                             size: size,
                                             contentType: contentType,
                                             originalFilename: originalFilename,
-                                            sha256: sha)
+                                            sha256: sha,
+                                            prepareObserver: prepareObserver)
             }
             job.status = .uploading
             job.expiresAt = presign.expiresAt
@@ -639,7 +679,8 @@ public actor UploadService: UploadServiceProtocol {
                                    size: Int64,
                                    contentType: String,
                                    originalFilename: String?,
-                                   sha256: String) async throws {
+                                   sha256: String,
+                                   prepareObserver: (@Sendable (UploadPreparePhase) -> Void)? = nil) async throws {
         let uploader = MultipartUploader(session: background.multipartURLSession)
         let uploaderPlan = MultipartUploader.Plan(
             multipartUploadId: plan.multipartUploadId,
@@ -678,6 +719,7 @@ public actor UploadService: UploadServiceProtocol {
                 parts: completion.parts.map { .init(partNumber: $0.partNumber, eTag: $0.eTag) }
             )
             try await repository.updateStatus(clientJobId: clientJobId, status: .completing)
+            prepareObserver?(.finalizing)
             let response = try await apiClient.completeUpload(
                 uploadId: uploadId,
                 request: CompleteRequest(contentType: contentType,
