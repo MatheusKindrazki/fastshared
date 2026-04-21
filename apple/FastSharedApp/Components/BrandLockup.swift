@@ -30,8 +30,16 @@ struct BrandLockup: View {
     var body: some View {
         let accent = BrandPalette.amberAccent
         HStack(spacing: 8) {
-            PlaneArcMark(size: markSize)
-                .accessibilityHidden(true)
+            // Override PlaneArcMark's default violet (accent.hot) with amber —
+            // the brand accent actually used across Settings/Paywall/SignIn/
+            // Splash. Keeps the lockup visually consistent with every other
+            // amber CTA and avoids the solitary-violet-logo look reported.
+            PlaneArcMark(
+                size: markSize,
+                accent: accent.hot,
+                gradient: Gradient(colors: [.clear, accent.hot, accent.soft])
+            )
+            .accessibilityHidden(true)
 
             (
                 Text("fastshared")
