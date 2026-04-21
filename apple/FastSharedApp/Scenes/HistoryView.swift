@@ -82,7 +82,8 @@ struct HistoryView: View {
         .foregroundStyle(textColor)
         .navigationTitle("Shares")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
         .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search shares")
         .refreshable { await viewModel?.refresh(visibleLinks: links) }
@@ -234,6 +235,14 @@ struct HistoryView: View {
                 Image(systemName: "gearshape")
             }
             .accessibilityLabel("Settings")
+        }
+        // Brand identity in the principal slot — the App Store / iMessage
+        // / Instagram pattern. Replaces the plain "Shares" title so the
+        // logo is visible on every scroll position.
+        ToolbarItem(placement: .principal) {
+            BrandLockup(markSize: 22, textSize: 15)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel("FastShared")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
