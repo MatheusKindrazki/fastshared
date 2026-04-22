@@ -23,6 +23,7 @@ struct MacMenuBarView: View {
 
     @State private var isDragTargeted: Bool = false
     @State private var isUploading: Bool = false
+    @State private var showSettings: Bool = false
 
     // MARK: - Adaptive palette — HIG semantic (NSColor bridges).
 
@@ -54,9 +55,14 @@ struct MacMenuBarView: View {
             dropZoneCard
                 .padding(12)
             recentBlock
+            footer
         }
         .frame(width: 360)
         .background(groundColor)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .frame(minWidth: 520, minHeight: 640)
+        }
     }
 
     // MARK: - Header
@@ -152,6 +158,30 @@ struct MacMenuBarView: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
+        }
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            lineColor.frame(height: 1)
+            HStack {
+                Spacer()
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(textDimColor)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open Settings")
+                .padding(.trailing, 8)
+            }
+            .padding(.vertical, 6)
         }
     }
 
