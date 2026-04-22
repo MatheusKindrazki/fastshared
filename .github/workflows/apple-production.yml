@@ -56,6 +56,10 @@ jobs:
         run: |
           bundle update
 
+      - name: Generate Xcode project
+        working-directory: apple
+        run: xcodegen generate
+
       - name: Build and upload production build
         working-directory: apple
         env:
