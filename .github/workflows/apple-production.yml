@@ -53,6 +53,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/asc"
           echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
+      - name: Update gems for Ruby 3.2 compatibility
+        run: bundle update
+
       - name: Build and upload production build
         env:
           APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
