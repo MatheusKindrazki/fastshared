@@ -55,6 +55,11 @@ jobs:
             -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
           ls -la "build/ipa"
 
+      - name: Prepare API key for altool
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp "$RUNNER_TEMP/asc/AuthKey.p8" "$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}.p8"
+
       - name: Upload to TestFlight
         working-directory: apple
         env:
@@ -65,5 +70,4 @@ jobs:
             --type ios \
             --file "build/ipa/FastShared.ipa" \
             --apiKey "$APPSTORE_CONNECT_API_KEY_ID" \
-            --apiIssuer "$APPSTORE_CONNECT_API_KEY_ISSUER_ID" \
-            --apiKeyPath "$RUNNER_TEMP/asc/AuthKey.p8"
+            --apiIssuer "$APPSTORE_CONNECT_API_KEY_ISSUER_ID"
