@@ -475,6 +475,9 @@ private struct LibrarySidebar: View {
         #endif
         .sheet(isPresented: $showSettings) {
             SettingsView()
+                #if os(macOS)
+                .frame(minWidth: 520, minHeight: 640)
+                #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("dev.kindrazki.fastshared.openSettings"))) { _ in
             showSettings = true

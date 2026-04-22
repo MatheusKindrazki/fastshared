@@ -10,6 +10,7 @@ struct SettingsView: View {
     @Environment(\.subscriptionStore) private var subscriptionStore
     @Environment(\.paywallCoordinator) private var paywallCoordinator
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     @State private var deviceIdSuffix: String = "------"
     @State private var confirmSignOut: Bool = false
@@ -50,14 +51,28 @@ struct SettingsView: View {
             ground.ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 0) {
-                // Title block
-                Text("Settings")
-                    .font(.system(size: 28, weight: .bold))
-                    .kerning(-0.025 * 28)
-                    .foregroundStyle(textPrimary)
-                    .padding(.top, 8)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 14)
+                // Title block — macOS gets a close button since sheets
+                // don't have a native dismiss affordance like iOS swipe.
+                HStack {
+                    Text("Settings")
+                        .font(.system(size: 28, weight: .bold))
+                        .kerning(-0.025 * 28)
+                        .foregroundStyle(textPrimary)
+                    Spacer()
+                    #if os(macOS)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundStyle(textDim.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    #endif
+                }
+                .padding(.top, 8)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 14)
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
