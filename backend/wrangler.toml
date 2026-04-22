@@ -62,6 +62,8 @@ DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 [env.staging]
 name = "fastshared-api-stg"
 # No custom routes — accessible via fastshared-api-stg.workers.dev
+# No cron triggers on staging to avoid hitting the Cloudflare Free plan
+# limit of 5 cron triggers per account.
 
 [[env.staging.r2_buckets]]
 binding = "R2"
