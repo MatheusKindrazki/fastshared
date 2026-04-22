@@ -262,10 +262,14 @@ final class SettingsWindowHolder {
 
     /// Opens (or re-opens) a dedicated Settings window.
     func open() {
+        NSLog("[SettingsWindowHolder] open() called")
         // If a window already exists, just bring it to front
-        if let existing = window, existing.isVisible {
-            existing.makeKeyAndOrderFront(nil)
-            return
+        if let existing = window {
+            NSLog("[SettingsWindowHolder] existing window found, isVisible=\(existing.isVisible)")
+            if existing.isVisible {
+                existing.makeKeyAndOrderFront(nil)
+                return
+            }
         }
         let newWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 540, height: 680),
@@ -274,9 +278,12 @@ final class SettingsWindowHolder {
             defer: false
         )
         newWindow.title = "Settings"
+        newWindow.isReleasedWhenClosed = false
+        newWindow.level = .floating
         newWindow.contentViewController = NSHostingController(rootView: SettingsView())
         newWindow.center()
         newWindow.makeKeyAndOrderFront(nil)
+        NSLog("[SettingsWindowHolder] new window created and shown")
         window = newWindow
     }
 }
