@@ -361,6 +361,7 @@ private struct LibrarySidebar: View {
     let textFaintColor: Color
     let lineColor: Color
     let surfaceColor: Color
+    @State private var showSettings = false
 
     // WHY: iOS `List(selection:)` takes an Optional binding. We bridge the
     // non-optional LibrarySelection here so the parent stays simple.
@@ -414,10 +415,39 @@ private struct LibrarySidebar: View {
                     .foregroundStyle(textFaintColor)
                     .padding(.top, 8)
             }
+
+            // Settings access — iPad doesn't have a nav bar gear icon
+            // like HistoryView on iPhone, so we surface it in the sidebar.
+            #if os(iOS)
+            Section {
+                Button {
+                    showSettings = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(textDimColor)
+                            .frame(width: 20, alignment: .center)
+                        Text("Settings")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(textColor)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+            #endif
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         .background(surfaceColor)
+        #if os(iOS)
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        #endif
     }
 
     @ViewBuilder

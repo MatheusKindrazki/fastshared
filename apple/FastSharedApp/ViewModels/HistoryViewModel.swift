@@ -108,6 +108,7 @@ final class HistoryViewModel {
                                                  sizeBytes: item.sizeBytes,
                                                  originalFilename: item.originalFilename)
                     context.insert(entity)
+                    await PersistenceEventStream.shared.emit(.shareLinkInserted(token: item.token))
                 }
             } catch {
                 lastError = error.localizedDescription

@@ -95,7 +95,7 @@ struct FastSharedApp: App {
             let defaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
             for await snap in subscriptionStore.snapshotStream {
                 let toggleOn = defaults?.object(forKey: "cloud_sync_enabled_v1") as? Bool ?? true
-                let shouldRun = snap.isPro && snap.caps.allowsCloudSync && toggleOn
+                let shouldRun = snap.caps.allowsCloudSync && toggleOn
                 let running = await cloudKitEngine.isRunning
                 if shouldRun && !running {
                     try? await cloudKitEngine.start()
@@ -182,6 +182,15 @@ struct FastSharedApp: App {
 #if canImport(UIKit)
 final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     private let log = Logger(subsystem: Log.subsystem, category: "app")
+
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // WHY: CKSyncEngine uses push notifications to trigger real-time sync
+        // when records change on another device. Without this, cross-device sync
+        // only happens on launch / foreground, causing multi-minute delays.
+        application.registerForRemoteNotifications()
+        return true
+    }
 
     func application(_ application: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,

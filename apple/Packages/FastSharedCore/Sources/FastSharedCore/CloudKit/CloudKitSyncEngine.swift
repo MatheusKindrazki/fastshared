@@ -69,7 +69,7 @@ public final actor CloudKitSyncEngine: CloudKitSyncEngineProtocol {
 
     public func start() async throws {
         let snapshot = await subscriptionStore.currentSnapshot()
-        guard snapshot.isPro, snapshot.caps.allowsCloudSync else {
+        guard snapshot.caps.allowsCloudSync else {
             throw CloudKitSyncEngineError.notSubscribed
         }
         guard !started else { return }
@@ -155,12 +155,37 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
 
     public func start() async throws {
         guard engine == nil else { return }
+
+        // WHY: CKSyncEngine does NOT auto-create custom record zones.
+        // If FastSharedZone doesn't exist on the server, every sync fails
+        // with "Zone Not Found" (26/2036). We must provision it first.
+        try await ensureZoneExists()
+
         let configuration = CKSyncEngine.Configuration(
             database: database,
             stateSerialization: loadSerialization(),
             delegate: self
         )
         self.engine = CKSyncEngine(configuration)
+    }
+
+    private func ensureZoneExists() async throws {
+        let zone = CKRecordZone(zoneID: zoneID)
+        do {
+            let saved = try await database.save(zone)
+            log.info("CloudKit zone created: \(saved.zoneID.zoneName, privacy: .public)")
+        } catch let error as CKError {
+            // Zone already exists — harmless, proceed.
+            if error.code == .serverRecordChanged || error.code == .zoneNotFound {
+                log.info("CloudKit zone already exists or concurrent creation: \(self.zoneID.zoneName, privacy: .public)")
+            } else {
+                log.error("Failed to create CloudKit zone: \(error.localizedDescription, privacy: .public)")
+                throw error
+            }
+        } catch {
+            log.error("Failed to create CloudKit zone: \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
     }
 
     public func stop() async {
@@ -211,25 +236,10 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
 
     // MARK: - CKSyncEngineDelegate
 
+    // MARK: - CKSyncEngineDelegate (iOS 17.4+ / macOS 14.4+ async)
+
     public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
-        switch event {
-        case .stateUpdate(let update):
-            saveSerialization(update.stateSerialization)
-        case .fetchedRecordZoneChanges(let changes):
-            await applyFetched(changes)
-        case .sentRecordZoneChanges(let sent):
-            // WHY: re-queue failed saves; successful ones need no follow-up.
-            let failedSaves = sent.failedRecordSaves.map { CKSyncEngine.PendingRecordZoneChange.saveRecord($0.record.recordID) }
-            if !failedSaves.isEmpty {
-                syncEngine.state.add(pendingRecordZoneChanges: failedSaves)
-            }
-        case .accountChange, .fetchedDatabaseChanges, .willFetchChanges, .willFetchRecordZoneChanges,
-             .didFetchChanges, .didFetchRecordZoneChanges, .willSendChanges, .didSendChanges,
-             .sentDatabaseChanges:
-            break
-        @unknown default:
-            break
-        }
+        await handleEventCommon(event, syncEngine: syncEngine)
     }
 
     public func nextRecordZoneChangeBatch(_ context: CKSyncEngine.SendChangesContext,
@@ -239,6 +249,62 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
         return await CKSyncEngine.RecordZoneChangeBatch(pendingChanges: pending) { [weak self] recordID in
             guard let self else { return nil }
             return self.buildRecord(for: recordID)
+        }
+    }
+
+    // MARK: - CKSyncEngineDelegate (iOS 17.0 / macOS 14.0 sync fallback)
+    // WHY: The async handleEvent signature was added in iOS 17.4. On earlier OS
+    // versions within our deployment target, CKSyncEngine silently skips the
+    // async method, so fetched records are never applied. The sync
+    // nextRecordZoneChangeBatch async variant is bridged automatically by the
+    // runtime on older OSes, so we only need the sync fallback for handleEvent.
+
+    public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) {
+        Task { await handleEventCommon(event, syncEngine: syncEngine) }
+    }
+
+    // MARK: - Common delegate implementation
+
+    private func handleEventCommon(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
+        switch event {
+        case .stateUpdate(let update):
+            saveSerialization(update.stateSerialization)
+        case .fetchedRecordZoneChanges(let changes):
+            await applyFetched(changes)
+        case .sentRecordZoneChanges(let sent):
+            await handleSentRecordZoneChanges(sent, syncEngine: syncEngine)
+        case .accountChange, .fetchedDatabaseChanges, .willFetchChanges, .willFetchRecordZoneChanges,
+             .didFetchChanges, .didFetchRecordZoneChanges, .willSendChanges, .didSendChanges,
+             .sentDatabaseChanges:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func handleSentRecordZoneChanges(
+        _ sent: CKSyncEngine.Event.SentRecordZoneChanges,
+        syncEngine: CKSyncEngine
+    ) async {
+        for failure in sent.failedRecordSaves {
+            let code = failure.error.code.rawValue
+            log.error("CloudKit save failed for \(failure.record.recordID.recordName, privacy: .public): \(failure.error.localizedDescription, privacy: .public) (code: \(code))")
+        }
+
+        // WHY: re-queue failed saves; successful ones need no follow-up.
+        // Do NOT re-queue serverRecordChanged conflicts — doing so creates an
+        // infinite retry loop because the local record lacks the server's
+        // recordChangeTag. Those need conflict resolution (future work).
+        let failedSaves = sent.failedRecordSaves.compactMap { failure -> CKSyncEngine.PendingRecordZoneChange? in
+            if failure.error.code == .serverRecordChanged {
+                log.warning("Skipping re-queue for serverRecordChanged conflict on \(failure.record.recordID.recordName, privacy: .public)")
+                return nil
+            }
+            return .saveRecord(failure.record.recordID)
+        }
+        if !failedSaves.isEmpty {
+            syncEngine.state.add(pendingRecordZoneChanges: failedSaves)
+            log.info("Re-queued \(failedSaves.count) failed CloudKit saves")
         }
     }
 
@@ -270,6 +336,11 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
                     existing.sizeBytes = remote.sizeBytes
                     existing.originalFilename = remote.originalFilename
                     existing.revokedAt = remote.revokedAt
+                    existing.isFavorited = remote.isFavorited
+                    existing.visibilityRaw = remote.visibilityRaw
+                    existing.lastAccessedAt = remote.lastAccessedAt
+                    existing.accessCount = remote.accessCount
+                    existing.isBundle = remote.isBundle
                 } else {
                     context.insert(remote)
                 }

@@ -35,6 +35,11 @@ public enum ShareLinkRecord {
         public static let revokedAt = "revokedAt"
         public static let deviceId = "deviceId"
         public static let shortURLString = "shortURLString"
+        public static let visibility = "visibility"
+        public static let isFavorited = "isFavorited"
+        public static let lastAccessedAt = "lastAccessedAt"
+        public static let accessCount = "accessCount"
+        public static let isBundle = "isBundle"
     }
 
     /// Stable record name derived from the share-link token.
@@ -67,6 +72,11 @@ public extension ShareLinkEntity {
         if let revokedAt { record[ShareLinkRecord.Field.revokedAt] = revokedAt as CKRecordValue }
         record[ShareLinkRecord.Field.deviceId] = deviceId.uuidString as CKRecordValue
         record[ShareLinkRecord.Field.shortURLString] = shortURLString as CKRecordValue
+        record[ShareLinkRecord.Field.visibility] = visibilityRaw as CKRecordValue
+        record[ShareLinkRecord.Field.isFavorited] = isFavorited as CKRecordValue
+        if let lastAccessedAt { record[ShareLinkRecord.Field.lastAccessedAt] = lastAccessedAt as CKRecordValue }
+        record[ShareLinkRecord.Field.accessCount] = accessCount as CKRecordValue
+        record[ShareLinkRecord.Field.isBundle] = isBundle as CKRecordValue
         return record
     }
 }
@@ -117,19 +127,28 @@ public extension CKRecord {
         let linkStatus = try string(ShareLinkRecord.Field.linkStatus)
         let retentionPolicy = try string(ShareLinkRecord.Field.retentionPolicy)
         let revokedAt = self[ShareLinkRecord.Field.revokedAt] as? Date
+        let visibilityRaw = self[ShareLinkRecord.Field.visibility] as? String ?? Visibility.unlisted.rawValue
+        let isFavorited = self[ShareLinkRecord.Field.isFavorited] as? Bool ?? false
+        let lastAccessedAt = self[ShareLinkRecord.Field.lastAccessedAt] as? Date
+        let accessCount = self[ShareLinkRecord.Field.accessCount] as? Int64 ?? 0
+        let isBundle = self[ShareLinkRecord.Field.isBundle] as? Bool ?? false
 
         return ShareLinkEntity(token: token,
                                assetId: assetId,
                                shortURLString: shortURLString,
                                createdAt: createdAt,
-                               visibility: .unlisted,
+                               visibility: Visibility(rawValue: visibilityRaw) ?? .unlisted,
                                expiresAt: expiresAt,
                                deleteAfter: deleteAfter,
                                linkStatus: linkStatus,
                                retentionPolicy: retentionPolicy,
                                revokedAt: revokedAt,
+                               lastAccessedAt: lastAccessedAt,
+                               accessCount: accessCount,
                                contentType: contentType,
                                sizeBytes: size,
-                               originalFilename: filename)
+                               originalFilename: filename,
+                               isFavorited: isFavorited,
+                               isBundle: isBundle)
     }
 }
