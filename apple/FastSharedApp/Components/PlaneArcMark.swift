@@ -128,8 +128,8 @@ struct PlaneArcMark: View {
     }
 
     /// Dart plane — matches the `planeDart` path in plane-arc.jsx scaled by 1.1
-    /// and translated to (84, 64) in the 140-unit viewBox. Includes the thin
-    /// 35%-opacity secondary stroke along the belly seam (M 4 4 L 14 10).
+    /// and translated to (84, 64) in the 140-unit viewBox.
+    /// Includes the thin 35%-opacity secondary stroke along the belly seam (M 4 4 L 14 10).
     private var planeDart: some View {
         GeometryReader { geo in
             let s = geo.size.width / 140.0
