@@ -307,7 +307,7 @@ final class SettingsWindowHolder {
 /// `NSDraggingDestination` (open popover on drag) and draw a dynamic
 /// progress badge on the tray icon.
 ///
-/// Replaces SwiftUI’s `MenuBarExtra` which does not expose the
+/// Replaces SwiftUI's `MenuBarExtra` which does not expose the
 /// `NSStatusItem` for drag handling or custom icon drawing.
 @MainActor
 final class TrayManager: NSObject {
@@ -373,16 +373,18 @@ final class TrayManager: NSObject {
 
         // WHY: SwiftUI .onDrop inside an NSPopover is unreliable on macOS
         // (the drag session that started on the Finder window sometimes
-        // refuses to transfer into the popover’s content window). We add a
-        // transparent AppKit overlay that implements NSDraggingDestination
-        // directly on the popover’s root view so drops always land.
+        // refuses to transfer into the popover's content window). We add a
+        // transparent AppKit overlay that implements NSDraggingDestination.
+        // CRITICAL: add to host.view.superview, NOT host.view itself —
+        // adding subviews to NSHostingController.view is unsupported and
+        // triggers layout recursion (rdar://FB9867432).
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let popoverView = host.view
-            let dropOverlay = PopoverDropOverlay(frame: popoverView.bounds)
+            guard let container = host.view.superview else { return }
+            let dropOverlay = PopoverDropOverlay(frame: container.bounds)
             dropOverlay.autoresizingMask = [.width, .height]
             dropOverlay.manager = self
-            popoverView.addSubview(dropOverlay)
+            container.addSubview(dropOverlay)
         }
     }
 
@@ -627,7 +629,7 @@ private final class TrayIconView: NSView {
 
 // MARK: - PopoverDropOverlay
 
-/// Transparent overlay added to the NSPopover’s content view so drops
+/// Transparent overlay added to the NSPopover's content view so drops
 /// that enter the popover window are captured at the AppKit level and
 /// forwarded to the upload pipeline. Works around SwiftUI .onDrop
 /// reliability issues inside NSPopover on macOS.
