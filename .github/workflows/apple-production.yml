@@ -26,7 +26,7 @@ jobs:
   testflight:
     name: Build + Upload Production Build
     needs: guard
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
