@@ -632,6 +632,12 @@ private final class PopoverDropOverlay: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // Allow mouse clicks to pass through to SwiftUI buttons underneath.
+    // We only need this overlay for drag-and-drop, not for hit-testing.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         return .copy
     }
