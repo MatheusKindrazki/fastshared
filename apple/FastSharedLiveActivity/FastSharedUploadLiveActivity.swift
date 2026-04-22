@@ -443,13 +443,13 @@ private struct LAPlaneArc: View {
                         startPoint: .bottomLeading,
                         endPoint: .topTrailing
                     ),
-                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .round)
+                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .butt)
                 )
                 .frame(width: size, height: size)
 
             GeometryReader { geo in
                 let s = geo.size.width / 140.0
-                let transform = CGAffineTransform(translationX: 84 * s, y: 64 * s)
+                let transform = CGAffineTransform(translationX: 81 * s, y: 66 * s)
                     .scaledBy(x: 1.1 * s, y: 1.1 * s)
                 ZStack {
                     Path { p in
@@ -458,7 +458,7 @@ private struct LAPlaneArc: View {
                         p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
                         p.addLine(to: CGPoint(x: 4, y: 4).applying(transform))
                         p.addLine(to: CGPoint(x: 0, y: 18).applying(transform))
-                        p.addLine(to: CGPoint(x: -4, y: 4).applying(transform))
+                        p.addLine(to: CGPoint(x: -8, y: 4).applying(transform))
                         p.closeSubpath()
                     }
                     .fill(BrandPalette.text)
@@ -481,7 +481,7 @@ private struct LAArcPath: Shape {
         var p = Path()
         p.move(to: CGPoint(x: 26 * s, y: 110 * s))
         p.addQuadCurve(
-            to: CGPoint(x: 82 * s, y: 68 * s),
+            to: CGPoint(x: 80 * s, y: 72 * s),
             control: CGPoint(x: 60 * s, y: 98 * s)
         )
         return p
