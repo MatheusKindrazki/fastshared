@@ -61,10 +61,7 @@ DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 # multi-tenant setup you would create separate namespaces/buckets.
 [env.staging]
 name = "fastshared-api-stg"
-
-[[env.staging.routes]]
-pattern = "fastshared-api-stg.kindrazki.workers.dev"
-custom_domain = false
+# No custom routes — accessible via fastshared-api-stg.workers.dev
 
 [[env.staging.r2_buckets]]
 binding = "R2"
@@ -76,8 +73,8 @@ id = "6fba7370dd774b42b4ac36d00ec90238"
 
 [env.staging.vars]
 APP_ENV = "staging"
-SHORT_LINK_HOST = "https://fastshared-api-stg.kindrazki.workers.dev"
-PUBLIC_API_HOST = "https://fastshared-api-stg.kindrazki.workers.dev"
+SHORT_LINK_HOST = "https://fastshared-api-stg.workers.dev"
+PUBLIC_API_HOST = "https://fastshared-api-stg.workers.dev"
 R2_BUCKET_NAME = "fastshared"
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
 APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
