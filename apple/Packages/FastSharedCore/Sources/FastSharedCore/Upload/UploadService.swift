@@ -36,7 +36,7 @@ public extension UploadServiceProtocol {
     }
 
     func enqueueDrop(urls: [URL]) async throws -> EnqueueResult {
-        try await enqueueDrop(urls: urls, retentionPolicy: .default)
+        try await enqueueDrop(urls: urls, retentionPolicy: RetentionPolicy.defaultFromAppGroup())
     }
 }
 
@@ -246,6 +246,34 @@ public actor UploadService: UploadServiceProtocol {
             }
 
             try await repository.updateStatus(clientJobId: job.clientJobId, status: .uploading)
+
+            // Start progress tracking *before* the actual upload begins so
+            // the UI (tray icon, banner, Live Activity) is live during the
+            // whole transfer — especially for multipart which blocks until
+            // the last part lands.
+            let bannerClientJobId = job.clientJobId
+            let bannerFilename = originalFilename ?? ""
+            let bannerShortUrl = presign.shortUrl?.absoluteString
+            await MainActor.run {
+                UploadProgressMonitor.shared.start(
+                    clientJobId: bannerClientJobId,
+                    filename: bannerFilename,
+                    contentType: contentType,
+                    bytesTotal: size
+                )
+                if let url = bannerShortUrl {
+                    UploadProgressMonitor.shared.markLinkReady(clientJobId: bannerClientJobId,
+                                                                shortUrl: url)
+                }
+            }
+            await LiveActivityController.shared.startOrDefer(
+                clientJobId: job.clientJobId,
+                filename: originalFilename ?? "",
+                contentType: contentType,
+                retentionPolicy: retentionPolicy.rawValue,
+                bytesTotal: size
+            )
+
             switch instruction {
             case .single(let single):
                 try background.scheduleUpload(job: job, upload: single, fileURL: stagedURL)
@@ -265,43 +293,6 @@ public actor UploadService: UploadServiceProtocol {
             job.status = .uploading
             job.expiresAt = presign.expiresAt
             job.deleteAfter = presign.deleteAfter
-            // Single source of truth for Live Activity start. Every upload
-            // entry path (share ext, screenshot banner, App Intents, drag-drop,
-            // future file picker) lands here. `startOrDefer` routes:
-            //   • main app → creates the Activity immediately.
-            //   • share extension (no widget descriptors in-process) → saves
-            //     the request to the App Group; `FastSharedApp.init` /
-            //     `handleEventsForBackgroundURLSession` drain it when the
-            //     main app wakes, so the Activity is created where it can
-            //     actually render on the Dynamic Island.
-            // Compiles to a no-op on non-iOS targets.
-            await LiveActivityController.shared.startOrDefer(
-                clientJobId: job.clientJobId,
-                filename: originalFilename ?? "",
-                contentType: contentType,
-                retentionPolicy: retentionPolicy.rawValue,
-                bytesTotal: size
-            )
-            // In-app banner — fallback for devices without Dynamic Island
-            // and for users with Live Activities disabled in Settings.
-            let bannerClientJobId = job.clientJobId
-            let bannerFilename = originalFilename ?? ""
-            let bannerShortUrl = presign.shortUrl?.absoluteString
-            await MainActor.run {
-                UploadProgressMonitor.shared.start(
-                    clientJobId: bannerClientJobId,
-                    filename: bannerFilename,
-                    contentType: contentType,
-                    bytesTotal: size
-                )
-                // Tier 1: after start(), tell the banner the link is already
-                // copied so it swaps the headline to "Link copied — still
-                // uploading".
-                if let url = bannerShortUrl {
-                    UploadProgressMonitor.shared.markLinkReady(clientJobId: bannerClientJobId,
-                                                                shortUrl: url)
-                }
-            }
             return job
         } catch {
             try? await repository.markFailed(clientJobId: job.clientJobId, error: error.localizedDescription)

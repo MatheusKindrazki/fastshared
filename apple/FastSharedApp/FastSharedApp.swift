@@ -104,6 +104,20 @@ struct FastSharedApp: App {
                 }
             }
         }
+
+        #if os(macOS)
+        // WHY: Manual NSStatusItem instead of SwiftUI MenuBarExtra so we can
+        // implement NSDraggingDestination on the tray icon (opens popover on
+        // drag) and draw a live progress badge while uploads are in flight.
+        let menuBarRootView = MacMenuBarView()
+            .environment(\.apiClient, apiClient)
+            .environment(\.uploadService, uploadService)
+            .environment(\.uploadOrchestrator, orchestrator)
+            .environment(\.clipboard, clipboard)
+            .environment(\.subscriptionStore, subscriptionStore)
+            .modelContainer(store.modelContainer)
+        TrayManager.shared.configure(with: menuBarRootView, uploadService: uploadService)
+        #endif
     }
 
     /// Lazily materialized per-install device UUID stored in the App Group. Used to
@@ -168,19 +182,6 @@ struct FastSharedApp: App {
         #if os(macOS)
         .windowToolbarStyle(.unified)
         .defaultSize(width: 1100, height: 720)
-        #endif
-
-        #if os(macOS)
-        MenuBarExtra("FastShared", systemImage: "paperplane.fill") {
-            MacMenuBarView()
-                .environment(\.apiClient, apiClient)
-                .environment(\.uploadService, uploadService)
-                .environment(\.uploadOrchestrator, orchestrator)
-                .environment(\.clipboard, clipboard)
-                .environment(\.subscriptionStore, subscriptionStore)
-                .modelContainer(store.modelContainer)
-        }
-        .menuBarExtraStyle(.window)
         #endif
     }
 }

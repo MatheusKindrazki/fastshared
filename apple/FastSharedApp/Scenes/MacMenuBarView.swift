@@ -4,6 +4,7 @@ import SwiftData
 import AppKit
 import FastSharedCore
 import UniformTypeIdentifiers
+import OSLog
 
 /// macOS menu bar popover — 360pt wide, auto height.
 ///
@@ -112,9 +113,13 @@ struct MacMenuBarView: View {
                 )
         )
         .animation(.easeInOut(duration: 0.15), value: isDragTargeted)
-        .onDrop(of: [UTType.fileURL, UTType.item], isTargeted: $isDragTargeted) { providers in
-            handleDropProviders(providers)
-            return true
+        // NOTE: Drop is handled by PopoverDropOverlay (AppKit native) instead
+        // of SwiftUI .onDrop because NSItemProvider on macOS cannot reliably
+        // coerce Finder drags to NSURL. The overlay forwards drops directly
+        // via NSPasteboard which works with every Finder drag type.
+        .onChange(of: isDragTargeted) { _, targeted in
+            // Visual feedback only — the actual drop is caught by the overlay.
+            isDragTargeted = targeted
         }
     }
 
@@ -152,26 +157,18 @@ struct MacMenuBarView: View {
 
     // MARK: - Drop handler
 
-    private func handleDropProviders(_ providers: [NSItemProvider]) {
+    /// Called by PopoverDropOverlay when a drop lands inside the popover.
+    func handlePopoverDrop(urls: [URL]) {
+        NSLog("[MacMenuBarView] handlePopoverDrop — \(urls.count) URL(s)")
         guard let service = uploadService else { return }
         isUploading = true
         Task {
             defer { isUploading = false }
-            var urls: [URL] = []
-            for provider in providers {
-                if let url = await loadFileURL(from: provider) {
-                    urls.append(url)
-                }
-            }
-            guard !urls.isEmpty else { return }
-            _ = try? await service.enqueueDrop(urls: urls)
-        }
-    }
-
-    private func loadFileURL(from provider: NSItemProvider) async -> URL? {
-        await withCheckedContinuation { continuation in
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                continuation.resume(returning: url)
+            do {
+                let result = try await service.enqueueDrop(urls: urls)
+                NSLog("[MacMenuBarView] enqueueDrop succeeded: \(result)")
+            } catch {
+                NSLog("[MacMenuBarView] enqueueDrop failed: \(error.localizedDescription)")
             }
         }
     }
@@ -222,5 +219,378 @@ private struct MenuBarShareRow: View {
 #Preview("MacMenuBarView") {
     MacMenuBarView()
         .preferredColorScheme(.dark)
+}
+
+// MARK: - TrayManager
+
+/// Manages the macOS status-bar item manually so we can implement
+/// `NSDraggingDestination` (open popover on drag) and draw a dynamic
+/// progress badge on the tray icon.
+///
+/// Replaces SwiftUI’s `MenuBarExtra` which does not expose the
+/// `NSStatusItem` for drag handling or custom icon drawing.
+@MainActor
+final class TrayManager: NSObject {
+    static let shared = TrayManager()
+
+    private var statusItem: NSStatusItem?
+    private var popover: NSPopover?
+    private var trayView: TrayIconView?
+    private var uploadService: UploadServiceProtocol?
+
+    /// Non-zero while a drag is in flight — prevents the popover from
+    /// snapping shut when the cursor leaves the tiny tray button on its
+    /// way to the drop zone inside the popover.
+    private var dragSessionCount = 0
+
+    /// Auto-close work item — cancelled if another drag starts.
+    private var scheduledClose: DispatchWorkItem?
+
+    private var progressTimer: Timer?
+    private let log = Logger(subsystem: Log.subsystem, category: "tray")
+
+    private override init() {
+        super.init()
+    }
+
+    // MARK: - Setup
+
+    func configure(with rootView: some View, uploadService: UploadServiceProtocol?) {
+        self.uploadService = uploadService
+        createStatusItem()
+        createPopover(with: rootView)
+        startProgressPolling()
+    }
+
+    private func createStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        self.statusItem = item
+
+        guard let button = item.button else { return }
+
+        // WHY: NSStatusItem.view replaces the button entirely and the system
+        // sometimes refuses to deliver NSDraggingDestination events to a
+        // completely custom view in the status bar. Adding our view as a
+        // *subview* of the standard NSStatusBarButton keeps the native button
+        // alive and allows drag events to flow through.
+        let view = TrayIconView(frame: button.bounds)
+        view.manager = self
+        view.autoresizingMask = [.width, .height]
+        button.addSubview(view)
+        self.trayView = view
+
+        button.imagePosition = .imageOnly
+        refreshIcon()
+    }
+
+    private func createPopover(with rootView: some View) {
+        let po = NSPopover()
+        po.behavior = .transient
+        po.contentSize = NSSize(width: 360, height: 400)
+        let host = NSHostingController(rootView: rootView)
+        po.contentViewController = host
+        self.popover = po
+
+        // WHY: SwiftUI .onDrop inside an NSPopover is unreliable on macOS
+        // (the drag session that started on the Finder window sometimes
+        // refuses to transfer into the popover’s content window). We add a
+        // transparent AppKit overlay that implements NSDraggingDestination
+        // directly on the popover’s root view so drops always land.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let popoverView = host.view
+            let dropOverlay = PopoverDropOverlay(frame: popoverView.bounds)
+            dropOverlay.autoresizingMask = [.width, .height]
+            dropOverlay.manager = self
+            popoverView.addSubview(dropOverlay)
+        }
+    }
+
+    // MARK: - Popover control
+
+    @objc func togglePopover() {
+        guard let popover, let view = trayView else { return }
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            popover.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+        }
+    }
+
+    func openPopover() {
+        guard let popover, let view = trayView, !popover.isShown else { return }
+        popover.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+    }
+
+    func closePopover() {
+        popover?.performClose(nil)
+    }
+
+    /// Schedules a delayed close so the popover stays open long enough
+    /// for the user to drag from the tiny tray icon into the drop zone.
+    func scheduleClose(after: TimeInterval = 2.5) {
+        scheduledClose?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.dragSessionCount == 0 else { return }
+            self.closePopover()
+        }
+        scheduledClose = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + after, execute: work)
+    }
+
+    func cancelScheduledClose() {
+        scheduledClose?.cancel()
+        scheduledClose = nil
+    }
+
+    // MARK: - Drag session bookkeeping
+
+    func beginDragSession() {
+        dragSessionCount += 1
+        cancelScheduledClose()
+        openPopover()
+    }
+
+    func endDragSession() {
+        dragSessionCount = max(0, dragSessionCount - 1)
+        if dragSessionCount == 0 {
+            scheduleClose(after: 3.0)
+        }
+    }
+
+    /// Called by TrayIconView when the user drops files directly on the tray icon.
+    /// Kicks off the upload without requiring the user to move the cursor into
+    /// the popover drop zone.
+    func handleTrayDrop(urls: [URL]) {
+        log.info("Tray drop received \(urls.count) file(s)")
+        guard let service = uploadService else {
+            log.error("UploadService not available")
+            return
+        }
+        Task {
+            do {
+                let result = try await service.enqueueDrop(urls: urls)
+                switch result {
+                case .single(let job):
+                    log.info("Single upload started: \(job.clientJobId.uuidString)")
+                case .bundle(let bundle):
+                    log.info("Bundle upload started: \(bundle.bundleToken)")
+                }
+            } catch {
+                log.error("Tray drop upload failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    // MARK: - Progress icon
+
+    private func startProgressPolling() {
+        progressTimer?.invalidate()
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.refreshIcon()
+            }
+        }
+    }
+
+    private func refreshIcon() {
+        let monitor = UploadProgressMonitor.shared
+        let image: NSImage?
+
+        if let current = monitor.current {
+            switch current.phase {
+            case .uploading:
+                image = Self.progressBadgeImage(
+                    systemName: "paperplane.fill",
+                    fraction: current.progress
+                )
+            case .completed:
+                image = Self.staticSymbol("checkmark.circle.fill")
+            case .failed:
+                image = Self.staticSymbol("xmark.circle.fill")
+            }
+        } else {
+            image = Self.staticSymbol("paperplane.fill")
+        }
+
+        statusItem?.button?.image = image
+        statusItem?.button?.needsDisplay = true
+    }
+
+    // MARK: - Image generation
+
+    /// Draws the SF Symbol with a partial progress ring around it.
+    private static func progressBadgeImage(systemName: String, fraction: Double) -> NSImage {
+        let size = NSSize(width: 22, height: 22)
+        return NSImage(size: size, flipped: false) { rect in
+            guard let symbol = NSImage(systemSymbolName: systemName, accessibilityDescription: nil) else {
+                return false
+            }
+
+            // Tint-aware: use the label color so it adapts to menubar dark/light
+            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+                .applying(.init(paletteColors: [NSColor.labelColor]))
+            let tinted = symbol.withSymbolConfiguration(config) ?? symbol
+
+            let symbolRect = rect.insetBy(dx: 3, dy: 3)
+            tinted.draw(in: symbolRect)
+
+            // Progress ring
+            let ringPath = NSBezierPath()
+            let center = NSPoint(x: rect.midX, y: rect.midY)
+            let radius = rect.width / 2 - 0.5
+            let startAngle: CGFloat = 90
+            let endAngle = startAngle - (fraction * 360)
+            ringPath.appendArc(withCenter: center, radius: radius,
+                               startAngle: startAngle, endAngle: endAngle,
+                               clockwise: true)
+            ringPath.lineWidth = 2.5
+            NSColor.controlAccentColor.setStroke()
+            ringPath.stroke()
+
+            return true
+        }
+    }
+
+    private static func staticSymbol(_ name: String) -> NSImage? {
+        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+            .applying(.init(paletteColors: [NSColor.labelColor]))
+        return symbol.withSymbolConfiguration(config)
+    }
+}
+
+// MARK: - TrayIconView
+
+/// Custom `NSView` that replaces `NSStatusBarButton` so we can receive
+/// drag events and draw a dynamic icon.
+private final class TrayIconView: NSView {
+    weak var manager: TrayManager?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        // Register both modern (public.file-url) and legacy (NSFilenamesPboardType)
+        // types so Finder drags are always recognised.
+        registerForDraggedTypes([
+            NSPasteboard.PasteboardType.fileURL,
+            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
+            NSPasteboard.PasteboardType.URL
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // WHY: Completely transparent — the actual icon is drawn by
+    // TrayManager into NSStatusBarButton.image. This view exists
+    // only to intercept mouse clicks and drag events.
+    override func draw(_ dirtyRect: NSRect) {
+        // Intentionally empty — transparent overlay
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        manager?.togglePopover()
+    }
+
+    // MARK: NSDraggingDestination
+
+    // MARK: NSDraggingDestination
+
+    override func wantsPeriodicDraggingUpdates() -> Bool {
+        true
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let pasteboard = sender.draggingPasteboard
+        let hasFiles = pasteboard.canReadObject(forClasses: [NSURL.self],
+                                                options: [.urlReadingFileURLsOnly: true])
+            || pasteboard.types?.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType")) ?? false
+
+        if hasFiles {
+            manager?.beginDragSession()
+            return .copy
+        }
+        return []
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        manager?.endDragSession()
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        defer { manager?.endDragSession() }
+
+        guard let mgr = manager else { return false }
+
+        let pasteboard = sender.draggingPasteboard
+        var fileURLs: [URL] = []
+
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] {
+            fileURLs.append(contentsOf: urls)
+        }
+        if fileURLs.isEmpty,
+           let propertyList = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
+            fileURLs = propertyList.map { URL(fileURLWithPath: $0) }
+        }
+
+        guard !fileURLs.isEmpty else { return false }
+        mgr.handleTrayDrop(urls: fileURLs)
+        return true
+    }
+}
+
+// MARK: - PopoverDropOverlay
+
+/// Transparent overlay added to the NSPopover’s content view so drops
+/// that enter the popover window are captured at the AppKit level and
+/// forwarded to the upload pipeline. Works around SwiftUI .onDrop
+/// reliability issues inside NSPopover on macOS.
+private final class PopoverDropOverlay: NSView {
+    weak var manager: TrayManager?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([
+            NSPasteboard.PasteboardType.fileURL,
+            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
+            NSPasteboard.PasteboardType.URL
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let pasteboard = sender.draggingPasteboard
+        var fileURLs: [URL] = []
+
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] {
+            fileURLs.append(contentsOf: urls)
+        }
+        if fileURLs.isEmpty,
+           let propertyList = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
+            fileURLs = propertyList.map { URL(fileURLWithPath: $0) }
+        }
+
+        guard !fileURLs.isEmpty else { return false }
+        manager?.handleTrayDrop(urls: fileURLs)
+        return true
+    }
 }
 #endif

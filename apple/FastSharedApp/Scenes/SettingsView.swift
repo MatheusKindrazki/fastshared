@@ -16,7 +16,8 @@ struct SettingsView: View {
     @State private var confirmAppleSignOut: Bool = false
     @State private var showSignInSheet: Bool = false
     @State private var authRefreshToken: Int = 0
-    @State private var defaultRetention: RetentionPolicy = RetentionPolicy.default
+    @State private var defaultRetention: RetentionPolicy = RetentionPolicy.defaultFromAppGroup()
+    @State private var showRetentionPicker: Bool = false
     @State private var screenshotBannerOn: Bool = true
     @State private var actionButtonOn: Bool = true
     @State private var backTapOn: Bool = false
@@ -81,7 +82,7 @@ struct SettingsView: View {
                                 textFaint: textFaint,
                                 line: line,
                                 showDivider: true,
-                                action: nil
+                                action: { showRetentionPicker = true }
                             )
                             SettingsRow(
                                 label: "Copy link automatically",
@@ -106,6 +107,16 @@ struct SettingsView: View {
                                 line: line,
                                 showDivider: false,
                                 action: nil
+                            )
+                        }
+
+                        // Retention picker sheet
+                        .sheet(isPresented: $showRetentionPicker) {
+                            RetentionPickerSheet(
+                                selected: $defaultRetention,
+                                onSave: { policy in
+                                    appGroupDefaults?.set(policy.rawValue, forKey: retentionKey)
+                                }
                             )
                         }
 
@@ -658,6 +669,67 @@ struct SettingsView: View {
         let tokenStore = DeviceTokenStore(keychain: keychain)
         try? await tokenStore.clear()
         deviceIdSuffix = "------"
+    }
+}
+
+// MARK: - RetentionPickerSheet
+
+private struct RetentionPickerSheet: View {
+    @Binding var selected: RetentionPolicy
+    let onSave: (RetentionPolicy) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(Array(RetentionPolicy.shareable.enumerated()), id: \.offset) { _, policy in
+                        RetentionPickerRow(
+                            policy: policy,
+                            isSelected: policy == selected,
+                            onTap: {
+                                selected = policy
+                                onSave(policy)
+                                dismiss()
+                            }
+                        )
+                    }
+                }
+                .background(Color.sysSecondaryGroupedBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+            }
+            .navigationTitle("Default expiration")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct RetentionPickerRow: View {
+    let policy: RetentionPolicy
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack {
+            Text(policy.displayName)
+                .font(.body)
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
     }
 }
 
