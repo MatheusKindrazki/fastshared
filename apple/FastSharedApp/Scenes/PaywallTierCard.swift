@@ -33,7 +33,7 @@ struct PaywallTierCard: View {
         .frame(minHeight: 280, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(Color.sysSecondaryGroupedBackground)
         )
         .overlay(
             cardStroke
@@ -56,7 +56,7 @@ struct PaywallTierCard: View {
                     .stroke(BrandPalette.arc, lineWidth: 1.5)
             } else {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(.separator), lineWidth: 1)
+                    .stroke(Color.sysSeparator, lineWidth: 1)
             }
         }
     }
@@ -66,7 +66,7 @@ struct PaywallTierCard: View {
             Text(tierDisplayName)
                 .font(.title3)
                 .fontWeight(.semibold)
-                .foregroundStyle(Color(.label))
+                .foregroundStyle(Color.sysLabel)
             Spacer(minLength: 0)
         }
     }
@@ -86,13 +86,13 @@ struct PaywallTierCard: View {
                 .font(.largeTitle.monospacedDigit())
                 .fontWeight(.bold)
                 .tracking(-0.6)
-                .foregroundStyle(Color(.label))
+                .foregroundStyle(Color.sysLabel)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
 
             Text(priceCadence)
                 .font(.caption.monospaced())
-                .foregroundStyle(Color(.tertiaryLabel))
+                .foregroundStyle(Color.sysTertiaryLabel)
         }
     }
 
@@ -115,7 +115,7 @@ struct PaywallTierCard: View {
                         .foregroundStyle(BrandPalette.accentHot)
                     Text(feature)
                         .font(.body)
-                        .foregroundStyle(Color(.secondaryLabel))
+                        .foregroundStyle(Color.sysSecondaryLabel)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -123,31 +123,22 @@ struct PaywallTierCard: View {
     }
 
     private var ctaButton: some View {
-        // Brand accent unified on violet — CTA fill.
-        let accent = BrandPalette.accent
-        return Button(action: onPurchase) {
+        Button(action: onPurchase) {
             HStack(spacing: 8) {
                 if isLoading {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(Color(red: 0.07, green: 0.02, blue: 0.04))
                 }
                 // TODO(i18n)
-                Text(isLoading ? "PROCESSING" : "SUBSCRIBE")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .tracking(1.6)
-                    .foregroundStyle(Color(red: 0.07, green: 0.02, blue: 0.04))
+                Text(isLoading ? "Processing…" : "Subscribe")
+                    .font(.system(size: 15, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(accent.hot)
-            )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         .disabled(isLoading)
-        .opacity(isLoading ? 0.7 : 1)
     }
 
     private func badgeView(_ badge: CardBadge) -> some View {

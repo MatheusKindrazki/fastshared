@@ -22,12 +22,12 @@ struct OnboardingView: View {
 
     // MARK: - Resolved tokens — HIG semantic; adapts to light/dark.
 
-    private var groundColor: Color { Color(.systemBackground) }
-    private var textColor: Color { Color(.label) }
-    private var textDimColor: Color { Color(.secondaryLabel) }
-    private var textFaintColor: Color { Color(.tertiaryLabel) }
-    private var cardBgColor: Color { Color(.secondarySystemBackground) }
-    private var lineColor: Color { Color(.separator) }
+    private var groundColor: Color { Color.sysBackground }
+    private var textColor: Color { Color.sysLabel }
+    private var textDimColor: Color { Color.sysSecondaryLabel }
+    private var textFaintColor: Color { Color.sysTertiaryLabel }
+    private var cardBgColor: Color { Color.sysSecondaryBackground }
+    private var lineColor: Color { Color.sysSeparator }
 
     // MARK: - Body
 
@@ -165,22 +165,15 @@ struct OnboardingView: View {
                 HStack {
                     if isProvisioning {
                         ProgressView()
-                            .tint(.white)
                             .scaleEffect(0.85)
                     }
-                    Text(isProvisioning ? "Setting up…" : "Get started →")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
+                    Text(isProvisioning ? "Setting up…" : "Get started")
+                        .font(.system(size: 16, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .padding(.horizontal, 24)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(BrandPalette.accentHot)
-                )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(isProvisioning)
             #if os(iOS)
             .keyboardShortcut(.defaultAction)

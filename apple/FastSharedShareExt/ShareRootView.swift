@@ -5,6 +5,27 @@ import FastSharedCore
 import UIKit
 #endif
 
+// MARK: - Cross-platform semantic colors
+// WHY: this file compiles in both iOS and macOS share-extension targets.
+// `Color(uiColor:)` does not exist on macOS; `Color(nsColor:)` does not exist on iOS.
+#if os(macOS)
+private var sysBackground:         Color { Color(nsColor: .windowBackgroundColor) }
+private var sysSecondaryBackground: Color { Color(nsColor: .controlBackgroundColor) }
+private var sysTertiaryBackground:  Color { Color(nsColor: .controlBackgroundColor) }
+private var sysLabel:             Color { Color(nsColor: .labelColor) }
+private var sysSecondaryLabel:    Color { Color(nsColor: .secondaryLabelColor) }
+private var sysTertiaryLabel:     Color { Color(nsColor: .tertiaryLabelColor) }
+private var sysSeparator:         Color { Color(nsColor: .separatorColor) }
+#else
+private var sysBackground:         Color { sysBackground }
+private var sysSecondaryBackground: Color { sysSecondaryBackground }
+private var sysTertiaryBackground:  Color { sysTertiaryBackground }
+private var sysLabel:             Color { sysLabel }
+private var sysSecondaryLabel:    Color { sysSecondaryLabel }
+private var sysTertiaryLabel:     Color { sysTertiaryLabel }
+private var sysSeparator:         Color { sysSeparator }
+#endif
+
 /// Share extension root — Friendly redesign.
 ///
 /// Five phases backed by `ShareViewModel`. The sheet itself sits on top of a
@@ -179,13 +200,13 @@ struct ShareRootView: View {
 
     // MARK: - Theme helpers
 
-    private var groundColor: Color     { Color(uiColor: .systemBackground) }
-    private var canvasColor: Color     { Color(uiColor: .secondarySystemBackground) }
-    private var surface0Color: Color   { Color(uiColor: .tertiarySystemBackground) }
-    private var textColor: Color       { Color(uiColor: .label) }
-    private var textDimColor: Color    { Color(uiColor: .secondaryLabel) }
-    private var lineColor: Color       { Color(uiColor: .separator) }
-    private var lineStrongColor: Color { Color(uiColor: .separator) }
+    private var groundColor: Color     { sysBackground }
+    private var canvasColor: Color     { sysSecondaryBackground }
+    private var surface0Color: Color   { sysTertiaryBackground }
+    private var textColor: Color       { sysLabel }
+    private var textDimColor: Color    { sysSecondaryLabel }
+    private var lineColor: Color       { sysSeparator }
+    private var lineStrongColor: Color { sysSeparator }
     private var accentHot: Color       { FriendlyPalette.accentHot }
 }
 
@@ -228,7 +249,7 @@ private struct SheetPlaneArc: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var planeColor: Color { Color(uiColor: .label) }
+    private var planeColor: Color { sysLabel }
 
     var body: some View {
         let corner = size * (32.0 / 140.0)
@@ -253,8 +274,8 @@ private struct SheetPlaneArc: View {
             }
 
             if framed {
-                let bg = Color(uiColor: .tertiarySystemBackground)
-                let borderColor = Color(uiColor: .separator)
+                let bg = sysTertiaryBackground
+                let borderColor = sysSeparator
                 RoundedRectangle(cornerRadius: corner, style: .continuous)
                     .fill(bg)
                     .overlay(
@@ -327,7 +348,7 @@ private struct SheetBrandLockup: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color { Color(uiColor: .label) }
+    private var textColor: Color { sysLabel }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -354,7 +375,7 @@ private struct SheetFileIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { Color(uiColor: .tertiarySystemBackground) }
+    private var bg: Color { sysTertiaryBackground }
 
     var body: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -383,7 +404,7 @@ private struct SheetBundleStackIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { Color(uiColor: .tertiarySystemBackground) }
+    private var bg: Color { sysTertiaryBackground }
 
     var body: some View {
         ZStack {
@@ -409,7 +430,7 @@ private struct SheetProgressBar: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var trackColor: Color { Color(uiColor: .separator) }
+    private var trackColor: Color { sysSeparator }
 
     var body: some View {
         GeometryReader { geo in
@@ -434,7 +455,7 @@ private struct SheetIndeterminateBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var animate = false
 
-    private var trackColor: Color { Color(uiColor: .separator) }
+    private var trackColor: Color { sysSeparator }
 
     var body: some View {
         GeometryReader { geo in
@@ -511,12 +532,12 @@ private struct IdleStage: View {
     @Environment(\.colorScheme) private var colorScheme
 
     // MARK: Theme helpers
-    private var textColor: Color       { Color(uiColor: .label) }
-    private var textDimColor: Color    { Color(uiColor: .secondaryLabel) }
-    private var textFaintColor: Color  { Color(uiColor: .tertiaryLabel) }
-    private var canvasColor: Color     { Color(uiColor: .secondarySystemBackground) }
-    private var lineColor: Color       { Color(uiColor: .separator) }
-    private var lineStrongColor: Color { Color(uiColor: .separator) }
+    private var textColor: Color       { sysLabel }
+    private var textDimColor: Color    { sysSecondaryLabel }
+    private var textFaintColor: Color  { sysTertiaryLabel }
+    private var canvasColor: Color     { sysSecondaryBackground }
+    private var lineColor: Color       { sysSeparator }
+    private var lineStrongColor: Color { sysSeparator }
     private var activeChipText: Color {
         colorScheme == .dark ? .white : FriendlyPalette.text(.light)
     }
@@ -824,10 +845,10 @@ private struct SuccessStage: View {
     @State private var copied: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { Color(uiColor: .label) }
-    private var textDimColor: Color { Color(uiColor: .secondaryLabel) }
-    private var canvasColor: Color  { Color(uiColor: .secondarySystemBackground) }
-    private var lineColor: Color    { Color(uiColor: .separator) }
+    private var textColor: Color    { sysLabel }
+    private var textDimColor: Color { sysSecondaryLabel }
+    private var canvasColor: Color  { sysSecondaryBackground }
+    private var lineColor: Color    { sysSeparator }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1021,10 +1042,10 @@ private struct BundleSuccessStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { Color(uiColor: .label) }
-    private var textDimColor: Color { Color(uiColor: .secondaryLabel) }
-    private var canvasColor: Color  { Color(uiColor: .secondarySystemBackground) }
-    private var lineColor: Color    { Color(uiColor: .separator) }
+    private var textColor: Color    { sysLabel }
+    private var textDimColor: Color { sysSecondaryLabel }
+    private var canvasColor: Color  { sysSecondaryBackground }
+    private var lineColor: Color    { sysSeparator }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1144,12 +1165,12 @@ struct SharePaywallSheet: View {
             Text(headline)
                 .font(.system(size: 22, weight: .bold))
                 .tracking(-0.6)
-                .foregroundStyle(Color(uiColor: .label))
+                .foregroundStyle(sysLabel)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Text(subhead)
                 .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(Color(uiColor: .secondaryLabel))
+                .foregroundStyle(sysSecondaryLabel)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Spacer()
@@ -1176,12 +1197,12 @@ struct SharePaywallSheet: View {
                 Text("NOT NOW")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(1.4)
-                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+                    .foregroundStyle(sysSecondaryLabel)
             }
             .buttonStyle(.plain)
             .padding(.bottom, 12)
         }
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .background(sysBackground.ignoresSafeArea())
     }
 
     private var headline: String {
@@ -1214,11 +1235,11 @@ private struct FailureStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color      { Color(uiColor: .label) }
-    private var textDimColor: Color   { Color(uiColor: .secondaryLabel) }
-    private var textFaintColor: Color { Color(uiColor: .tertiaryLabel) }
-    private var canvasColor: Color    { Color(uiColor: .secondarySystemBackground) }
-    private var lineColor: Color      { Color(uiColor: .separator) }
+    private var textColor: Color      { sysLabel }
+    private var textDimColor: Color   { sysSecondaryLabel }
+    private var textFaintColor: Color { sysTertiaryLabel }
+    private var canvasColor: Color    { sysSecondaryBackground }
+    private var lineColor: Color      { sysSeparator }
 
     var body: some View {
         VStack(spacing: 16) {

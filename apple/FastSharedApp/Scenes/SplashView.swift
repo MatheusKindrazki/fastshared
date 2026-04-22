@@ -35,7 +35,7 @@ struct SplashView: View {
             // Splash background — HIG semantic, adapts to light/dark
             // without hard-coding brand ground. Keeps the radial glow +
             // mark as the only branded elements.
-            Color(.systemBackground)
+            Color.sysBackground
                 .ignoresSafeArea()
 
             ZStack {
@@ -60,7 +60,7 @@ struct SplashView: View {
                     arcProgress: arcProgress,
                     planeProgress: planeProgress,
                     planeOpacity: planeOpacity,
-                    planeColor: Color(.label)
+                    planeColor: Color.sysLabel
                 )
             }
             .opacity(rootOpacity)

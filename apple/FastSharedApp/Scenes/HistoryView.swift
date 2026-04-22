@@ -47,11 +47,11 @@ struct HistoryView: View {
     // (#0d0625 navy-purple) vazou por esses computed getters; users reclamaram
     // que a Home ficava roxa no dark mode. Agora é .systemBackground / etc.
 
-    private var groundColor: Color { Color(.systemGroupedBackground) }
-    private var canvasColor: Color { Color(.systemBackground) }
-    private var textColor: Color { Color(.label) }
-    private var textDimColor: Color { Color(.secondaryLabel) }
-    private var lineColor: Color { Color(.separator) }
+    private var groundColor: Color { Color.sysGroupedBackground }
+    private var canvasColor: Color { Color.sysBackground }
+    private var textColor: Color { Color.sysLabel }
+    private var textDimColor: Color { Color.sysSecondaryLabel }
+    private var lineColor: Color { Color.sysSeparator }
 
     // MARK: - Filtered / snapshot
 
@@ -266,7 +266,7 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Syncing is off")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(.label))
+                    .foregroundStyle(Color.sysLabel)
                 Text("Sign in with Apple to sync across devices.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -295,7 +295,7 @@ struct HistoryView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color.sysSecondaryBackground)
         )
     }
 
@@ -432,7 +432,7 @@ struct NativeLinkRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(titleText)
                     .font(.body)
-                    .foregroundStyle(Color(.label))
+                    .foregroundStyle(Color.sysLabel)
                     .lineLimit(1)
                     .truncationMode(.middle)
 

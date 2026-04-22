@@ -709,15 +709,9 @@ private struct MacBundleProgressCard: View {
                     Button(action: onCopyLink) {
                         Text("Copy link")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(BrandPalette.accentHot)
-                            )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                 }
             }
 

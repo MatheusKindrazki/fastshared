@@ -35,12 +35,12 @@ struct SettingsView: View {
 
     // MARK: - Theme helpers — HIG semantic; adapts to light/dark.
 
-    private var ground: Color { Color(.systemGroupedBackground) }
-    private var paper: Color { Color(.secondarySystemGroupedBackground) }
-    private var textPrimary: Color { Color(.label) }
-    private var textDim: Color { Color(.secondaryLabel) }
-    private var textFaint: Color { Color(.tertiaryLabel) }
-    private var line: Color { Color(.separator) }
+    private var ground: Color { Color.sysGroupedBackground }
+    private var paper: Color { Color.sysSecondaryGroupedBackground }
+    private var textPrimary: Color { Color.sysLabel }
+    private var textDim: Color { Color.sysSecondaryLabel }
+    private var textFaint: Color { Color.sysTertiaryLabel }
+    private var line: Color { Color.sysSeparator }
 
     // MARK: - Body
 
@@ -769,7 +769,7 @@ private struct FriendlyToggle: View {
         } label: {
             ZStack {
                 Capsule()
-                    .fill(isOn ? BrandPalette.accentHot : Color(.separator))
+                    .fill(isOn ? BrandPalette.accentHot : Color.sysSeparator)
                     .frame(width: 42, height: 25)
                 HStack {
                     if isOn { Spacer() }

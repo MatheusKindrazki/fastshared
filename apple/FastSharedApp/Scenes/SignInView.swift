@@ -27,10 +27,10 @@ struct SignInView: View {
     private let tokenStore = DeviceTokenStore()
 
     // Adaptive tokens — HIG semantic; adapts to light/dark.
-    private var groundColor: Color { Color(.systemBackground) }
-    private var textColor: Color { Color(.label) }
-    private var textDim: Color { Color(.secondaryLabel) }
-    private var textFaint: Color { Color(.tertiaryLabel) }
+    private var groundColor: Color { Color.sysBackground }
+    private var textColor: Color { Color.sysLabel }
+    private var textDim: Color { Color.sysSecondaryLabel }
+    private var textFaint: Color { Color.sysTertiaryLabel }
 
     var body: some View {
         ZStack {

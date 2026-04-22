@@ -73,25 +73,53 @@ struct LibraryView: View {
     // Dark: semantic NSColor/UIColor — avoids the #0d0625 navy-purple leak.
 
     private var groundColor: Color {
-        colorScheme == .dark ? Color(.systemGroupedBackground) : BrandPalette.friendlyGround
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        colorScheme == .dark ? Color.sysGroupedBackground : BrandPalette.friendlyGround
+        #endif
     }
     private var paperColor: Color {
-        colorScheme == .dark ? Color(.systemBackground) : BrandPalette.friendlyCanvas
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        colorScheme == .dark ? Color.sysBackground : BrandPalette.friendlyCanvas
+        #endif
     }
     private var surfaceColor: Color {
-        colorScheme == .dark ? Color(.secondarySystemBackground) : BrandPalette.friendlySurface0
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        colorScheme == .dark ? Color.sysSecondaryBackground : BrandPalette.friendlySurface0
+        #endif
     }
     private var textColor: Color {
-        colorScheme == .dark ? Color(.label) : BrandPalette.friendlyText
+        #if os(macOS)
+        Color(nsColor: .labelColor)
+        #else
+        colorScheme == .dark ? Color.sysLabel : BrandPalette.friendlyText
+        #endif
     }
     private var textDimColor: Color {
-        colorScheme == .dark ? Color(.secondaryLabel) : BrandPalette.friendlyTextDim
+        #if os(macOS)
+        Color(nsColor: .secondaryLabelColor)
+        #else
+        colorScheme == .dark ? Color.sysSecondaryLabel : BrandPalette.friendlyTextDim
+        #endif
     }
     private var textFaintColor: Color {
-        colorScheme == .dark ? Color(.tertiaryLabel) : BrandPalette.friendlyTextFaint
+        #if os(macOS)
+        Color(nsColor: .tertiaryLabelColor)
+        #else
+        colorScheme == .dark ? Color.sysTertiaryLabel : BrandPalette.friendlyTextFaint
+        #endif
     }
     private var lineColor: Color {
-        colorScheme == .dark ? Color(.separator) : BrandPalette.friendlyLine
+        #if os(macOS)
+        Color(nsColor: .separatorColor)
+        #else
+        colorScheme == .dark ? Color.sysSeparator : BrandPalette.friendlyLine
+        #endif
     }
 
     // MARK: - Filtered snapshots
@@ -397,9 +425,10 @@ private struct LibrarySidebar: View {
                         Image(systemName: "laptopcomputer.and.iphone")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(textDimColor)
-                        Text("ios · mac")
-                            .font(.system(size: 12, weight: .medium).monospaced())
+                        Text(deviceName)
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(textColor)
+                            .lineLimit(1)
                     }
                     Text("····\(deviceShortHash)")
                         .font(.system(size: 11).monospaced())
@@ -442,8 +471,8 @@ private struct LibrarySidebar: View {
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
-        .background(surfaceColor)
         #if os(iOS)
+        .background(surfaceColor)
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
@@ -456,19 +485,36 @@ private struct LibrarySidebar: View {
         HStack(spacing: 10) {
             Image(systemName: item.symbol)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(isActive ? BrandPalette.accent.hot : textDimColor)
+                .foregroundStyle(isActive ? activeSidebarColor : textDimColor)
                 .frame(width: 20, alignment: .center)
             Text(item.label)
                 #if os(macOS)
-                .font(.system(size: 14, weight: isActive ? .semibold : .regular))
+                .font(.system(size: 13, weight: isActive ? .semibold : .regular))
                 #else
                 .font(.system(size: 16, weight: isActive ? .semibold : .regular))
                 #endif
-                .foregroundStyle(isActive ? BrandPalette.accent.hot : textColor)
+                .foregroundStyle(isActive ? activeSidebarColor : textColor)
             Spacer()
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
+    }
+
+    private var activeSidebarColor: Color {
+        #if os(macOS)
+        textColor
+        #else
+        BrandPalette.accent.hot
+        #endif
+    }
+
+    /// Real device name from the system (Mac hostname / iOS device name).
+    private var deviceName: String {
+        #if os(macOS)
+        Host.current().localizedName ?? "Mac"
+        #else
+        UIDevice.current.name
+        #endif
     }
 
     /// Stable 4-char device tail for visual affordance. Good-enough without
@@ -533,9 +579,7 @@ private struct LibraryDetail: View {
         }
         .scrollContentBackground(.hidden)
         .background(groundColor)
-        #if os(iOS)
-        .searchable(text: $searchText, placement: .automatic, prompt: "Search shares")
-        #endif
+        .searchable(text: $searchText, placement: .toolbar, prompt: "Search shares")
     }
 
     // MARK: - Header
@@ -580,31 +624,10 @@ private struct LibraryDetail: View {
     @ViewBuilder
     private var dropButton: some View {
         Button(action: onDropFile) {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .bold))
-                Text("DROP FILE")
-                    .font(.system(size: 12, weight: .bold).monospaced())
-                    .tracking(1.0)
-            }
-            .foregroundStyle(.white)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 18)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(BrandPalette.accent.hot)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
-            )
-            .shadow(color: BrandPalette.accent.hot.opacity(0.35), radius: 10, x: 0, y: 4)
-            // WHY: .buttonStyle(.plain) on macOS can lose hit-testing when the
-            // label uses a background modifier — contentShape forces the whole
-            // pill to be tappable.
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Label("Drop file", systemImage: "plus")
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.regular)
         #if os(macOS)
         .keyboardShortcut("u", modifiers: [.command, .shift])
         #endif
@@ -701,22 +724,10 @@ private struct LibraryDetail: View {
             }
 
             Button(action: onDropFile) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("Pick a file")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.vertical, 11)
-                .padding(.horizontal, 22)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(BrandPalette.accent.hot)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                Label("Pick a file", systemImage: "plus")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
             .padding(.top, 4)
         }
         .frame(maxWidth: 420)
@@ -740,6 +751,14 @@ private struct LibraryRow: View {
 
     @State private var copyFlash = false
     @State private var isHovering = false
+
+    private var hoverBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .selectedControlColor).opacity(0.18)
+        #else
+        Color.primary.opacity(0.04)
+        #endif
+    }
 
     private var remaining: TimeInterval { max(0, link.expiresAt.timeIntervalSince(now)) }
     private var retention: TimeInterval { max(0, link.expiresAt.timeIntervalSince(link.createdAt)) }
@@ -836,8 +855,8 @@ private struct LibraryRow: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isHovering ? Color.primary.opacity(0.04) : Color.clear)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovering ? hoverBackground : Color.clear)
         )
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }

@@ -187,7 +187,7 @@ struct RootView: View {
     /// hard-coded brand cream/ink.
     private var groundBackground: Color {
         #if os(iOS)
-        Color(.systemBackground)
+        Color.sysBackground
         #else
         Color(nsColor: .windowBackgroundColor)
         #endif

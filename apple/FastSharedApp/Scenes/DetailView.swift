@@ -147,7 +147,7 @@ struct DetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(link.originalFilename ?? link.token)
                             .font(.title3.weight(.semibold))
-                            .foregroundStyle(Color(.label))
+                            .foregroundStyle(Color.sysLabel)
                             .lineLimit(2)
                             .fixedSize(horizontal: false, vertical: true)
 
@@ -167,7 +167,7 @@ struct DetailView: View {
                 HStack(alignment: .lastTextBaseline, spacing: 8) {
                     Text(countdownHeadline(remaining: remaining, tier: tier, isActive: isActive, status: link.status))
                         .font(.system(size: 34, weight: .bold).monospacedDigit())
-                        .foregroundStyle(isActive ? tier.urgencyColor : Color(.secondaryLabel))
+                        .foregroundStyle(isActive ? tier.urgencyColor : Color.sysSecondaryLabel)
                     Text(countdownFootnote(link: link, isActive: isActive))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -176,7 +176,7 @@ struct DetailView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground))
+            .background(Color.sysSecondaryBackground)
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
@@ -192,7 +192,7 @@ struct DetailView: View {
             HStack(spacing: 12) {
                 Text(urlString)
                     .font(.system(.footnote, design: .monospaced))
-                    .foregroundStyle(Color(.label))
+                    .foregroundStyle(Color.sysLabel)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -253,7 +253,7 @@ struct DetailView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(asset.filename)
                             .font(.body)
-                            .foregroundStyle(Color(.label))
+                            .foregroundStyle(Color.sysLabel)
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Text(ByteCountFormatter.string(fromByteCount: asset.sizeBytes, countStyle: .file))
@@ -353,8 +353,8 @@ struct DetailView: View {
         let (label, color): (String, Color) = {
             if !isActive {
                 return link.status == .revoked
-                    ? ("Revoked", Color(.secondaryLabel))
-                    : ("Expired", Color(.secondaryLabel))
+                    ? ("Revoked", Color.sysSecondaryLabel)
+                    : ("Expired", Color.sysSecondaryLabel)
             }
             return (tier.urgencyLabel, tier.urgencyColor)
         }()

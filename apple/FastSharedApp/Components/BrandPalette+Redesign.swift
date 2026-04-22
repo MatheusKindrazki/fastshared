@@ -69,3 +69,82 @@ extension BrandPalette {
 
     static var successGreen: Color { FriendlyPalette.successGreen }
 }
+
+// MARK: - Cross-platform semantic colors
+// `Color(.label)`, `Color(.systemBackground)`, etc. fail on macOS because the
+// compiler cannot resolve whether `.label` means `UIColor.label` or
+// `NSColor.label`. These static properties wrap the correct platform type.
+
+extension Color {
+    static var sysBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(uiColor: .systemBackground)
+        #endif
+    }
+
+    static var sysSecondaryBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color(uiColor: .secondarySystemBackground)
+        #endif
+    }
+
+    static var sysTertiaryBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color(uiColor: .tertiarySystemBackground)
+        #endif
+    }
+
+    static var sysGroupedBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(uiColor: .systemGroupedBackground)
+        #endif
+    }
+
+    static var sysSecondaryGroupedBackground: Color {
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color(uiColor: .secondarySystemGroupedBackground)
+        #endif
+    }
+
+    static var sysLabel: Color {
+        #if os(macOS)
+        Color(nsColor: .labelColor)
+        #else
+        Color(uiColor: .label)
+        #endif
+    }
+
+    static var sysSecondaryLabel: Color {
+        #if os(macOS)
+        Color(nsColor: .secondaryLabelColor)
+        #else
+        Color(uiColor: .secondaryLabel)
+        #endif
+    }
+
+    static var sysTertiaryLabel: Color {
+        #if os(macOS)
+        Color(nsColor: .tertiaryLabelColor)
+        #else
+        Color(uiColor: .tertiaryLabel)
+        #endif
+    }
+
+    static var sysSeparator: Color {
+        #if os(macOS)
+        Color(nsColor: .separatorColor)
+        #else
+        Color(uiColor: .separator)
+        #endif
+    }
+}

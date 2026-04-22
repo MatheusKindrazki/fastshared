@@ -133,6 +133,12 @@ struct FastSharedApp: App {
                 .environment(\.subscriptionStore, subscriptionStore)
                 .environment(\.paywallCoordinator, paywallCoordinator)
                 .modelContainer(store.modelContainer)
+                .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+                    if let window = notification.object as? NSWindow {
+                        window.titleVisibility = .hidden
+                        window.title = ""
+                    }
+                }
             #else
             RootView()
                 .environment(\.apiClient, apiClient)

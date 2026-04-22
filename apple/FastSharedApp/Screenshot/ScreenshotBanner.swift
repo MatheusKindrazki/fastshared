@@ -25,10 +25,10 @@ struct ScreenshotBanner: View {
     // Semantic tokens respect Dark Mode natively — FriendlyPalette dark
     // (#140a38) was bleeding purple into the screenshot banner.
 
-    private var canvasColor: Color { Color(.secondarySystemBackground) }
-    private var textColor: Color { Color(.label) }
-    private var textDimColor: Color { Color(.secondaryLabel) }
-    private var lineColor: Color { Color(.separator) }
+    private var canvasColor: Color { Color.sysSecondaryBackground }
+    private var textColor: Color { Color.sysLabel }
+    private var textDimColor: Color { Color.sysSecondaryLabel }
+    private var lineColor: Color { Color.sysSeparator }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,16 +67,11 @@ struct ScreenshotBanner: View {
 
                 // Share button (wider)
                 Button(action: upload) {
-                    Text("Share it →")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color(red: 26/255, green: 15/255, blue: 56/255))
+                    Text("Share it")
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 12)
-                        .background(BrandPalette.accentHot, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             }
             .padding(.top, 12)
 
