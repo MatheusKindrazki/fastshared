@@ -166,7 +166,7 @@ struct MacCompanionView: View {
                     .frame(height: 1)
 
                 Button {
-                    // Open settings — placeholder; future navigation
+                    SettingsWindowHolder.shared.open()
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "gearshape")

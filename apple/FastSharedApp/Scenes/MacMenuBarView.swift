@@ -23,7 +23,6 @@ struct MacMenuBarView: View {
 
     @State private var isDragTargeted: Bool = false
     @State private var isUploading: Bool = false
-    @State private var showSettings: Bool = false
 
     // MARK: - Adaptive palette — HIG semantic (NSColor bridges).
 
@@ -59,10 +58,6 @@ struct MacMenuBarView: View {
         }
         .frame(width: 360)
         .background(groundColor)
-        .sheet(isPresented: $showSettings) {
-            SettingsView()
-                .frame(minWidth: 520, minHeight: 640)
-        }
     }
 
     // MARK: - Header
@@ -169,7 +164,7 @@ struct MacMenuBarView: View {
             HStack {
                 Spacer()
                 Button {
-                    showSettings = true
+                    openSettingsWindow()
                 } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 13, weight: .medium))
@@ -183,6 +178,14 @@ struct MacMenuBarView: View {
             }
             .padding(.vertical, 6)
         }
+    }
+
+    // MARK: - Settings window
+
+    /// Opens Settings in a dedicated floating window — sheets inside NSPopover
+    /// are unreliable on macOS, so we use a real NSWindow instead.
+    private func openSettingsWindow() {
+        SettingsWindowHolder.shared.open()
     }
 
     // MARK: - Drop handler
@@ -243,6 +246,38 @@ private struct MenuBarShareRow: View {
         }
         .buttonStyle(.plain)
         .help("Copy link")
+    }
+}
+
+// MARK: - SettingsWindowHolder
+
+/// Holds a strong reference to the Settings window so it stays alive
+/// while the user interacts with it. Replaces any previous window.
+@MainActor
+final class SettingsWindowHolder {
+    static let shared = SettingsWindowHolder()
+    private var window: NSWindow?
+
+    private init() {}
+
+    /// Opens (or re-opens) a dedicated Settings window.
+    func open() {
+        // If a window already exists, just bring it to front
+        if let existing = window, existing.isVisible {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        newWindow.title = "Settings"
+        newWindow.contentViewController = NSHostingController(rootView: SettingsView())
+        newWindow.center()
+        newWindow.makeKeyAndOrderFront(nil)
+        window = newWindow
     }
 }
 
