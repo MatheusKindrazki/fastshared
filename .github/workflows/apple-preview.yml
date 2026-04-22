@@ -41,6 +41,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/asc"
           echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
+      - name: Debug Xcode project
+        run: |
+          cd apple
+          ls -la
+          ls -la FastShared.xcodeproj/
+          xcodebuild -list -project FastShared.xcodeproj || true
+
       - name: Build and upload to TestFlight
         env:
           APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
