@@ -35,8 +35,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -configuration Release \
             -archivePath "build/FastShared-iOS.xcarchive" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            | xcpretty || true
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
           test -d "build/FastShared-iOS.xcarchive" || (
             echo "::error::archive did not produce an xcarchive"; exit 1
           )
