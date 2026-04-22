@@ -22,21 +22,6 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        working-directory: apple
-        run: xcodegen generate
-
-      - name: Verify generated project
-        working-directory: apple
-        run: |
-          ls -la
-          ls -la FastShared.xcodeproj/ || true
-          cat FastShared.xcodeproj/project.pbxproj | head -5 || true
-          xcodebuild -list -project FastShared.xcodeproj || true
-
       - name: Archive iOS
         working-directory: apple
         run: |

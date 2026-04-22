@@ -35,8 +35,9 @@ apple/.bundle/
 apple/build/
 
 # XcodeGen output (regenerated; keep project.yml, ignore the generated project)
-apple/FastShared.xcodeproj/
-apple/FastShared.xcworkspace/
+# FastShared.xcodeproj is now committed so CI can build without xcodegen
+# apple/FastShared.xcodeproj/
+# apple/FastShared.xcworkspace/
 
 # Node / TypeScript
 node_modules/
