@@ -33,18 +33,19 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler: "latest"
-          bundler-cache: true
-          working-directory: apple
 
       - name: Decode App Store Connect API key
         run: |
           mkdir -p "$RUNNER_TEMP/asc"
           echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
-      - name: Update gems for Ruby 3.2 compatibility
-        run: bundle update
+      - name: Install and update gems
+        working-directory: apple
+        run: |
+          bundle update
 
       - name: Build and upload to TestFlight
+        working-directory: apple
         env:
           APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
           APPSTORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}
