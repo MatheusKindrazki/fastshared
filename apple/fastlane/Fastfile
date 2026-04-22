@@ -27,8 +27,17 @@ platform :ios do
     sh("cd .. && xcodegen generate")
   end
 
-  desc "Build + upload the iOS app to TestFlight. Internal testing only; external needs review."
+  desc "Build + upload the iOS app to TestFlight (preview / internal testing)."
   lane :beta do
+    upload_to_testflight_internal(distribute_external: false)
+  end
+
+  desc "Build + upload the iOS app to TestFlight for App Store release."
+  lane :release do
+    upload_to_testflight_internal(distribute_external: false)
+  end
+
+  private_lane :upload_to_testflight_internal do |options|
     regen
 
     api_key = app_store_connect_api_key(
@@ -71,9 +80,9 @@ platform :ios do
       api_key:               api_key,
       ipa:                   "#{IPA_OUTPUT_DIR}/FastShared.ipa",
       skip_waiting_for_build_processing: false,
-      skip_submission:       true,  # internal testing only; flip to false + set groups later for external
-      changelog:             ENV["FASTSHARED_CHANGELOG"] || "Ephemeral share flow polished. Tap the Action Button or share from Photos.",
-      distribute_external:   false,
+      skip_submission:       true,
+      changelog:             ENV["FASTSHARED_CHANGELOG"] || "Build #{new_build}",
+      distribute_external:   options[:distribute_external] || false,
     )
   end
 

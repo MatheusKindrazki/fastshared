@@ -1,0 +1,52 @@
+name: Backend — Promote STG → PROD
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite PROMOTE para confirmar"
+        required: true
+        type: string
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require explicit confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "PROMOTE" ]; then
+            echo "::error::O campo 'confirm' deve ser exatamente PROMOTE"
+            exit 1
+          fi
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: guard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm dlx wrangler deploy
