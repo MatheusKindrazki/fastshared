@@ -28,9 +28,6 @@ jobs:
     needs: guard
     runs-on: macos-14
     timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: apple
     steps:
       - uses: actions/checkout@v4
 
@@ -46,25 +43,22 @@ jobs:
           ruby-version: "3.2"
           bundler: "latest"
 
+      - name: Install and update gems
+        run: |
+          cd apple
+          bundle update
+
       - name: Decode App Store Connect API key
         run: |
           mkdir -p "$RUNNER_TEMP/asc"
           echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
-      - name: Install and update gems
-        working-directory: apple
-        run: |
-          bundle update
-
-      - name: Generate Xcode project
-        working-directory: apple
-        run: xcodegen generate
-
       - name: Build and upload production build
-        working-directory: apple
         env:
           APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
           APPSTORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}
           APPSTORE_CONNECT_API_KEY_PATH: ${{ runner.temp }}/asc/AuthKey.p8
           FASTSHARED_CHANGELOG: "Production build from ${{ github.sha }}"
-        run: bundle exec fastlane ios release
+        run: |
+          cd apple
+          bundle exec fastlane ios release
