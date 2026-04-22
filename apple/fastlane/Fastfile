@@ -52,7 +52,6 @@ platform :ios do
     # Store Connect. Epoch-seconds-since-the-year-2020 is fast, stable across
     # machines, and never collides; we don't need cute counters.
     new_build = (Time.now.to_i - 1_577_836_800).to_s
-    increment_build_number(xcodeproj: XCODE_PROJECT, build_number: new_build)
 
     # WHY: -allowProvisioningUpdates tells xcodebuild to consult App Store
     # Connect (via the API key we just loaded) and mint App Store Distribution
@@ -72,7 +71,7 @@ platform :ios do
       clean:            true,
       silent:           false,
       export_team_id:   "YFYB6NKC73",
-      xcargs:           "-allowProvisioningUpdates",
+      xcargs:           "-allowProvisioningUpdates CURRENT_PROJECT_VERSION=#{new_build}",
       export_xcargs:    "-allowProvisioningUpdates",
     )
 
