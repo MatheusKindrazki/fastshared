@@ -33,7 +33,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -configuration Release \
             -archivePath "build/FastShared-iOS.xcarchive" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CURRENT_PROJECT_VERSION=$(($(date +%s) - 1577836800)) \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
             -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
