@@ -5,7 +5,7 @@ import FastSharedCore
 ///
 /// Ported 1:1 from `project/design/plane-arc.jsx` → `PA_Refined` (the variant
 /// the team shipped). A single gradient arc (`fade@0 → hot@0.5 → soft@1`) in a
-/// 140-unit viewBox with a dart-shaped plane perched at its terminus (84, 64).
+/// 140-unit viewBox with a dart-shaped plane tucked into its terminus (81, 66).
 ///
 /// The mark always renders inside a `size × size` frame and maps the
 /// 140-unit design coordinates onto that frame via `GeometryReader`-driven
@@ -91,7 +91,7 @@ struct PlaneArcMark: View {
                     .frame(width: size, height: size)
             }
 
-            // Arc — viewBox-140: `M 26 110 Q 60 98, 82 68`.
+            // Arc — endpoint tucks under the plane tail. The butt cap prevents a 1px violet halo behind the dart.
             // Gradient: fade@0 → hot@0.5 → soft@1 along bottom-left → top-right.
             ArcPath()
                 .trim(from: 0, to: animated && !reduceMotion ? arcProgress : 1)
@@ -101,11 +101,11 @@ struct PlaneArcMark: View {
                         startPoint: .bottomLeading,
                         endPoint: .topTrailing
                     ),
-                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .round)
+                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .butt)
                 )
                 .frame(width: size, height: size)
 
-            // Plane dart — dart at terminus (84, 64) scaled ×1.1 in viewBox-140 units.
+            // Plane dart — tucked into the terminus (81, 66) scaled ×1.1 in viewBox-140 units.
             planeDart
                 .frame(width: size, height: size)
                 .opacity(animated && !reduceMotion ? (planeIn ? 1 : 0) : 1)
@@ -128,12 +128,12 @@ struct PlaneArcMark: View {
     }
 
     /// Dart plane — matches the `planeDart` path in plane-arc.jsx scaled by 1.1
-    /// and translated to (84, 64) in the 140-unit viewBox.
-    /// Includes the thin 35%-opacity secondary stroke along the belly seam (M 4 4 L 14 10).
+    /// and translated to (81, 66) in the 140-unit viewBox. Includes the thin
+    /// 35%-opacity secondary stroke along the belly seam (M 4 4 L 14 10).
     private var planeDart: some View {
         GeometryReader { geo in
             let s = geo.size.width / 140.0
-            let transform = CGAffineTransform(translationX: 84 * s, y: 64 * s)
+            let transform = CGAffineTransform(translationX: 81 * s, y: 66 * s)
                 .scaledBy(x: 1.1 * s, y: 1.1 * s)
 
             ZStack {
@@ -143,7 +143,7 @@ struct PlaneArcMark: View {
                     p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
                     p.addLine(to: CGPoint(x: 4, y: 4).applying(transform))
                     p.addLine(to: CGPoint(x: 0, y: 18).applying(transform))
-                    p.addLine(to: CGPoint(x: -4, y: 4).applying(transform))
+                    p.addLine(to: CGPoint(x: -8, y: 4).applying(transform))
                     p.closeSubpath()
                 }
                 .fill(planeColor)
@@ -158,14 +158,14 @@ struct PlaneArcMark: View {
     }
 }
 
-/// The arc path from `PA_Refined`: `M 26 110 Q 60 98, 82 68` in a 140-unit viewBox.
+/// The arc path from `PA_Refined`, trimmed to tuck under the plane tail in a 140-unit viewBox.
 struct ArcPath: Shape {
     func path(in rect: CGRect) -> Path {
         let s = rect.width / 140.0
         var p = Path()
         p.move(to: CGPoint(x: 26 * s, y: 110 * s))
         p.addQuadCurve(
-            to: CGPoint(x: 82 * s, y: 68 * s),
+            to: CGPoint(x: 80 * s, y: 72 * s),
             control: CGPoint(x: 60 * s, y: 98 * s)
         )
         return p

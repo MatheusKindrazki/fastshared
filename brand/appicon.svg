@@ -22,13 +22,13 @@
   <!-- Surface tile (iOS rounds the corners further; radius matches 32/140 · 1024 ≈ 234) -->
   <rect x="0" y="0" width="1024" height="1024" rx="234" ry="234" fill="url(#fs-canvas)"/>
 
-  <!-- Arc — 9 · 7.3143 ≈ 66px stroke -->
-  <path d="M 190 805 Q 439 717, 600 497"
-        stroke="url(#fs-arc)" stroke-width="66" stroke-linecap="round" fill="none"/>
+  <!-- Arc — 9 · 7.3143 ≈ 66px stroke; butt cap prevents a violet halo behind the dart -->
+  <path d="M 190.17 804.57 Q 438.86 716.80, 585.14 526.63"
+        stroke="url(#fs-arc)" stroke-width="65.83" stroke-linecap="butt" fill="none"/>
 
-  <!-- Plane — translate(84,64)·7.3143 ≈ (614, 468); scale 1.1 · 7.3143 ≈ 8.05 -->
-  <g transform="translate(614 468) scale(8.05)" fill="#fafaff">
-    <path d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -4 4 Z"/>
+  <!-- Plane — translate(81,66)·7.3143 ≈ (592.46, 482.74); scale 1.1 · 7.3143 ≈ 8.0457 -->
+  <g transform="translate(592.46 482.74) scale(8.0457)" fill="#fafaff">
+    <path d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -8 4 Z"/>
     <path d="M 4 4 L 14 10" stroke="#fafaff" stroke-opacity="0.35" stroke-width="0.14"/>
   </g>
 </svg>

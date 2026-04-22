@@ -131,7 +131,8 @@ private struct AnimatedPlaneArc: View {
             // splash mark and the static brand lockup share visual identity.
             let start = CGPoint(x: s(26), y: s(110))
             let control = CGPoint(x: s(60), y: s(98))
-            let tip = CGPoint(x: s(84), y: s(64))
+            let tip = CGPoint(x: s(80), y: s(72))
+            let tuckOffset = CGPoint(x: s(1) * planeProgress, y: -s(6) * planeProgress)
 
             ZStack {
                 Path { p in
@@ -148,7 +149,7 @@ private struct AnimatedPlaneArc: View {
                         ],
                         startPoint: .bottomLeading,
                         endPoint: .topTrailing),
-                    style: StrokeStyle(lineWidth: s(9), lineCap: .round))
+                    style: StrokeStyle(lineWidth: s(9), lineCap: .butt))
 
                 let pos = quadPoint(start: start, control: control, end: tip, t: planeProgress)
                 let tan = quadTangent(start: start, control: control, end: tip, t: planeProgress)
@@ -157,7 +158,7 @@ private struct AnimatedPlaneArc: View {
                 PlaneDart(k: k, color: planeColor)
                     .rotationEffect(.radians(Double(angle - referenceAngle(start: start, end: tip))),
                                     anchor: .topLeading)
-                    .offset(x: pos.x, y: pos.y)
+                    .offset(x: pos.x + tuckOffset.x, y: pos.y + tuckOffset.y)
                     .opacity(planeOpacity)
             }
         }
@@ -184,7 +185,7 @@ private struct PlaneDart: View {
                 p.addLine(to: CGPoint(x:  14 * k, y:  10 * k))
                 p.addLine(to: CGPoint(x:   4 * k, y:   4 * k))
                 p.addLine(to: CGPoint(x:   0,     y:  18 * k))
-                p.addLine(to: CGPoint(x:  -4 * k, y:   4 * k))
+                p.addLine(to: CGPoint(x:  -8 * k, y:   4 * k))
                 p.closeSubpath()
             }
             .fill(color)
