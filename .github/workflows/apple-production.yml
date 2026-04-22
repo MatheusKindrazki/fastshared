@@ -37,28 +37,48 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.2"
-          bundler: "latest"
+      - name: Generate Xcode project
+        working-directory: apple
+        run: xcodegen generate
 
-      - name: Install and update gems
+      - name: Archive iOS
+        working-directory: apple
         run: |
-          cd apple
-          bundle update
+          xcodebuild archive \
+            -scheme FastSharedApp \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath "build/FastShared-iOS.xcarchive" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            | xcpretty || true
+          test -d "build/FastShared-iOS.xcarchive" || (
+            echo "::error::archive did not produce an xcarchive"; exit 1
+          )
+
+      - name: Export iOS
+        working-directory: apple
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "build/FastShared-iOS.xcarchive" \
+            -exportPath "build/ipa" \
+            -exportOptionsPlist ExportOptions.plist \
+            | xcpretty || true
+          ls -la "build/ipa"
 
       - name: Decode App Store Connect API key
         run: |
           mkdir -p "$RUNNER_TEMP/asc"
           echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
-      - name: Build and upload production build
+      - name: Upload to TestFlight
+        working-directory: apple
         env:
           APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
           APPSTORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}
-          APPSTORE_CONNECT_API_KEY_PATH: ${{ runner.temp }}/asc/AuthKey.p8
-          FASTSHARED_CHANGELOG: "Production build from ${{ github.sha }}"
         run: |
-          cd apple
-          bundle exec fastlane ios release
+          xcrun altool --upload-app \
+            --type ios \
+            --file "build/ipa/FastShared.ipa" \
+            --apiKey "$APPSTORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APPSTORE_CONNECT_API_KEY_ISSUER_ID" \
+            --apiKeyPath "$RUNNER_TEMP/asc/AuthKey.p8"
