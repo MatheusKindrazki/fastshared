@@ -31,6 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Decode App Store Connect API key
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
+
       - name: Archive iOS
         working-directory: apple
         run: |
@@ -40,7 +45,11 @@ jobs:
             -destination 'generic/platform=iOS' \
             -configuration Release \
             -archivePath "build/FastShared-iOS.xcarchive" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
           test -d "build/FastShared-iOS.xcarchive" || (
             echo "::error::archive did not produce an xcarchive"; exit 1
           )
@@ -52,13 +61,11 @@ jobs:
             -archivePath "build/FastShared-iOS.xcarchive" \
             -exportPath "build/ipa" \
             -exportOptionsPlist ExportOptions.plist \
-            | xcpretty || true
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
+            -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
           ls -la "build/ipa"
-
-      - name: Decode App Store Connect API key
-        run: |
-          mkdir -p "$RUNNER_TEMP/asc"
-          echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
       - name: Upload to TestFlight
         working-directory: apple
