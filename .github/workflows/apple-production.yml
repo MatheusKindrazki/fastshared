@@ -1,0 +1,61 @@
+name: Apple — Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Digite PROMOTE para confirmar"
+        required: true
+        type: string
+
+concurrency:
+  group: apple-production
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require explicit confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "PROMOTE" ]; then
+            echo "::error::O campo 'confirm' deve ser exatamente PROMOTE"
+            exit 1
+          fi
+
+  testflight:
+    name: Build + Upload Production Build
+    needs: guard
+    runs-on: macos-14
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apple
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: apple
+
+      - name: Decode App Store Connect API key
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
+
+      - name: Build and upload production build
+        env:
+          APPSTORE_CONNECT_API_KEY_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+          APPSTORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}
+          APPSTORE_CONNECT_API_KEY_PATH: ${{ runner.temp }}/asc/AuthKey.p8
+          FASTSHARED_CHANGELOG: "Production build from ${{ github.sha }}"
+        run: bundle exec fastlane ios release

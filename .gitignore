@@ -74,3 +74,6 @@ tmp/
 
 # generated brand exports (run brand/export.sh to regenerate)
 brand/out/
+
+# Claude worktrees / agent state
+.claude/
