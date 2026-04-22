@@ -6,6 +6,12 @@ import FastSharedCore
 import UniformTypeIdentifiers
 import OSLog
 
+extension Notification.Name {
+    /// Posted by the tray Settings button to open Settings as a sheet
+    /// inside the main LibraryView window instead of a floating window.
+    static let openSettings = Notification.Name("dev.kindrazki.fastshared.openSettings")
+}
+
 /// macOS menu bar popover — 360pt wide, auto height.
 ///
 /// Shows the brand lockup header, a drag-and-drop upload zone, and a "recent"
@@ -164,7 +170,9 @@ struct MacMenuBarView: View {
             HStack {
                 Spacer()
                 Button {
-                    openSettingsWindow()
+                    TrayManager.shared.closePopover()
+                    NSApp.activate(ignoringOtherApps: true)
+                    NotificationCenter.default.post(name: .openSettings, object: nil)
                 } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 13, weight: .medium))

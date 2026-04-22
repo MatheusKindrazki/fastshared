@@ -447,7 +447,7 @@ private struct LibrarySidebar: View {
 
             // Settings access — iPad doesn't have a nav bar gear icon
             // like HistoryView on iPhone, so we surface it in the sidebar.
-            #if os(iOS)
+            // macOS also shows it here (tray delegates to the main window).
             Section {
                 Button {
                     showSettings = true
@@ -467,16 +467,18 @@ private struct LibrarySidebar: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
-            #endif
         }
         .listStyle(.sidebar)
         .scrollContentBackground(.hidden)
         #if os(iOS)
         .background(surfaceColor)
+        #endif
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
-        #endif
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("dev.kindrazki.fastshared.openSettings"))) { _ in
+            showSettings = true
+        }
     }
 
     @ViewBuilder
