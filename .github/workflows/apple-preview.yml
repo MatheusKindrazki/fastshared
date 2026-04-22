@@ -22,11 +22,19 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
+      - name: Check project exists
+        working-directory: apple
+        run: |
+          pwd
+          ls -la
+          ls -la FastShared.xcodeproj/
+
       - name: Archive iOS
         working-directory: apple
         run: |
           xcodebuild archive \
             -scheme FastSharedApp \
+            -project FastShared.xcodeproj \
             -destination 'generic/platform=iOS' \
             -configuration Release \
             -archivePath "build/FastShared-iOS.xcarchive" \
