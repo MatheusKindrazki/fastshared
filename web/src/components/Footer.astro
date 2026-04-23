@@ -1,21 +1,21 @@
 ---
-// Minimal footer — BrandLockup on the left, plain links on the right.
+// Minimal footer — brand on the left, plain links on the right.
 import BrandLockup from './BrandLockup.astro';
 ---
-<footer class="frame pt-16 pb-12 mt-20 border-t border-charcoal/8">
-  <div class="flex flex-col md:flex-row gap-6 md:gap-4 items-start md:items-center justify-between">
+<footer class="frame pt-20 pb-12 mt-12 border-t border-charcoal/[0.06]">
+  <div class="flex flex-col md:flex-row gap-8 md:gap-4 items-start md:items-center justify-between">
     <div class="flex items-center gap-4">
-      <BrandLockup markSize={18} textSize={12} ariaLabel="fastshared" />
-      <span class="font-mono text-[12px] tracking-[0.08em] uppercase text-charcoal/40">
-        2026 · v0.1
+      <BrandLockup markSize={16} textSize={12} ariaLabel="fastshared" />
+      <span class="font-mono text-[11px] tracking-[0.08em] uppercase text-charcoal/30">
+        2026
       </span>
     </div>
 
-    <nav class="flex items-center gap-6 text-[13px]" aria-label="Footer">
-      <a href="/press" class="font-mono tracking-[0.06em] uppercase text-charcoal/50 hover:text-violet-hot transition-colors">press</a>
-      <a href="/privacy" class="font-mono tracking-[0.06em] uppercase text-charcoal/50 hover:text-violet-hot transition-colors">privacy</a>
-      <a href="/terms" class="font-mono tracking-[0.06em] uppercase text-charcoal/50 hover:text-violet-hot transition-colors">terms</a>
-      <a href="https://github.com/MatheusKindrazki/fastshared" rel="noopener noreferrer" target="_blank" class="font-mono tracking-[0.06em] uppercase text-charcoal/50 hover:text-violet-hot transition-colors">github ↗</a>
+    <nav class="flex flex-wrap items-center gap-6 text-[13px]" aria-label="Footer">
+      <a href="/press" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">press</a>
+      <a href="/privacy" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">privacy</a>
+      <a href="/terms" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">terms</a>
+      <a href="https://github.com/MatheusKindrazki/fastshared" rel="noopener noreferrer" target="_blank" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">github ↗</a>
     </nav>
   </div>
 </footer>

@@ -1,0 +1,121 @@
+---
+/**
+ * PhoneFrame — realistic iPhone mockup frame for showcasing app UI.
+ * Renders a CSS-based iPhone frame with Dynamic Island and optional screen content.
+ */
+
+interface Props {
+  class?: string;
+  screenClass?: string;
+  children?: any;
+}
+
+const { class: className = '', screenClass = '' } = Astro.props;
+---
+
+<div class={`phone-frame ${className}`}>
+  <!-- Bezel / Frame -->
+  <div class="phone-bezel">
+    <!-- Screen -->
+    <div class={`phone-screen ${screenClass}`}>
+      <!-- Dynamic Island -->
+      <div class="phone-island" aria-hidden="true"></div>
+      <!-- Content slot -->
+      <div class="phone-content">
+        <slot />
+      </div>
+    </div>
+  </div>
+  <!-- Side buttons -->
+  <div class="phone-button phone-button-left phone-button-vol-up" aria-hidden="true"></div>
+  <div class="phone-button phone-button-left phone-button-vol-down" aria-hidden="true"></div>
+  <div class="phone-button phone-button-right phone-button-power" aria-hidden="true"></div>
+</div>
+
+<style>
+  .phone-frame {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 360px;
+    aspect-ratio: 9 / 19.5;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .phone-bezel {
+    position: absolute;
+    inset: 0;
+    border-radius: 52px;
+    background: linear-gradient(180deg, #2a2a2c 0%, #1a1a1c 100%);
+    padding: 12px;
+    box-shadow:
+      0 0 0 1.5px rgba(255,255,255,0.08) inset,
+      0 0 0 2px rgba(0,0,0,0.4),
+      0 48px 96px -24px rgba(0,0,0,0.35),
+      0 24px 48px -12px rgba(0,0,0,0.25);
+  }
+
+  .phone-screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 42px;
+    background: var(--cream, #fbf8f1);
+    overflow: hidden;
+  }
+
+  [data-theme="dark"] .phone-screen {
+    background: var(--canvas, #1c1c22);
+  }
+
+  .phone-island {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 96px;
+    height: 28px;
+    background: #0d0d0d;
+    border-radius: 20px;
+    z-index: 10;
+  }
+
+  .phone-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .phone-button {
+    position: absolute;
+    background: linear-gradient(180deg, #3a3a3c 0%, #2a2a2c 100%);
+    border-radius: 2px;
+  }
+
+  .phone-button-left {
+    left: -3px;
+    width: 3px;
+  }
+
+  .phone-button-vol-up {
+    top: 110px;
+    height: 32px;
+  }
+
+  .phone-button-vol-down {
+    top: 154px;
+    height: 56px;
+  }
+
+  .phone-button-right {
+    right: -3px;
+    width: 3px;
+  }
+
+  .phone-button-power {
+    top: 130px;
+    height: 80px;
+  }
+</style>

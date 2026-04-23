@@ -23,12 +23,12 @@ const items: QA[] = [
   },
 ];
 ---
-<section class="frame pt-24 md:pt-32 pb-20 md:pb-28" aria-labelledby="faq-heading">
-  <header class="section-head">
-    <span class="section-num" id="faq-heading">03 / FAQ · READ BEFORE ASKING</span>
+<section class="frame py-24 md:py-40" aria-labelledby="faq-heading">
+  <header class="section-head reveal">
+    <span class="section-num" id="faq-heading">Questions</span>
   </header>
 
-  <div class="max-w-[780px]">
+  <div class="max-w-[780px] reveal reveal-delay-1">
     {items.map((item) => (
       <details class="faq-item">
         <summary>{item.q}</summary>
