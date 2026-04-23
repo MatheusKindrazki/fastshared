@@ -1,10 +1,10 @@
 /**
- * Lean client-side hero orchestration.
+ * Premium scroll orchestration.
  *
- * The Plane + Arc (Refined) hero animation is pure CSS (see global.css,
- * `[data-animate="planearc"]` selectors). Reduced-motion is also handled
- * there. This file only wires the Dynamic Island state rotator used
- * further down the page.
+ * - IntersectionObserver-driven reveal animations
+ * - Nav background blur on scroll
+ * - Dynamic Island state rotator (4s interval)
+ * - Reduced-motion respected everywhere
  */
 
 type El = Element | null;
@@ -12,7 +12,48 @@ type El = Element | null;
 function mount(): void {
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Dynamic Island — rotate through the three states every 2s.
+  // ── 1. Scroll reveal ──
+  const revealElements = document.querySelectorAll<HTMLElement>('.reveal');
+  if (revealElements.length > 0 && !prefersReducedMotion) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+    revealElements.forEach((el) => observer.observe(el));
+  } else {
+    // If reduced motion, show everything immediately
+    revealElements.forEach((el) => el.classList.add('is-visible'));
+  }
+
+  // ── 2. Nav blur on scroll ──
+  const nav = document.querySelector<HTMLElement>('#main-nav');
+  if (nav) {
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          if (window.scrollY > 60) {
+            nav.classList.add('nav-scrolled');
+          } else {
+            nav.classList.remove('nav-scrolled');
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  }
+
+  // ── 3. Dynamic Island — rotate through states every 4s ──
   const island: El = document.querySelector('[data-island-root]');
   if (!island) return;
 
@@ -31,7 +72,7 @@ function mount(): void {
     states[i]!.classList.remove('is-active');
     i = (i + 1) % states.length;
     states[i]!.classList.add('is-active');
-  }, 2000);
+  }, 4000);
 }
 
 if (document.readyState === 'loading') {

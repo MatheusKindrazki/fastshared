@@ -1,34 +1,54 @@
 ---
-// The ephemeral promise — centered headline, hanging-left mono bullets.
+// The ephemeral promise — full-bleed dark moment.
+// Always dark regardless of theme, because "this is the product."
 ---
-<section class="frame pt-20 md:pt-28 pb-20 md:pb-28" aria-labelledby="ephemeral-heading">
-  <h2
-    id="ephemeral-heading"
-    class="display-line font-display font-bold text-charcoal text-center"
-    style="font-size: clamp(44px, 8vw, 140px); letter-spacing: -0.055em; line-height: 0.92;"
-  >
-    <span class="block">Every link expires.</span>
-    <span class="block text-coral">Every file is deleted.</span>
-    <span class="block text-charcoal/40">By design.</span>
-  </h2>
+<section
+  class="relative w-full py-32 md:py-48 overflow-hidden"
+  aria-labelledby="ephemeral-heading"
+  style="background: #0a0a0c;"
+>
+  <!-- subtle ambient glow -->
+  <div
+    aria-hidden="true"
+    class="absolute inset-0 pointer-events-none"
+    style="background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(157,122,255,0.06) 0%, transparent 70%);"
+  ></div>
 
-  <ul class="mt-16 md:mt-24 flex flex-col gap-5 max-w-[720px]">
-    <li class="flex items-start gap-4 font-mono text-[14px] md:text-[15px] leading-[1.55] tracking-[0.02em] text-charcoal/70">
-      <span class="text-violet-hot flex-none" aria-hidden="true">→</span>
-      <span>default · 24 hours · custom from 5 minutes to 30 days</span>
-    </li>
-    <li class="flex items-start gap-4 font-mono text-[14px] md:text-[15px] leading-[1.55] tracking-[0.02em] text-charcoal/70">
-      <span class="text-violet-hot flex-none" aria-hidden="true">→</span>
-      <span>one anonymous bearer · no accounts ever</span>
-    </li>
-    <li class="flex items-start gap-4 font-mono text-[14px] md:text-[15px] leading-[1.55] tracking-[0.02em] text-charcoal/70">
-      <span class="text-violet-hot flex-none" aria-hidden="true">→</span>
-      <span>bucket private · signed reads · 60-second TTL</span>
-    </li>
-  </ul>
+  <div class="frame relative z-10">
+    <h2
+      id="ephemeral-heading"
+      class="font-display font-bold text-white max-w-[900px] reveal"
+      style="font-size: clamp(36px, 6.5vw, 88px); letter-spacing: -0.045em; line-height: 0.95;"
+    >
+      <span class="block">Every link expires.</span>
+      <span class="block" style="color: var(--coral);">Every file is deleted.</span>
+    </h2>
 
-  <p class="mt-10 font-mono text-[13px] tracking-[0.03em] text-charcoal/50 max-w-[720px]">
-    <span class="text-violet-hot">Pro</span> unlocks cross-device sync and 30-day links.
-    <a href="/pricing" class="text-charcoal/70 hover:text-violet-hot transition-colors underline-offset-4 underline decoration-charcoal/20">See pricing →</a>
-  </p>
+    <p
+      class="mt-10 md:mt-14 font-display text-[17px] md:text-[19px] leading-[1.6] text-white/45 max-w-[520px] reveal reveal-delay-1"
+    >
+      Default is 24 hours. Custom from 5 minutes to 30 days. One anonymous bearer. No accounts, ever.
+    </p>
+
+    <div class="mt-14 md:mt-20 flex flex-col sm:flex-row gap-8 sm:gap-14 reveal reveal-delay-2">
+      <div class="flex items-start gap-3">
+        <span class="text-violet-hot mt-1" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="font-mono text-[13px] text-white/50 leading-relaxed">Private R2 bucket</span>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="text-violet-hot mt-1" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="font-mono text-[13px] text-white/50 leading-relaxed">Signed 60s URLs</span>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="text-violet-hot mt-1" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="font-mono text-[13px] text-white/50 leading-relaxed">131-bit tokens</span>
+      </div>
+    </div>
+  </div>
 </section>

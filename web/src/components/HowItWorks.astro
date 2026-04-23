@@ -1,51 +1,51 @@
 ---
+// How It Works — bento-style tiles, no borders, generous space.
 const steps = [
   {
     n: '01',
-    title: 'Share any file',
-    caption: 'image · video · document',
+    title: 'Pick a file',
+    caption: 'From any app. Photos, files, screenshots — anything.',
   },
   {
     n: '02',
-    title: 'Pick how long it lives',
-    caption: '1h · 24h · 1 week · 1 month',
+    title: 'Choose when it expires',
+    caption: '1 hour. 24 hours. A week. You decide.',
   },
   {
     n: '03',
-    title: 'The link lands in your clipboard',
-    caption: 'paste it anywhere · it expires on its own',
+    title: 'Paste the link anywhere',
+    caption: 'It lands on your clipboard. Share it. Then forget it.',
   },
 ];
 ---
-<section id="how" class="frame pt-20 md:pt-32 pb-20 md:pb-28" aria-labelledby="how-heading">
-  <header class="section-head">
+<section id="how" class="frame py-24 md:py-40" aria-labelledby="how-heading">
+  <header class="section-head reveal">
     <span class="section-num" id="how-heading">
-      01 / FLOW · 3 STEPS · UNDER 5 SECONDS
+      How it works
     </span>
   </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 relative">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-4">
     {steps.map((step, i) => (
       <div
         class:list={[
-          'px-0 md:px-6 py-8 md:py-10 flex flex-col gap-4',
-          i > 0 && 'border-t md:border-t-0 md:border-l border-dashed border-charcoal/10',
+          'group px-2 py-8 md:py-10 flex flex-col gap-5 reveal',
+          `reveal-delay-${i + 1}`,
         ]}
       >
         <span
-          class="font-display font-semibold text-violet-hot"
-          style="font-size: 56px; line-height: 1; letter-spacing: -0.04em;"
+          class="font-mono text-violet-hot text-[13px] tracking-wider"
           aria-hidden="true"
         >
           {step.n}
         </span>
         <h3
           class="font-display font-semibold text-charcoal"
-          style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;"
+          style="font-size: 24px; line-height: 1.15; letter-spacing: -0.03em;"
         >
           {step.title}
         </h3>
-        <p class="font-mono text-[13px] leading-[1.6] tracking-[0.04em] text-silver">
+        <p class="font-display text-[16px] leading-[1.55] text-charcoal/50 max-w-[320px]">
           {step.caption}
         </p>
       </div>
