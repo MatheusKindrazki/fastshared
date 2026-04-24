@@ -1,0 +1,24 @@
+# Store metadata configuration for FastShared.
+#
+# The Fastfile lanes pass platform-specific options on top of this file:
+# - iOS screenshots live in fastlane/screenshots/ios
+# - macOS screenshots live in fastlane/screenshots/macos
+
+app_identifier("dev.kindrazki.fastshared")
+team_id("YFYB6NKC73")
+app_version(ENV["FASTSHARED_APPSTORE_VERSION"] || "1.0.0")
+
+metadata_path("./fastlane/metadata")
+screenshots_path("./fastlane/screenshots/ios")
+app_icon("./FastSharedApp/Assets.xcassets/AppIcon.appiconset/appstore-1024.png")
+app_rating_config_path("./fastlane/app_rating_config.json")
+
+primary_category("Productivity")
+secondary_category("Utilities")
+copyright("2026 Matheus Kindrazki")
+
+automatic_release(false)
+phased_release(false)
+precheck_default_rule_level(:warn)
+precheck_include_in_app_purchases(true)
+languages(["en-US"])

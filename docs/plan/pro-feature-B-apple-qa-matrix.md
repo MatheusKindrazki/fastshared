@@ -23,7 +23,7 @@ suite validates the non-StoreKit logic.
 |---|----------|-------|----------|
 | 1 | Fresh install, Free | Fresh install → share 1 file, share 2, share 3 (OK); 4th → share sheet shows preflight → paywall | 3 uploads succeed, 4th opens paywall with `.dailyCapReached(3, 3)` hero |
 | 2 | Buy Monthly | On #1 paywall, tap Monthly → sandbox prompt → confirm | `isPro` flips → "Pro" in Settings → 4th upload succeeds → Usage row shows `4 / ∞` |
-| 3 | Buy Annual | Restart app Free → share 4 → tap Annual → confirm | Annual card showed `SAVE 45%` badge; post-purchase engine starts; toggle Sync row works |
+| 3 | Buy Annual | Restart app Free → share 4 → tap Annual → confirm | Annual card showed `SAVE 44%` badge; post-purchase engine starts; toggle Sync row works |
 | 4 | Annual cancel → downgrade | In TestFlight Sandbox, cancel subscription → advance sandbox clock past expiry | Engine logs "stopped; cloud records retained"; no local row deletion; UI flips back to Free |
 | 5 | Buy Lifetime → reinstall | Buy Lifetime from paywall → note tier → delete app → reinstall → hit paywall → Restore | Restore reinstates Pro with `tier=lifetime`, no expiry |
 | 6 | 2-device sync | Two devices both Pro, both toggle Sync on → upload on A → wait ~30s → open B | `ShareLinkEntity` row for the new token appears on B; filename + short URL match |

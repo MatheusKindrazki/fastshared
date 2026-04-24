@@ -188,6 +188,23 @@ targets:
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         TARGETED_DEVICE_FAMILY: "1,2"
 
+  FastSharedAppUITests:
+    type: bundle.ui-testing
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: FastSharedAppUITests
+    dependencies:
+      - target: FastSharedApp
+    settings:
+      base:
+        PRODUCT_NAME: FastSharedAppUITests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kindrazki.fastshared.UITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: FastSharedApp
+        TEST_HOST: ""
+        BUNDLE_LOADER: ""
+        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+
 schemes:
   FastSharedApp:
     build:
@@ -201,6 +218,8 @@ schemes:
     test:
       config: Debug
       storeKitConfiguration: FastSharedApp/FastShared.storekit
+      targets:
+        - FastSharedAppUITests
     profile:
       config: Release
     analyze:

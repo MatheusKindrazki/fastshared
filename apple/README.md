@@ -198,9 +198,10 @@ May 2024 — missing manifests are an automatic rejection.
 | FastSharedLiveActivity| (none — no Required Reason APIs are invoked)   | —            |
 
 All three declare `NSPrivacyTracking = false`, no tracking domains, and
-no collected data types. FastShared is anonymous-bearer by design (see
-`docs/architecture/security.md`) — no user identifiers, no analytics
-SDKs, no ATT tracker table.
+no SDK-level collected data types in the privacy manifest. The App Store
+Connect App Privacy label is broader than this manifest and must still
+disclose user-uploaded content, optional Apple identity, purchases, and
+operational logs; keep it aligned with `docs/ops/appstore-launch-setup.md`.
 
 ### Associated domains / universal links
 
@@ -246,23 +247,34 @@ so ASC's yearly export-compliance self-classification form is skipped.
 If we ever ship password-protected links or end-to-end encryption this
 MUST flip back to true and the BIS filing becomes relevant again.
 
-### Still-manual submission checklist
+### App Store automation
 
-The following steps live in App Store Connect / the Apple Developer
-portal and cannot be automated from this repo yet:
+The full release checklist is `docs/ops/appstore-launch-setup.md`. The repo
+owns the repeatable parts of the App Store launch:
 
-- Create the three App Store Connect app records:
-  - `dev.kindrazki.fastshared`       (main app — iOS, iPadOS, macOS)
-  - `dev.kindrazki.fastshared.ShareExt`    (share extension)
-  - `dev.kindrazki.fastshared.LiveActivity` (widget extension)
-- Upload a privacy policy URL (will be `https://fastsha.red/privacy`
-  once the web landing page ships).
-- Fill the App Privacy section in ASC (all-negatives given our
-  privacy manifest — no data collected, no tracking).
-- Complete the age-rating questionnaire.
-- Upload screenshots (see Track B for the spec sheet).
-- Generate an ASC API key (Admin role) and store the three secrets
-  above in the repo so CI can push to TestFlight.
+```bash
+make appstore-screenshots
+make appstore-sync
+```
+
+`make appstore-screenshots` generates and validates iPhone, iPad, macOS, and
+IAP review screenshots. `make appstore-sync` regenerates screenshots, publishes
+App Privacy details from `apple/fastlane/app_privacy_details.json`, and uploads
+metadata, icon, age rating, and screenshots for iOS/iPadOS + macOS.
+
+Apple-account-gated items still need to exist before the automation can finish:
+
+- Create or confirm one App Store Connect app record for
+  `dev.kindrazki.fastshared` covering iOS/iPadOS and macOS. Do not create
+  separate App Store app records for the share extension or Live Activity;
+  those are Developer Portal identifiers embedded in the main app.
+- Keep the Privacy Policy URL as `https://www.fastsha.red/privacy` and Support
+  URL as `https://www.fastsha.red/support`.
+- Configure the three Pro IAPs with product IDs
+  `red.fastsha.pro.monthly`, `red.fastsha.pro.annual`, and
+  `red.fastsha.pro.lifetime`.
+- Generate/store the ASC API key outside the repo; local env values live in
+  `apple/.env.testflight` and `apple/.env.appstore.local`.
 - Decide whether the macOS target goes to the Mac App Store (current
   assumption) or Developer ID direct distribution. Current entitlements
   assume MAS and keep `com.apple.security.app-sandbox = true`.

@@ -1,0 +1,1 @@
+share,link,temporary,ephemeral,upload,transfer,file,expire,private,airdrop,sync,subscription,icloud

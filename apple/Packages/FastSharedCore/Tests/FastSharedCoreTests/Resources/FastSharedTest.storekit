@@ -3,7 +3,7 @@
   "nonRenewingSubscriptions" : [],
   "products" : [
     {
-      "displayPrice" : "69.00",
+      "displayPrice" : "49.99",
       "familyShareable" : true,
       "internalID" : "FA57574A-0001-0001-0001-FA57574A0001",
       "localizations" : [
@@ -34,7 +34,7 @@
         {
           "adHocOffers" : [],
           "codeOffers" : [],
-          "displayPrice" : "4.99",
+          "displayPrice" : "2.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "FA57574A-S001-S001-S001-FA57574AS001",
@@ -55,14 +55,14 @@
         {
           "adHocOffers" : [],
           "codeOffers" : [],
-          "displayPrice" : "29.99",
+          "displayPrice" : "19.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "FA57574A-S002-S002-S002-FA57574AS002",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited uploads, 2 GB files, 30-day retention, cross-device sync. Save 45% vs monthly.",
+              "description" : "Unlimited uploads, 2 GB files, 30-day retention, cross-device sync. Save 44% vs monthly.",
               "displayName" : "FastShared Pro Annual",
               "locale" : "en_US"
             }

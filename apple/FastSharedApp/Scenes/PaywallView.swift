@@ -357,7 +357,7 @@ struct PaywallView: View {
         case .annual:
             return [
                 "Everything in Monthly",
-                "Save ~45% vs monthly",
+                "Save ~44% vs monthly",
                 "One payment per year",
                 "Early access to new features"
             ]
@@ -376,7 +376,7 @@ struct PaywallView: View {
         case .monthly:
             return nil
         case .annual:
-            return .savePercentage(45)
+            return .savePercentage(44)
         case .lifetime:
             // WHY: server flags OR local fallback drive the badge. MVP rule —
             // if `pricingFlags` is nil (Plan A not merged), consult fallback.

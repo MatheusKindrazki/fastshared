@@ -18,17 +18,33 @@ default_platform(:ios)
 
 require "fileutils"
 require "shellwords"
+require "open3"
+require "json"
+require "timeout"
 
 APP_SCHEME     = "FastSharedApp"
 XCODE_PROJECT  = "FastShared.xcodeproj"
 BUILD_OUTPUT_DIR = "build/testflight"
 EXPORT_OPTIONS = "ExportOptions.plist"
 TEAM_ID = "YFYB6NKC73"
+APP_IDENTIFIER = "dev.kindrazki.fastshared"
 
 APPLE_ROOT = File.expand_path("..", __dir__)
 XCODE_PROJECT_PATH = File.join(APPLE_ROOT, XCODE_PROJECT)
 EXPORT_OPTIONS_PATH = File.join(APPLE_ROOT, EXPORT_OPTIONS)
 BUILD_OUTPUT_ROOT = File.join(APPLE_ROOT, BUILD_OUTPUT_DIR)
+STORE_METADATA_PATH = File.join(APPLE_ROOT, "fastlane/metadata")
+STORE_SCREENSHOTS_ROOT = File.join(APPLE_ROOT, "fastlane/screenshots")
+STORE_APP_ICON_PATH = File.join(APPLE_ROOT, "FastSharedApp/Assets.xcassets/AppIcon.appiconset/appstore-1024.png")
+STORE_RATING_CONFIG_PATH = File.join(APPLE_ROOT, "fastlane/app_rating_config.json")
+STORE_PRIVACY_CONFIG_PATH = File.join(APPLE_ROOT, "fastlane/app_privacy_details.json")
+SCREENSHOT_DERIVED_DATA_PATH = File.join(APPLE_ROOT, "DerivedData/appstore-screenshots")
+SCREENSHOT_RESULT_ROOT = File.join(APPLE_ROOT, "build/appstore-screenshots")
+SCREENSHOT_TEST_TARGET = "FastSharedAppUITests/AppStoreScreenshotsUITests"
+SCREENSHOT_MAC_DESTINATION = ENV["FASTSHARED_SCREENSHOT_MAC_DESTINATION"] || "platform=macOS"
+SCREENSHOT_MAC_DERIVED_DATA_PATH = File.join(SCREENSHOT_DERIVED_DATA_PATH, "macos")
+SCREENSHOT_MAC_APP_PATH = File.join(SCREENSHOT_MAC_DERIVED_DATA_PATH, "Build/Products/Debug/FastShared.app")
+SCREENSHOT_MAC_EXPORT_TIMEOUT_SECONDS = Integer(ENV["FASTSHARED_SCREENSHOT_MAC_EXPORT_TIMEOUT"] || "90")
 
 def monotonic_build_number
   # WHY: monotonic build numbers per MARKETING_VERSION are required by App
@@ -48,6 +64,437 @@ private_lane :app_store_api_key do
     key_filepath: ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH"),
     is_key_content_base64: false,
     in_house: false
+  )
+end
+
+def marketing_version
+  override = ENV["FASTSHARED_APPSTORE_VERSION"].to_s.strip
+  return override unless override.empty?
+
+  shared_config = File.join(APPLE_ROOT, "Config/Shared.xcconfig")
+  File.readlines(shared_config).each do |line|
+    match = line.match(/\AMARKETING_VERSION\s*=\s*(.+)\z/)
+    return match[1].strip if match
+  end
+  "1.0.0"
+end
+
+def store_screenshots_path(platform)
+  case platform
+  when "ios"
+    File.join(STORE_SCREENSHOTS_ROOT, "ios")
+  when "osx", "mac", "macos"
+    File.join(STORE_SCREENSHOTS_ROOT, "macos")
+  else
+    UI.user_error!("Unsupported App Store platform: #{platform}")
+  end
+end
+
+def store_screenshot_locale_dir(platform)
+  File.join(store_screenshots_path(platform), "en-US")
+end
+
+def store_iap_screenshot_locale_dir
+  File.join(STORE_SCREENSHOTS_ROOT, "iap/en-US")
+end
+
+def available_simulator_device_names
+  output, status = Open3.capture2("xcrun", "simctl", "list", "devices", "available")
+  UI.user_error!("Could not list available iOS simulators") unless status.success?
+
+  uuid_pattern = "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+  output.lines.map do |line|
+    line[/^\s{4}(.+?)\s+\(#{uuid_pattern}\)\s+\((?:Booted|Shutdown)\)/, 1]
+  end.compact.uniq
+end
+
+def screenshot_simulator_destination(env_key:, preferred_names:)
+  override = ENV[env_key].to_s.strip
+  return override unless override.empty?
+
+  available = available_simulator_device_names
+  selected = preferred_names.find { |name| available.include?(name) }
+  unless selected
+    UI.user_error!(
+      "Could not find any preferred simulator for #{env_key}. " \
+      "Tried: #{preferred_names.join(", ")}. " \
+      "Override with #{env_key}='platform=iOS Simulator,name=...,OS=latest'."
+    )
+  end
+
+  "platform=iOS Simulator,name=#{selected},OS=latest"
+end
+
+def screenshot_iphone_destination
+  screenshot_simulator_destination(
+    env_key: "FASTSHARED_SCREENSHOT_IPHONE_DESTINATION",
+    preferred_names: [
+      "iPhone 17 Pro Max",
+      "iPhone 16 Pro Max",
+      "iPhone 15 Pro Max",
+    ]
+  )
+end
+
+def screenshot_ipad_destination
+  screenshot_simulator_destination(
+    env_key: "FASTSHARED_SCREENSHOT_IPAD_DESTINATION",
+    preferred_names: [
+      "iPad Pro 13-inch (M5)",
+      "iPad Pro 13-inch (M4)",
+      "iPad Pro (12.9-inch) (6th generation)",
+      "iPad Pro (12.9-inch) (5th generation)",
+    ]
+  )
+end
+
+def store_common_options(platform:, api_key:)
+  {
+    api_key: api_key,
+    app_identifier: APP_IDENTIFIER,
+    app_version: marketing_version,
+    platform: platform,
+    metadata_path: STORE_METADATA_PATH,
+    screenshots_path: store_screenshots_path(platform),
+    app_icon: STORE_APP_ICON_PATH,
+    app_rating_config_path: STORE_RATING_CONFIG_PATH,
+    primary_category: "Productivity",
+    secondary_category: "Utilities",
+    automatic_release: false,
+    phased_release: false,
+    force: true,
+    precheck_include_in_app_purchases: true,
+    submission_information: {
+      export_compliance_uses_encryption: false,
+      content_rights_contains_third_party_content: false,
+    },
+  }
+end
+
+def app_review_information_from_env(require_all: false)
+  notes_path = File.join(STORE_METADATA_PATH, "review_information/notes.txt")
+  info = {
+    first_name: ENV["FASTSHARED_REVIEW_FIRST_NAME"],
+    last_name: ENV["FASTSHARED_REVIEW_LAST_NAME"],
+    phone_number: ENV["FASTSHARED_REVIEW_PHONE"],
+    email_address: ENV["FASTSHARED_REVIEW_EMAIL"],
+    notes: File.exist?(notes_path) ? File.read(notes_path) : nil,
+  }.compact
+
+  required_keys = [:first_name, :last_name, :phone_number, :email_address]
+  env_names = {
+    first_name: "FASTSHARED_REVIEW_FIRST_NAME",
+    last_name: "FASTSHARED_REVIEW_LAST_NAME",
+    phone_number: "FASTSHARED_REVIEW_PHONE",
+    email_address: "FASTSHARED_REVIEW_EMAIL",
+  }
+  missing = required_keys.select { |key| info[key].to_s.strip.empty? }
+  if require_all && missing.any?
+    UI.user_error!(
+      "Missing App Review contact env vars: #{missing.map { |key| env_names.fetch(key) }.join(", ")}"
+    )
+  end
+
+  info
+end
+
+def ensure_store_files!
+  [
+    STORE_METADATA_PATH,
+    STORE_APP_ICON_PATH,
+    STORE_RATING_CONFIG_PATH,
+    STORE_PRIVACY_CONFIG_PATH,
+    File.join(STORE_METADATA_PATH, "en-US/name.txt"),
+    File.join(STORE_METADATA_PATH, "en-US/description.txt"),
+    File.join(STORE_METADATA_PATH, "en-US/keywords.txt"),
+    File.join(STORE_SCREENSHOTS_ROOT, "ios/en-US"),
+    File.join(STORE_SCREENSHOTS_ROOT, "macos/en-US"),
+  ].each do |path|
+    UI.user_error!("Missing store configuration path: #{path}") unless File.exist?(path)
+  end
+end
+
+def image_dimensions(path)
+  output, status = Open3.capture2("sips", "-g", "pixelWidth", "-g", "pixelHeight", path)
+  UI.user_error!("Could not inspect image dimensions for #{path}") unless status.success?
+
+  width = output[/pixelWidth:\s+(\d+)/, 1].to_i
+  height = output[/pixelHeight:\s+(\d+)/, 1].to_i
+  [width, height]
+end
+
+def clean_generated_screenshot_pngs!
+  FileUtils.rm_rf(SCREENSHOT_DERIVED_DATA_PATH)
+  FileUtils.rm_rf(SCREENSHOT_RESULT_ROOT)
+
+  [
+    store_screenshot_locale_dir("ios"),
+    store_screenshot_locale_dir("osx"),
+    store_iap_screenshot_locale_dir,
+  ].each do |dir|
+    FileUtils.mkdir_p(dir)
+    Dir[File.join(dir, "*.png")].each { |path| FileUtils.rm_f(path) }
+  end
+end
+
+def run_screenshot_xcuitest!(destination:, result_name:)
+  derived_data_path = File.join(SCREENSHOT_DERIVED_DATA_PATH, result_name)
+  FileUtils.rm_rf(derived_data_path)
+  FileUtils.mkdir_p(SCREENSHOT_RESULT_ROOT)
+
+  result_bundle = File.join(SCREENSHOT_RESULT_ROOT, "#{result_name}.xcresult")
+  FileUtils.rm_rf(result_bundle)
+
+  sh(
+    "xcodebuild test " \
+    "-project #{XCODE_PROJECT_PATH.shellescape} " \
+    "-scheme #{APP_SCHEME.shellescape} " \
+    "-destination #{destination.shellescape} " \
+    "-only-testing:#{SCREENSHOT_TEST_TARGET.shellescape} " \
+    "-derivedDataPath #{derived_data_path.shellescape} " \
+    "-resultBundlePath #{result_bundle.shellescape} " \
+    "-testLanguage en " \
+    "-testRegion US " \
+    "-parallel-testing-enabled NO " \
+    "COMPILER_INDEX_STORE_ENABLE=NO " \
+    "CODE_SIGNING_ALLOWED=NO " \
+    "CODE_SIGNING_REQUIRED=NO " \
+    "CODE_SIGN_IDENTITY="
+  )
+
+  result_bundle
+end
+
+def build_macos_screenshot_app!
+  FileUtils.rm_rf(SCREENSHOT_MAC_DERIVED_DATA_PATH)
+
+  sh(
+    "xcodebuild build " \
+    "-project #{XCODE_PROJECT_PATH.shellescape} " \
+    "-scheme #{APP_SCHEME.shellescape} " \
+    "-destination #{SCREENSHOT_MAC_DESTINATION.shellescape} " \
+    "-configuration Debug " \
+    "-derivedDataPath #{SCREENSHOT_MAC_DERIVED_DATA_PATH.shellescape} " \
+    "COMPILER_INDEX_STORE_ENABLE=NO " \
+    "CODE_SIGNING_ALLOWED=NO " \
+    "CODE_SIGNING_REQUIRED=NO " \
+    "CODE_SIGN_IDENTITY="
+  )
+
+  UI.user_error!("Missing built macOS app at #{SCREENSHOT_MAC_APP_PATH}") unless File.directory?(SCREENSHOT_MAC_APP_PATH)
+  sh("codesign --force --deep --sign - #{SCREENSHOT_MAC_APP_PATH.shellescape}")
+end
+
+def export_macos_screenshots!
+  output_dir = store_screenshot_locale_dir("osx")
+  FileUtils.mkdir_p(output_dir)
+  build_macos_screenshot_app!
+
+  binary = File.join(SCREENSHOT_MAC_APP_PATH, "Contents/MacOS/FastShared")
+  UI.user_error!("Missing macOS app executable at #{binary}") unless File.exist?(binary)
+
+  env = {
+    "FASTSHARED_SCREENSHOT_MODE" => "1",
+    "FASTSHARED_SCREENSHOT_OUTPUT_DIR" => output_dir,
+  }
+  args = [
+    "--fastshared-appstore-screenshots",
+    "--fastshared-export-appstore-screenshots",
+  ]
+
+  stdout_data = +""
+  stderr_data = +""
+  status = nil
+
+  begin
+    Open3.popen3(env, binary, *args) do |stdin, stdout, stderr, wait_thr|
+      stdin.close
+      stdout_reader = Thread.new { stdout.read.to_s }
+      stderr_reader = Thread.new { stderr.read.to_s }
+
+      begin
+        status = Timeout.timeout(SCREENSHOT_MAC_EXPORT_TIMEOUT_SECONDS) { wait_thr.value }
+      rescue Timeout::Error
+        Process.kill("TERM", wait_thr.pid) rescue nil
+        sleep 1
+        Process.kill("KILL", wait_thr.pid) rescue nil
+        raise
+      ensure
+        stdout_data = stdout_reader.value rescue ""
+        stderr_data = stderr_reader.value rescue ""
+      end
+    end
+  rescue Timeout::Error
+    UI.user_error!("Timed out exporting macOS screenshots after #{SCREENSHOT_MAC_EXPORT_TIMEOUT_SECONDS}s")
+  end
+
+  UI.message(stdout_data.strip) unless stdout_data.strip.empty?
+  UI.important(stderr_data.strip) unless stderr_data.strip.empty?
+  UI.user_error!("macOS screenshot exporter failed") unless status&.success?
+
+  copied = Dir[File.join(output_dir, "*APP_DESKTOP*.png")].count
+  UI.user_error!("Expected 5 exported macOS screenshots, found #{copied}") unless copied == 5
+  UI.message("Exported #{copied} macOS screenshots to #{output_dir}")
+end
+
+def export_screenshot_attachments!(result_bundle:, output_dir:)
+  FileUtils.mkdir_p(output_dir)
+
+  export_dir = File.join(SCREENSHOT_RESULT_ROOT, "#{File.basename(result_bundle, ".xcresult")}-attachments")
+  FileUtils.rm_rf(export_dir)
+  FileUtils.mkdir_p(export_dir)
+
+  sh(
+    "xcrun xcresulttool export attachments " \
+    "--path #{result_bundle.shellescape} " \
+    "--output-path #{export_dir.shellescape}"
+  )
+
+  manifest_path = File.join(export_dir, "manifest.json")
+  UI.user_error!("Missing xcresult attachments manifest at #{manifest_path}") unless File.exist?(manifest_path)
+
+  copied = 0
+  manifest = JSON.parse(File.read(manifest_path))
+  manifest.each do |test_details|
+    (test_details["attachments"] || []).each do |attachment|
+      suggested = attachment["suggestedHumanReadableName"].to_s
+      next unless suggested.match?(/\A\d{2}_APP_.*\.png\z/)
+
+      source = File.join(export_dir, attachment.fetch("exportedFileName"))
+      UI.user_error!("Missing exported screenshot attachment #{source}") unless File.exist?(source)
+
+      filename = suggested.sub(/_0_[0-9A-Fa-f-]{36}(?=\.png\z)/, "")
+      FileUtils.cp(source, File.join(output_dir, filename))
+      copied += 1
+    end
+  end
+
+  UI.user_error!("No App Store screenshot attachments exported from #{result_bundle}") if copied.zero?
+  UI.message("Exported #{copied} screenshot attachments to #{output_dir}")
+end
+
+def copy_iap_review_screenshot!
+  iphone_pro = Dir[File.join(store_screenshot_locale_dir("ios"), "*APP_IPHONE_67*pro-paywall.png")].sort.first
+  UI.user_error!("Expected generated iPhone Pro screenshot for IAP review") unless iphone_pro
+
+  target = File.join(store_iap_screenshot_locale_dir, "01_APP_IPHONE_67_iap-pro-review.png")
+  FileUtils.cp(iphone_pro, target)
+  UI.message("Generated IAP review screenshot: #{target}")
+end
+
+def validate_generated_screenshots!
+  ios_allowed = [
+    [1260, 2736],
+    [1290, 2796],
+    [1320, 2868],
+    [2048, 2732],
+    [2064, 2752],
+  ]
+  mac_allowed = [
+    [1280, 800],
+    [1440, 900],
+    [2560, 1600],
+    [2880, 1800],
+  ]
+
+  ios_files = Dir[File.join(store_screenshot_locale_dir("ios"), "*.png")].sort
+  mac_files = Dir[File.join(store_screenshot_locale_dir("osx"), "*.png")].sort
+  iap_files = Dir[File.join(store_iap_screenshot_locale_dir, "*.png")].sort
+
+  UI.user_error!("Expected 10 iOS/iPad screenshots, found #{ios_files.count}") unless ios_files.count == 10
+  UI.user_error!("Expected 5 macOS screenshots, found #{mac_files.count}") unless mac_files.count == 5
+  UI.user_error!("Expected 1 IAP review screenshot, found #{iap_files.count}") unless iap_files.count == 1
+
+  ios_files.each do |path|
+    dimensions = image_dimensions(path)
+    UI.user_error!("Unsupported iOS/iPad screenshot size #{dimensions.join("x")} for #{path}") unless ios_allowed.include?(dimensions)
+  end
+
+  mac_files.each do |path|
+    dimensions = image_dimensions(path)
+    UI.user_error!("Unsupported macOS screenshot size #{dimensions.join("x")} for #{path}") unless mac_allowed.include?(dimensions)
+  end
+
+  iap_files.each do |path|
+    dimensions = image_dimensions(path)
+    UI.user_error!("Unsupported IAP screenshot size #{dimensions.join("x")} for #{path}") unless ios_allowed.include?(dimensions)
+  end
+
+  UI.success("Generated #{ios_files.count + mac_files.count + iap_files.count} App Store screenshots with accepted dimensions.")
+end
+
+def generate_store_screenshots!
+  clean_generated_screenshot_pngs!
+
+  iphone_result = run_screenshot_xcuitest!(
+    destination: screenshot_iphone_destination,
+    result_name: "iphone"
+  )
+  export_screenshot_attachments!(
+    result_bundle: iphone_result,
+    output_dir: store_screenshot_locale_dir("ios")
+  )
+
+  ipad_result = run_screenshot_xcuitest!(
+    destination: screenshot_ipad_destination,
+    result_name: "ipad"
+  )
+  export_screenshot_attachments!(
+    result_bundle: ipad_result,
+    output_dir: store_screenshot_locale_dir("ios")
+  )
+
+  export_macos_screenshots!
+
+  copy_iap_review_screenshot!
+  validate_generated_screenshots!
+end
+
+def upload_store_privacy_details!(api_key:)
+  require "spaceship"
+
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+  UI.user_error!("Could not find App Store Connect app #{APP_IDENTIFIER}") unless app
+
+  usages = JSON.parse(File.read(STORE_PRIVACY_CONFIG_PATH))
+  all_usages = Spaceship::ConnectAPI::AppDataUsage.all(app_id: app.id, includes: "category,grouping,purpose,dataProtection", limit: 500)
+  all_usages.each(&:delete!)
+
+  usages.each do |usage|
+    category = usage["category"]
+    purposes = usage["purposes"] || []
+    protections = usage["data_protections"] || []
+    purposes = [nil] if purposes.empty?
+
+    purposes.each do |purpose|
+      protections.each do |protection|
+        Spaceship::ConnectAPI::AppDataUsage.create(
+          app_id: app.id,
+          app_data_usage_category_id: category,
+          app_data_usage_protection_id: protection,
+          app_data_usage_purpose_id: purpose
+        )
+      end
+    end
+  end
+
+  publish_state = Spaceship::ConnectAPI::AppDataUsagesPublishState.get(app_id: app.id)
+  publish_state.publish! unless publish_state.published
+  UI.success("App Privacy details uploaded and published for #{APP_IDENTIFIER}.")
+end
+
+private_lane :upload_store_metadata_internal do |options|
+  platform = options.fetch(:platform)
+  api_key = options[:api_key] || app_store_api_key
+  ensure_store_files!
+
+  deliver(
+    store_common_options(platform: platform, api_key: api_key).merge(
+      skip_binary_upload: true,
+      submit_for_review: false,
+      overwrite_screenshots: true
+    )
   )
 end
 
@@ -153,6 +600,67 @@ lane :beta_all do |options|
   )
 end
 
+desc "Verify local App Store metadata structure and App Store Connect API key."
+lane :store_doctor do
+  ensure_store_files!
+  api_key = app_store_api_key
+  UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
+  UI.message("Store metadata version: #{marketing_version}")
+  UI.message("iOS screenshots path: #{store_screenshots_path("ios")}")
+  UI.message("macOS screenshots path: #{store_screenshots_path("osx")}")
+end
+
+desc "Generate deterministic App Store screenshots for iPhone, iPad, macOS, and IAP review."
+lane :store_screenshots do
+  regen
+  generate_store_screenshots!
+end
+
+desc "Upload and publish App Privacy details from fastlane/app_privacy_details.json."
+lane :store_privacy do
+  ensure_store_files!
+  api_key = app_store_api_key
+  upload_store_privacy_details!(api_key: api_key)
+end
+
+desc "Upload App Store metadata, app icon, age rating, and screenshots for iOS + macOS without submitting."
+lane :store_metadata do
+  api_key = app_store_api_key
+  upload_store_metadata_internal(platform: "ios", api_key: api_key)
+  upload_store_metadata_internal(platform: "osx", api_key: api_key)
+end
+
+desc "Generate screenshots, publish privacy details, and upload App Store metadata for iOS + macOS."
+lane :store_sync do
+  api_key = app_store_api_key
+  regen
+  generate_store_screenshots!
+  upload_store_privacy_details!(api_key: api_key)
+  upload_store_metadata_internal(platform: "ios", api_key: api_key)
+  upload_store_metadata_internal(platform: "osx", api_key: api_key)
+end
+
+desc "Submit latest processed iOS + macOS builds to App Review. Requires FASTSHARED_SUBMIT_FOR_REVIEW=YES."
+lane :store_submit do |options|
+  UI.user_error!("Set FASTSHARED_SUBMIT_FOR_REVIEW=YES to submit to App Review") unless ENV["FASTSHARED_SUBMIT_FOR_REVIEW"] == "YES"
+
+  api_key = app_store_api_key
+  build_number = options[:build_number] || ENV["FASTSHARED_SUBMIT_BUILD_NUMBER"] || "latest"
+  review_info = app_review_information_from_env(require_all: true)
+
+  ["ios", "osx"].each do |platform|
+    deliver(
+      store_common_options(platform: platform, api_key: api_key).merge(
+        skip_binary_upload: true,
+        skip_screenshots: true,
+        submit_for_review: true,
+        build_number: build_number,
+        app_review_information: review_info
+      )
+    )
+  end
+end
+
 platform :ios do
   desc "Build + upload the iOS app to TestFlight (preview / internal testing)."
   lane :beta do
@@ -172,6 +680,11 @@ platform :ios do
     api_key = app_store_api_key
     UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
     UI.message("Project regenerated; run `bundle exec fastlane beta_all` to ship iOS + macOS.")
+  end
+
+  desc "Upload iOS App Store metadata/screenshots without submitting."
+  lane :store_metadata do
+    upload_store_metadata_internal(platform: "ios")
   end
 end
 
@@ -194,5 +707,10 @@ platform :mac do
     api_key = app_store_api_key
     UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
     UI.message("Project regenerated; run `bundle exec fastlane mac beta` for macOS only.")
+  end
+
+  desc "Upload macOS App Store metadata/screenshots without submitting."
+  lane :store_metadata do
+    upload_store_metadata_internal(platform: "osx")
   end
 end

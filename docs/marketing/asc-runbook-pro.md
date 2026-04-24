@@ -58,7 +58,7 @@ Auto-Renewable Subscription.
 **Steps:**
 
 1. Reference Name: `Pro Monthly`.
-2. Product ID: `red.fastsha.fastshared.pro.monthly`
+2. Product ID: `red.fastsha.pro.monthly`
    (Reverse-DNS bundle-prefix must match what the Apple client uses when
    calling `Product.products(for:)`.)
 3. Subscription Duration: **1 Month**.
@@ -68,7 +68,7 @@ Auto-Renewable Subscription.
 6. Localisations (English):
    - Display Name: `FastShared Pro Monthly`
    - Description: `Unlimited uploads, 2 GB files, 30-day links, iCloud history sync.`
-7. Review Screenshot: 1242×2688 pixel IAP screenshot (iPhone 6.9"). Upload
+7. Review Screenshot: 1290x2796 pixel IAP screenshot (iPhone 6.9 inch). Upload
    placeholder for now; final screenshot created in C7.8.
 8. Review Notes:
    > Pro Monthly unlocks unlimited uploads per day, 2 GB max file size,
@@ -90,13 +90,13 @@ Auto-Renewable Subscription.
 **Steps:**
 
 1. Reference Name: `Pro Annual`.
-2. Product ID: `red.fastsha.fastshared.pro.annual`
+2. Product ID: `red.fastsha.pro.annual`
 3. Subscription Duration: **1 Year**.
 4. Price: USD **$19.99**. Auto-managed pricing ON. All territories.
 5. Localisations (English):
    - Display Name: `FastShared Pro Annual`
-   - Description: `Unlimited uploads, 2 GB files, 30-day links, iCloud sync. Save about 45% vs monthly.`
-6. Review Screenshot: 1242×2688 — placeholder then final in C7.8.
+   - Description: `Unlimited uploads, 2 GB files, 30-day links, iCloud sync. Save about 44% vs monthly.`
+6. Review Screenshot: 1290x2796 — placeholder then final in C7.8.
 7. Review Notes:
    > Pro Annual unlocks unlimited uploads per day, 2 GB max file size,
    > 30-day link retention, iCloud cross-device sync, priority support.
@@ -117,13 +117,13 @@ Screenshot saved.
 **Steps:**
 
 1. Reference Name: `Pro Lifetime`.
-2. Product ID: `red.fastsha.fastshared.pro.lifetime`
+2. Product ID: `red.fastsha.pro.lifetime`
 3. Price: USD **$49.99** (Early Access pricing). Auto-managed pricing ON.
    All territories.
 4. Localisations (English):
    - Display Name: `FastShared Pro Lifetime`
    - Description: `Buy Pro once. Unlimited uploads, 2 GB files, 30-day links, iCloud sync, Family Sharing included.`
-5. Review Screenshot: 1242×2688 — placeholder then final in C7.8.
+5. Review Screenshot: 1290x2796 — placeholder then final in C7.8.
 6. Review Notes:
    > Pro Lifetime is a one-time purchase unlocking all Pro features
    > forever (unlimited uploads, 2 GB files, 30-day retention, iCloud
@@ -253,16 +253,20 @@ screenshot.
 
 **Steps:**
 
-1. Each of the 3 IAPs needs one 1242×2688 screenshot showing the paywall
-   inside the app (from Plan B).
-2. File naming: `iap-monthly-6.9.png`, `iap-annual-6.9.png`,
-   `iap-lifetime-6.9.png`.
-3. Source: Apple client Plan B produces the paywall UI; screenshot it on
-   Simulator (iPhone 16 Pro Max = 6.9" = 1242×2688).
-4. Upload one screenshot per IAP.
-5. Re-review localised Display Name + Description (already filled in C7.2
+1. Generate screenshots automatically:
+
+   ```bash
+   cd /Users/matheuskindrazki/development/crazy-ideas/fastshared
+   make appstore-screenshots
+   ```
+
+2. Use the generated Pro paywall review screenshot:
+   `apple/fastlane/screenshots/iap/en-US/01_APP_IPHONE_67_iap-pro-review.png`.
+3. Upload the generated screenshot to each IAP if App Store Connect still
+   requires the per-product Review Information field.
+4. Re-review localised Display Name + Description (already filled in C7.2
    / C7.3 / C7.4 — verify accuracy).
-6. Save each IAP.
+5. Save each IAP.
 
 **Acceptance:** Every IAP status transitions from "Missing Metadata" to
 "Ready to Submit" or equivalent. Each has a screenshot. Screenshot saved
@@ -270,14 +274,12 @@ of the IAP list.
 
 **If Task Fails:**
 
-- Screenshot rejected (wrong size): iPhone 6.9" spec is 1290×2796 in
-  iOS 18 devices. Use 1242×2688 for iPhone 14 Pro Max (legacy 6.7") if
-  6.9" is the issue. Confirm current Apple spec on
+- Screenshot rejected (wrong size): iPhone 6.9 inch spec includes 1290x2796. Use 1242x2688 only as a fallback if App Store Connect accepts the older 6.5 inch display set. Confirm current Apple spec on
   <https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/>.
 
 ---
 
-## C7.9 — Configure Tax Category and App Privacy (subscription data)
+## C7.9 — Configure Tax Category and App Privacy
 
 **ASC screen:** My Apps → FastShared → App Information → Tax Category.
 
@@ -285,19 +287,19 @@ of the IAP list.
 
 1. Tax Category: **Software Utility** (confirm with accountant; this
    affects how Apple withholds tax). Save.
-2. Go to App Privacy: My Apps → FastShared → App Privacy.
-3. Data Types → Add: **Purchases** → Purchase History.
-4. Linked to User: **NO** (we don't link purchases to a named user — only
-   to the device ID).
-5. Used for Tracking: **NO** (ATT not required because we don't track).
-6. Used for: **App Functionality** (gating Pro features).
-7. Save.
+2. Publish App Privacy from the repo:
 
-**Acceptance:** App Privacy shows "Purchases" as the only new data type
-added. ATT confirmation remains "Not Required".
+   ```bash
+   cd /Users/matheuskindrazki/development/crazy-ideas/fastshared
+   make appstore-privacy
+   ```
 
-**Note:** Existing privacy declarations (file uploads, request logs) stay
-as-is — do NOT remove them.
+   The source of truth is `apple/fastlane/app_privacy_details.json`, aligned
+   with `docs/ops/appstore-launch-setup.md`.
+
+**Acceptance:** App Privacy product-page preview matches
+`docs/ops/appstore-launch-setup.md`. ATT confirmation remains "Not
+Required".
 
 ---
 
@@ -328,9 +330,9 @@ as-is — do NOT remove them.
 **Read-only verification — tick every row:**
 
 - [ ] 3 IAPs created with exact Product IDs:
-      `red.fastsha.fastshared.pro.monthly`,
-      `red.fastsha.fastshared.pro.annual`,
-      `red.fastsha.fastshared.pro.lifetime`.
+      `red.fastsha.pro.monthly`,
+      `red.fastsha.pro.annual`,
+      `red.fastsha.pro.lifetime`.
 - [ ] Subscription group `FastShared Pro` contains Monthly + Annual.
 - [ ] Lifetime is a Non-Consumable IAP outside the subscription group.
 - [ ] Prices: $2.99 / $19.99 / $49.99 USD, auto-managed on.
@@ -339,7 +341,7 @@ as-is — do NOT remove them.
 - [ ] ASC API key generated, .p8 + Key ID + Issuer ID stored as Wrangler
       secrets.
 - [ ] IAP screenshots uploaded.
-- [ ] Tax category set. App Privacy declares Purchases.
+- [ ] Tax category set. App Privacy matches `docs/ops/appstore-launch-setup.md`.
 - [ ] Sandbox tester created.
 
 **Acceptance:** Every row ticked. Proceed to launch sequencing in

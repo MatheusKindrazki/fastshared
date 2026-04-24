@@ -4,6 +4,10 @@ Ready-to-paste strings for App Store Connect. Every field has been measured agai
 limit; the number in parentheses after each block is the character count of the selected
 (final) version.
 
+The canonical uploadable copy now lives in `apple/fastlane/metadata/en-US/`.
+Keep this document as the explanation/rationale layer and keep the fastlane
+files as the source App Store Connect receives.
+
 ---
 
 ## App name
