@@ -229,9 +229,9 @@ Response (dedup hit against a live asset):
 - Else, start a transaction: upsert `asset` on `(owner_device_id, sha256)` filtered to live rows; insert `share_link` with a fresh token, `link_status='active'`, `expires_at`, `delete_after`, `retention_policy`; insert `deletion_job(asset_id, scheduled_for=delete_after, status='pending')`; commit. Return the completion DTO.
 - Dedup path (two fast retries racing) is safe because the `asset` upsert key is `(owner_device_id, sha256)` and the partial unique index on `deletion_job` prevents duplicate scheduling.
 
-## Multipart strategy (post-MVP, M8)
+## Multipart strategy
 
-For files larger than 100 MB:
+For files larger than the server multipart threshold (currently 10 MB):
 
 1. `POST /v1/uploads` sees `size > 100 MB` and returns `{ mode: "multipart", uploadId, parts: [{ partNumber, uploadUrl }...], completeUrl }` plus the usual `expiresAt`/`deleteAfter`.
 2. Server initiates an R2 multipart upload and presigns each part URL.
@@ -240,7 +240,7 @@ For files larger than 100 MB:
 5. The state machine above gains `uploading_parts` and `completing_multipart` substates. Retries are per-part.
 6. Abandoned multipart uploads are reaped weekly by the multipart sweeper cron.
 
-Not in MVP scope — the `POST /v1/uploads` response shape is forward-compatible (a `mode` discriminator) so the client can be updated without a schema break.
+The `POST /v1/uploads` response shape uses a `mode` discriminator so the client can branch between single PUT and multipart without guessing from file size.
 
 ## Retry policy
 

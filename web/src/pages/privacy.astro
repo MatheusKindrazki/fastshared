@@ -5,7 +5,7 @@ import Footer from '../components/Footer.astro';
 ---
 <Base
   title="Privacy — FastShared"
-  description="How FastShared handles your files, tokens, and absence of accounts. No tracking, no analytics, no advertising IDs."
+  description="How FastShared handles your files, tokens, optional Apple sign-in, and subscriptions. No tracking, no analytics, no advertising IDs."
 >
   <Nav />
   <main class="frame pt-16 pb-24 max-w-[760px]">
@@ -17,7 +17,7 @@ import Footer from '../components/Footer.astro';
     </h1>
 
     <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-violet-hot mb-10">
-      Effective 19 April 2026 · v1.1
+      Effective 24 April 2026 · v1.2
     </p>
 
     <div class="space-y-8 text-milk/75 text-[17px] leading-[1.8]">
@@ -25,7 +25,7 @@ import Footer from '../components/Footer.astro';
         FastShared is a utility for making temporary, shareable links to files.
         This policy describes, in plain English, what data we process, why, for
         how long, and who we share it with. The short version: there are no
-        accounts, no tracking, and nothing to leak.
+        required accounts, no tracking, and no advertising identifiers.
       </p>
 
       <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
@@ -71,8 +71,18 @@ import Footer from '../components/Footer.astro';
             app first launches, it mints a random token and registers it with
             our API. We store a salted HMAC of that token on the server to
             authorise upload, history, and revoke calls. Your device holds
-            the raw token in the Keychain; we never see it again after the
-            first request.
+            the raw token in the Keychain access group shared by the app and
+            share extension; we never log it.
+          </span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-violet-hot flex-none" aria-hidden="true">→</span>
+          <span>
+            <strong class="text-milk">Optional Sign in with Apple data.</strong>
+            If you choose to sign in or buy Pro, we store Apple's stable
+            subject identifier and, when Apple provides it, your relay email
+            and display name. We use this to bind devices, beta allowlists,
+            and subscription entitlement.
           </span>
         </li>
         <li class="flex gap-3 items-start">
@@ -81,14 +91,16 @@ import Footer from '../components/Footer.astro';
             <strong class="text-milk">Operational request logs.</strong>
             Cloudflare records HTTP method, path, response code, latency,
             and the client IP address for every request, for rate-limiting
-            and abuse response. These logs are retained for up to 30 days.
+            and abuse response. Our application logger redacts device IDs,
+            tokens, asset IDs, storage keys, and transaction IDs. These logs
+            are retained for up to 30 days.
           </span>
         </li>
       </ul>
       <p>
-        We do <em>not</em> process your name, your email, an account
-        identifier, a cross-site advertising ID, or any browsing history.
-        There are no accounts to create. We do not ask for contacts,
+        We do <em>not</em> process a cross-site advertising ID or browsing
+        history. Sign in with Apple is optional, except where needed for Pro
+        entitlement and beta allowlists. We do not ask for contacts,
         location, or notifications beyond what iOS requires for Live
         Activities.
       </p>
@@ -244,6 +256,12 @@ import Footer from '../components/Footer.astro';
         device is registered, plus 90 days after cancellation, for audit and
         dispute resolution. After that, the record is pruned.
       </p>
+      <p>
+        If the App Store Server API is temporarily unavailable, a locally
+        valid Apple-signed transaction may receive a 24-hour verification
+        grace. If Apple cannot confirm it within that window, Pro access
+        reverts to Free.
+      </p>
 
       <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
         Your rights
@@ -276,9 +294,10 @@ import Footer from '../components/Footer.astro';
           <span class="text-violet-hot flex-none" aria-hidden="true">→</span>
           <span>
             <strong class="text-milk">Request access to the data we hold</strong>
-            about you. Because we do not hold accounts, we can only return
-            what is attached to the device token you identify. We cannot
-            identify you across devices.
+            about you. Because accounts are optional, we can return
+            account-level data only when you identify the Apple account or
+            device token involved. We cannot identify you across devices
+            unless you choose to link them through Sign in with Apple.
           </span>
         </li>
         <li class="flex gap-3 items-start">

@@ -29,8 +29,8 @@ Not targeted at enterprise compliance buyers. Not targeted at cross-platform pow
 
 3. **Recipient opens a valid link**
    1. Someone with the link opens it in any browser, messaging preview, or mail client — no sign-in, no account, no FastShared app required.
-   2. `/s/:token` resolves on the edge, issues a 60-second signed R2 GET, and 302-redirects the client.
-   3. The recipient downloads or previews the file. The redirect URL is not cached and never leaves the 60 s window.
+   2. `/s/:token` resolves on the edge, validates the DB row, and streams the private R2 object through the Worker.
+   3. The recipient downloads or previews the file. The response is not cached and the raw R2 object URL is never exposed.
    4. Once the link passes `expiresAt`, any subsequent access returns `410 Gone`.
 
 4. **History browse**
@@ -54,10 +54,10 @@ Not targeted at enterprise compliance buyers. Not targeted at cross-platform pow
 - **Default retention = 24 h**, with 1 h / 1 d / 1 w / 1 mo presets and a clamped custom value (300 s … 30 d).
 - **Link expires automatically** at `expiresAt`; subsequent access returns `410 Gone`.
 - **R2 object is deleted automatically** at `deleteAfter = expiresAt + 24 h` via an app-level deletion cron (R2 lifecycle rule as safety net).
-- **Anonymous resolve** at `/s/:token` — 302 to a fresh 60 s signed R2 GET. No sign-in required for recipients.
+- **Anonymous resolve** at `/s/:token` — DB-gated Worker stream from private R2. No sign-in required for recipients.
 - **Revoke link** action flips the link to `revoked` and enqueues immediate deletion.
-- Single-PUT uploads up to 100 MB, with size caps per type.
-- Cloudflare R2 private bucket with always-signed GETs.
+- Multipart uploads for larger files, with tier caps enforced by the backend.
+- Cloudflare R2 private bucket with presigned writes and Worker-streamed reads.
 - Deployed Workers backend with Neon Postgres and three cron triggers.
 
 ## Tiers (v1.1 Pro launch)
@@ -65,7 +65,7 @@ Not targeted at enterprise compliance buyers. Not targeted at cross-platform pow
 FastShared ships in two tiers:
 
 ### Free — acquisition + casual users
-- 5 uploads per day.
+- 3 uploads per day.
 - 100 MB max file size.
 - Up to 24 h retention ceiling.
 - Single-device history (SwiftData, local to the device).
@@ -76,7 +76,7 @@ FastShared ships in two tiers:
 
 ### Pro — power users, consultants, Apple ecosystem loyalists
 - Unlimited uploads per day.
-- 2 GB max file size (per single-PUT upload in v1; multipart is post-MVP).
+- 2 GB max file size.
 - Up to 30 day retention ceiling.
 - Cross-device history sync via iCloud (CloudKit private database).
 - Priority support, one-business-day SLA.
@@ -122,9 +122,9 @@ it's generous enough to be honest about it.
 ## Non-goals (MVP)
 
 - **No permanent hosting.** Every file has a deletion deadline; there is no "keep forever" option.
-- **No permanent public URLs.** All links are tokens over a 302 to a short-lived signed URL.
+- **No permanent public URLs.** All links are bearer tokens resolved by the Worker against a private R2 bucket.
 - **No account-gated recipient access.** Recipients never sign in. The token is the credential.
-- No accounts. Cross-device history sync via iCloud (CloudKit private database) ships in v1.1 as a **Pro** feature; the MVP is single-device only.
+- No account-gated recipient access. Optional Sign in with Apple exists for purchases and future account-bound features; cross-device history sync via iCloud (CloudKit private database) ships as a **Pro** feature.
 - No custom tokens, folders, or tags.
 - No per-link passwords, max-download counts, or geographic gates (hooks exist; not exposed).
 - No Android, Windows, or web clients beyond the resolve redirect and the minimal expired-page HTML.

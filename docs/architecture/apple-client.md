@@ -28,13 +28,13 @@ Contents:
 | ------------------------------------------ | --------------------------------------------------------- |
 | `Library/Application Support/store.sqlite` | SwiftData store shared between app and extension          |
 | `Caches/Staging/`                          | Incoming files copied from `NSItemProvider` before upload |
-| `UserDefaults` (suite name = group)        | Shared flags, e.g. `lastCompletedJobId`, default retention |
+| `UserDefaults` (suite name = group)        | Shared non-secret flags, e.g. `lastCompletedJobId`, default retention |
 
 Access patterns:
 
 - The extension obtains the container URL via `FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:)` and writes the staged file with an `.inProgress` suffix that is renamed atomically on success.
 - The app opens the SwiftData store with the same URL. Both targets use a single `ModelContainer` configuration declared in `FastSharedCore`.
-- Keychain items are saved with access group `TEAMID.com.yourco.fastshared` so both targets see the same device token.
+- Keychain items are saved with the configured `KEYCHAIN_ACCESS_GROUP` so both targets see the same device token. Legacy App Group `UserDefaults` tokens are migrated once into Keychain and then removed.
 
 ## Background URLSession
 
@@ -142,11 +142,12 @@ The owner cannot re-revoke an already revoked link; the button is hidden for non
 
 ## Keychain access group
 
-All secrets use access group `TEAMID.com.yourco.fastshared`.
+All bearer secrets use the configured shared access group (production resolves to `$(AppIdentifierPrefix)dev.kindrazki.fastshared`).
 
 - `device.token` — bearer token returned by `POST /v1/devices`. Stored with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` so the extension can read it after first unlock.
 - `device.id` — server-assigned device id, cached next to the token.
 - Rotation path (`POST /v1/devices/:id/rotate`, post-MVP) overwrites both.
+- Migration path: `DeviceTokenStore.load()` checks Keychain first. If empty and a legacy App Group `UserDefaults` payload exists, it writes that payload to Keychain, deletes the legacy value, and returns it. Keychain write failures are surfaced as errors instead of falling back to less-secure storage.
 
 Share tokens are **not** stored in Keychain — they are metadata tied to a row in SwiftData, and they are displayed and copied as part of normal UI.
 
@@ -179,7 +180,7 @@ Subsystem: `com.yourco.fastshared`. Categories:
 | `net`       | `APIClient` requests and responses                |
 | `storage`   | SwiftData and App Group I/O                       |
 
-All logs default to `.info`; `.debug` is used for request bodies and redacted to remove file paths, tokens (truncated to `token[:8]…` if logged at all), and device ids.
+All logs default to `.info`; `.debug` is used for request bodies and redacted to remove file paths, tokens, and device ids.
 
 ## Testing strategy
 

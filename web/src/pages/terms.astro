@@ -5,7 +5,7 @@ import Footer from '../components/Footer.astro';
 ---
 <Base
   title="Terms — FastShared"
-  description="The rules for using FastShared. Ephemeral by design, no accounts, and what you can and cannot upload."
+  description="The rules for using FastShared. Ephemeral by design, optional Apple sign-in, and what you can and cannot upload."
 >
   <Nav />
   <main class="frame pt-16 pb-24 max-w-[760px]">
@@ -17,7 +17,7 @@ import Footer from '../components/Footer.astro';
     </h1>
 
     <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-violet-hot mb-10">
-      Effective 19 April 2026 · v1.1
+      Effective 24 April 2026 · v1.2
     </p>
 
     <div class="space-y-8 text-milk/75 text-[17px] leading-[1.8]">
@@ -62,17 +62,23 @@ import Footer from '../components/Footer.astro';
       </p>
 
       <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
-        Your account — there isn't one
+        Account and device access
       </h2>
       <p>
-        FastShared does not use accounts. Instead, your device mints a
-        private token on first launch and uses it to authenticate with our
-        API. The token lives in your device's Keychain. Anyone with access
-        to your unlocked device can use FastShared as you. You can revoke
-        the token by deleting the app (from the perspective of the client)
-        or by emailing
+        FastShared does not require an account for basic sharing. Your
+        device mints a private token on first launch and uses it to
+        authenticate with our API. The token lives in a Keychain access group
+        shared by the app and Share Extension, not in app preferences.
+        Anyone with access to your unlocked device can use FastShared as
+        you. You can revoke the token by deleting the app (from the
+        perspective of the client) or by emailing
         <a href="mailto:support@fastsha.red" class="text-violet-hot hover:underline">support@fastsha.red</a>
         and asking us to invalidate the associated device row.
+      </p>
+      <p>
+        Sign in with Apple is optional and is used to bind Pro purchases and
+        future cross-device features to an Apple identity. Apple's own terms
+        and privacy rules apply to that sign-in flow.
       </p>
       <p>
         The recipient of a FastShared link also does not sign in. The link
@@ -178,6 +184,9 @@ import Footer from '../components/Footer.astro';
         cancel auto-renew at any time via iOS Settings → Apple ID →
         Subscriptions. Cancelling does not refund the current period; your
         Pro access remains until the end of the period you already paid for.
+        If Apple's verification API is temporarily unavailable, we may grant
+        a locally verified transaction a 24-hour grace period while the
+        server retries confirmation.
       </p>
 
       <h3 class="font-display font-semibold text-milk text-[20px] md:text-[22px] pt-4" style="letter-spacing: -0.015em;">Refunds</h3>
@@ -209,6 +218,8 @@ import Footer from '../components/Footer.astro';
         notice, published on the pricing page and announced inside the app.
         Adjustments that are strictly to your benefit (higher caps, longer
         retention) may take effect without prior notice.
+        Beta or tester unlimited limits, when available, are granted only by
+        explicit server-side allowlist and are not the default Free plan.
       </p>
 
       <h3 class="font-display font-semibold text-milk text-[20px] md:text-[22px] pt-4" style="letter-spacing: -0.015em;">Promotional pricing</h3>

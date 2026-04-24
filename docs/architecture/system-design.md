@@ -8,8 +8,8 @@ The canonical description of how FastShared is put together. Every other archite
 2. Single-gesture share on Apple platforms.
 3. Upload completion survives extension teardown, app backgrounding, and short network drops.
 4. Short link is on the clipboard within seconds of the share gesture for typical files.
-5. No server-hosted file bytes transit the Worker: uploads go client → R2 directly, downloads go recipient → R2 via a 302 to a 60 s signed URL.
-6. Schema and API shape are forward-compatible with accounts, teams, and per-link policy (password, max-downloads, geographic gates), even though MVP ships without them.
+5. Upload bytes go client → R2 directly; download bytes are streamed by the Worker after DB validation so revocation and future per-link policy stay enforceable.
+6. Schema and API shape are forward-compatible with richer account flows, teams, and per-link policy (password, max-downloads, geographic gates), while anonymous recipient access stays supported.
 
 ## Non-goals
 
@@ -26,7 +26,7 @@ The canonical description of how FastShared is put together. Every other archite
 | Apple client    | SwiftUI app + share extension + local Swift package `FastSharedCore`                           |
 | Workers API     | Hono app on Cloudflare Workers; handles auth, presign, metadata, `/s/:token` resolve, revoke   |
 | Workers cron    | Scheduled handlers for deletion, reconciliation, and weekly multipart sweeps                   |
-| R2              | Private bucket `fastshared-prod`; all reads via 60 s presigned GET; lifecycle rule as safety net |
+| R2              | Private buckets per environment (`fastshared`, `fastshared-staging`); writes via presigned PUT/multipart, reads via Worker stream; lifecycle rule as safety net |
 | Neon Postgres   | Source of truth for users, devices, assets, share links, upload jobs, deletion jobs            |
 | KV (Cloudflare) | Rate-limit counters (per-IP + per-token on resolve) and token reservation                      |
 
@@ -64,9 +64,8 @@ sequenceDiagram
     App-->>U: Copy link + countdown toast
     Rcp->>API: GET /s/:token
     API->>DB: load share_link + asset (check status, expiresAt, lock)
-    API->>R2: presign GET (60 s)
-    API-->>Rcp: 302 Location: signedUrl, Cache-Control: no-store
-    Rcp->>R2: GET bytes
+    API->>R2: GET private object
+    API-->>Rcp: Stream bytes, Cache-Control: no-store
     Note over DB,Cron: Later, deleteAfter fires
     Cron->>DB: SELECT deletion_job FOR UPDATE SKIP LOCKED LIMIT 50
     Cron->>R2: DELETE object
@@ -84,20 +83,19 @@ The lifecycle is split into two halves — a **link lifecycle** and an **object 
 | Link lifecycle          | `active → expired` at `expiresAt`; `active → revoked` on owner action. Both terminal once deleted.    | Lets owners kill a link mid-life without waiting for storage deletion.                    |
 | Object lifecycle        | `pending → verified → deleted` via `deletion_job`; `deleteAfter = expiresAt + 24 h` grace period.     | Grace period lets a user spot an accidental expiry and recover the link before bytes go.  |
 | Retention mechanism     | **Hybrid**: app-level `deletion_job` cron (authoritative) + R2 lifecycle rule 90 d (safety net) + weekly multipart sweeper. | App-level gives minute-granularity retention; R2 rule catches orphans from app-level bugs. |
-| Anonymous resolve       | `/s/:token` is unauthenticated, 302s to a fresh 60 s signed R2 GET.                                   | Owner-controlled route enables mid-life revoke, rate limiting, and future per-link policy. |
+| Anonymous resolve       | `/s/:token` is unauthenticated, validates the DB row, and streams the private R2 object through the Worker. | Owner-controlled route enables mid-life revoke, rate limiting, and future per-link policy. |
 | Abuse controls          | Per-IP 60/min and per-token 300/min rate limits on `/s/:token`; `no-store`, `noindex, nofollow`, `no-referrer` headers. | Anonymous bearer model implies the token is the only access control; bound blast radius.  |
 
 Rejected alternatives (documented so we do not re-debate them):
 
 - **Direct public R2 URL** — permanent exposure, no revoke/expire control, no rate limiting.
-- **Signed R2 URL returned directly to the client** — the signed URL would leak-while-valid; we cannot revoke it mid-life.
-- **Workers proxy/streaming of bytes** — enables per-link flip for password/max-downloads/geo, but Workers CPU limits make this unsafe for large videos in MVP. Kept as a post-MVP lever.
+- **Signed R2 URL returned directly to the client** — the signed URL would leak-while-valid and makes future per-link policy harder to enforce consistently.
 - **R2 lifecycle alone** — day granularity is too coarse for the 1 h preset and cannot express the 24 h grace period.
 - **App-level deletion alone** — no safety net for orphaned objects if the cron fails silently.
 
 ### Auth
 
-Per-device bearer tokens gate the **owner API** (upload, history, revoke). First launch does `POST /v1/devices` with a device nonce. Server returns `{ deviceId, token }`. Token is stored in the shared Keychain group `TEAMID.com.yourco.fastshared` so the app and extension share it. Server stores `HMAC-SHA256(pepper, token)`; plaintext never persists.
+Per-device bearer tokens gate the **owner API** (upload, history, revoke). First launch does `POST /v1/devices` with a device nonce. Server returns `{ deviceId, token }`. Token is stored in the configured shared Keychain access group (production: `$(AppIdentifierPrefix)dev.kindrazki.fastshared`) so the app and extension share it. Server stores `HMAC-SHA256(pepper, token)`; plaintext never persists.
 
 The recipient-facing route `/s/:token` is **unauthenticated** and uses the share token as a bearer secret. See [Security](./security.md).
 
@@ -133,18 +131,18 @@ All errors follow RFC 7807:
 ### Observability
 
 - Client uses `OSLog` with subsystem `com.yourco.fastshared` and categories `upload`, `extension`, `ui`, `net`, `storage`.
-- Server emits one JSON line per request with `requestId`, `deviceId` (hashed), `route`, `durMs`, `status`, and `err` when relevant.
-- **Token hygiene**: the token is never logged in cleartext. Logs truncate to `token[:8]…`.
+- Server emits one JSON line per request with `requestId`, redacted identifiers, `route`, `durMs`, `status`, and `err` when relevant.
+- **Token hygiene**: share tokens, device IDs, bearer tokens, storage keys, asset IDs, and App Store transaction IDs are redacted by the logger. Rate-limit keys derived from bearer values are HMAC digests, not raw tokens.
 
 ### Sync strategy
 
-MVP is single-device. SwiftData is the local source of truth for UI; a lazy `markExpiredIfNeeded` helper transitions rows locally on read. The server is the source of truth for assets, links, and deletion state. No client-to-client sync beyond iCloud Keychain sharing the device token across the user's Apple ID.
+SwiftData is the local source of truth for UI; a lazy `markExpiredIfNeeded` helper transitions rows locally on read. The server is the source of truth for assets, links, tier caps, subscription verification, and deletion state. Pro can sync metadata through CloudKit; file bytes always stay in FastShared's R2 lifecycle.
 
 ## Deployment topology
 
 - **Cloudflare Workers** hosts the Hono app. Custom routes:
   - `api.fastsha.red/*` — JSON API.
-  - `fastsha.red/s/*` — resolve handler (302 to 60 s signed GET).
+  - `fastsha.red/s/*` — resolve handler (DB validation + Worker-streamed private R2 read).
 - **Workers cron triggers** — three schedules on the same Worker:
   - `*/1 * * * *` — deletion worker, drains `deletion_job` rows due for processing.
   - `0 * * * *` — reconciliation worker, expires stale links, enqueues missing deletion jobs, resets stuck running jobs.
@@ -174,14 +172,14 @@ MVP is single-device. SwiftData is the local source of truth for UI; a lazy `mar
 | Deletion job fails 8x                     | Object remains in R2 beyond `deleteAfter` | Terminal `deletion_status='failed'`; pager fires; R2 lifecycle rule (90 d) still eventually reaps it    |
 | R2 object missing while DB still `verified` | `/s/:token` returns 502 on GET         | Hourly reconciler notices `deleteAfter` past or a HEAD miss and marks the asset `deleted`               |
 | Upload completes after link already expired | Late user lands on a just-created expired link | `POST /v1/uploads/:id/complete` rejects with `409` when server sees `expiresAt <= now() + 60s`        |
-| Signed GET URL leaks from 302 `Location`  | Someone can replay the signed URL       | Bounded by the 60 s TTL; resolve endpoint is rate-limited per-IP and per-token to dampen replay at scale |
+| Share token leaks                         | Someone with the token can download while the link is active | Resolve endpoint is rate-limited per-IP and per-token, logs redact token values, and owner revoke returns 410 |
 
 ## Key decisions
 
 - **Ephemeral by design.** The entire data model assumes every object has a `deleteAfter`. This eliminates a class of GDPR/erase-me requests and keeps storage cost proportional to active use.
-- **App-owned `/s/:token` → 302 to 60 s signed GET.** Keeps R2 private, gives us mid-life revoke and per-link policy hooks, and avoids streaming bytes through Workers.
+- **App-owned `/s/:token` streams from private R2.** Keeps R2 private, gives us mid-life revoke and per-link policy hooks, and avoids exposing an extra signed read URL.
 - **Hybrid retention mechanism.** App-level cron is authoritative (minute-granularity); R2 lifecycle is the safety net; weekly multipart sweeper mops abandoned multipart uploads.
-- **Device token, not accounts.** Ships the MVP in weeks instead of months; schema already includes `user` so accounts can layer on without migration.
+- **Device token first, optional Apple identity.** Anonymous device-token operation keeps sharing lightweight; Sign in with Apple supports purchases and future cross-device account features.
 - **SwiftData over Core Data.** Modern, compile-time schema, and shared-store ergonomics are better for an App Group. Trade-off: macOS 14 / iOS 17 minimum.
 - **Background URLSession shared between extension and app.** The share extension has seconds of runtime; background sessions survive its death and deliver completion to the app.
 - **Hono on Workers.** Minimal framework, first-class Workers types, trivially fast cold starts.

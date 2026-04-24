@@ -11,7 +11,7 @@ FastShared issues temporary anonymous links. The security posture follows from t
   - Instant revoke via `POST /v1/links/:token/revoke`.
   - Mid-life expiry at `expires_at` (410 Gone once past it).
   - A hook for future per-link policy (password, max-downloads, geo gates).
-- **Short-lived signed GETs.** `/s/:token` redirects to an R2 presigned GET with **60 s TTL**. Even if the `Location` header leaks (browser history, messaging app preview, debug proxy), the blast radius is bounded by the TTL.
+- **Worker-streamed downloads.** `/s/:token` resolves the DB row and streams the object from the private R2 bucket through the Worker. The browser never receives a raw R2 read URL.
 - **No permanent public URLs.** The R2 bucket is private; there is no public hostname, no public bucket ACL, no direct-access path at all.
 - **Every upload has a `delete_after`.** Storage is always bounded. An abandoned incident therefore has a worst-case lifetime of 90 days (R2 lifecycle safety net).
 
@@ -19,7 +19,7 @@ Rejected alternatives (so we do not revisit them):
 
 - Direct public R2 URL — permanent exposure, no revoke, no per-link policy hooks.
 - Signed R2 URL returned directly to the client — leak-while-valid for the full TTL with no way to invalidate.
-- Workers proxy/streaming — richer per-link policy, but CPU/memory limits make it unsafe for large videos in MVP.
+- Raw R2 signed GET on resolve — lower Worker work per download, but exposes an extra bearer URL and makes per-link policy harder to enforce consistently.
 
 ## Threat model summary
 
@@ -40,9 +40,10 @@ Two distinct trust surfaces.
 `/v1/*` except `/v1/devices` and `/v1/report/:token`. This surface owns upload, history, and revoke.
 
 - **Device tokens.** 32 bytes of CSPRNG, base64url. Minted by `POST /v1/devices` on first launch; no email, no user interaction.
-- **Token storage.** Client stores the token in Keychain with access group `TEAMID.com.yourco.fastshared` and `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
+- **Token storage.** Client stores the token in Keychain with the configured `KEYCHAIN_ACCESS_GROUP` (for production, `$(AppIdentifierPrefix)dev.kindrazki.fastshared`) and `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. On first launch after the hotfix, the client migrates any legacy App Group `UserDefaults` token into Keychain, deletes the legacy copy, and does not keep a permanent UserDefaults fallback.
 - **Server storage.** Only `HMAC-SHA256(DEVICE_TOKEN_PEPPER, token)` is persisted on the `device` row. Raw tokens are never logged.
 - **Rotation.** Supported API-side via `POST /v1/devices/:id/rotate` (post-MVP). On rotation, old hash is invalidated atomically; the new token is returned once and immediately persisted.
+- **Optional Apple identity.** Sign in with Apple can bind purchases and future cross-device flows to `apple_user_id`; anonymous device-token operation remains supported.
 - **Lifecycle.** Tokens live as long as the device row exists. A user "signing out" (post-MVP) deletes the device row and the token is rejected on next request.
 
 ### Resolve route (unauthenticated)
@@ -59,7 +60,7 @@ Every `/s/:token` response — 302, 410, or 404 — carries:
 
 Additional levers:
 
-- **Signed URL TTL.** 60 seconds. The `Location` header is considered ephemeral; a leaked URL is valid for no more than 60 s from its issue time.
+- **Private R2 reads.** Downloads are served by the Worker from a private R2 object after DB validation, so leaked link tokens remain the only bearer secret for the resolve route.
 - **Per-IP rate limit.** 60 requests/min. Catches a single-source enumeration.
 - **Per-token rate limit.** 300 requests/min. Catches bulk fan-out (one token bounced through many IPs) while tolerating legitimate link-preview fan-out from messaging apps.
 - **DB-gated.** The handler loads the row, checks `link_status`, `expires_at`, and `asset.deleted_at`. Any mismatch returns `410 Gone` with a `reason` of `expired`, `revoked`, or `deleted`. Unknown tokens return `404` (indistinguishable from random-guess lookups to an attacker).
@@ -69,7 +70,7 @@ Additional levers:
 - **Entropy.** 22 characters of base62 = 62^22 ≈ 2^131 values. At the 300 req/min/token ceiling, brute-forcing a specific token requires ~10^30 years. Enumeration is likewise infeasible at 60 req/min/IP.
 - **Generation.** `crypto.getRandomValues(new Uint8Array(32))` → base62 → truncate to 22 chars.
 - **Collision policy.** Reserve in `TOKEN_RESERVATIONS` KV for 60 s; insert with a `UNIQUE` index; on conflict regenerate. Realistic collision probability at our expected volume is effectively zero; the policy is defensive.
-- **Logging.** Tokens are **never logged in cleartext**. Logs and error bodies truncate to `token[:8]…` when they need to reference a token at all. The full token lives only in the DB `share_link.token` column, in the client's SwiftData store, and briefly in URL handlers.
+- **Logging.** Tokens are **never logged in cleartext**. The logger recursively redacts device IDs, share tokens, bearer tokens, storage keys, asset IDs, and App Store transaction IDs before serialization. The full share token lives only in the DB `share_link.token` column, in the client's SwiftData store, and briefly in URL handlers.
 - **Storage on device.** The token is not a secret in the traditional Keychain sense; it lives in SwiftData alongside the rest of the share metadata and is displayed/copied as part of normal UI. The device token (owner API) is the true secret and lives in Keychain.
 
 ## Transport security
@@ -98,13 +99,13 @@ Anything else is rejected with `415 unsupported-media-type` at `POST /v1/uploads
 
 ## Size caps
 
-| Type    | Cap    | Why                                                                               |
-| ------- | ------ | --------------------------------------------------------------------------------- |
-| Image   | 50 MB  | Far above any reasonable camera JPEG / HEIC / PNG; catches accidental videos      |
-| Video   | 2 GB   | Covers 4K short-form; above this we push users to native sharing                  |
-| Doc     | 100 MB | Covers almost any PDF / zip; keeps single-PUT inside Workers memory               |
+| Tier | Cap | Retention | Notes |
+| --- | --- | --- | --- |
+| Free | 100 MB/file | 24 h | 3 uploads/day, Cloud Sync disabled |
+| Pro | 2 GB/file | 30 days | Unlimited uploads, Cloud Sync enabled |
+| Beta allowlist | Server configured | Server configured | Only for explicit Apple user IDs in secure env allowlists |
 
-Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipart at M8. Server rejects `size > cap` for the declared type at presign time.
+The backend is the source of truth for caps. The Apple client mirrors the defaults for local UX, but presign and batch presign enforce the server caps. Multipart is used for larger uploads; single PUT is limited to the server's multipart threshold.
 
 ## Rate limiting
 
@@ -112,7 +113,7 @@ Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipar
 - **Per IP, unauthenticated routes.** `120/hour` on `POST /v1/devices`; `60/min` on `/s/:token`.
 - **Per token, resolve route.** `300/min`. Whichever of the two resolve buckets trips first returns `429`.
 - **Response.** `429` with `Retry-After` and RFC 7807 body, `type = https://fastsha.red/errors/rate-limited`.
-- Implementation: KV now, Durable Object per-token upgrade once measured latency requires it.
+- Implementation: KV now, with token/device-derived keys stored as HMAC digests using `DEVICE_TOKEN_PEPPER`; Durable Object per-token upgrade once measured latency or atomicity requires it.
 
 ## Abuse prevention
 
@@ -124,7 +125,7 @@ Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipar
 
 - **Server.** All secrets injected via `wrangler secret put`. Never in `wrangler.toml`, never in repo. CI deploy is gated behind a GitHub environment with required reviewers.
 - **Client.** Device token only in Keychain. Share tokens in SwiftData. Build-time configuration (API host, short link host) is in `xcconfig` files in `apple/Config/`; these are public and hold no secrets.
-- **Logging.** The logger allowlists fields; there is no "dump request" mode in production. Tokens (share and device) are redacted at the logger layer, not at call sites.
+- **Logging.** The logger redacts known sensitive fields recursively; there is no "dump request" mode in production. Tokens (share and device), storage keys, asset IDs, and App Store transaction IDs are redacted at the logger layer, not at call sites.
 
 ## App Group and extension data safety
 
@@ -132,11 +133,11 @@ Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipar
 - Staging files are `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` equivalent at the filesystem level: after first unlock, until reboot, they are readable only by app and extension.
 - Files older than 72 h in staging are reaped on every app launch and on extension start to minimize the footprint.
 
-## Signed URL strategy
+## R2 access strategy
 
-- **All reads are signed.** TTL is 60 seconds (was 5 minutes pre-ephemeral; tightened because the resolve is behind our own 302 so there is no legitimate reason to issue a longer URL).
-- **Why not a public bucket?** A public bucket removes all per-link policy options (expiry, revoke, abuse-takedown, future password-protection). A private bucket with always-signed GETs is the same UX for users but gives us real levers. The cost is one extra presign call on every redirect; at edge latency that is sub-millisecond compared to the R2 GET itself.
-- **Referrer / origin constraints** are not used because presigned URLs expire quickly and we would rather not break cross-app previews.
+- **Writes are presigned.** Upload clients receive short-lived R2 PUT URLs after API authentication, cap checks, and token reservation.
+- **Reads are proxied by the Worker.** The resolve route validates token state, expiry, revocation, and asset state before streaming bytes from private R2. This keeps future password prompts, download-count enforcement, and abuse controls on the same path as today's downloads.
+- **Why not a public bucket?** A public bucket removes all per-link policy options (expiry, revoke, abuse-takedown, future password-protection). A private bucket plus Worker resolve keeps real enforcement levers without exposing raw object keys.
 
 ## Future hardening
 
@@ -145,8 +146,8 @@ Single-PUT uploads are allowed up to 100 MB; above that we will ship R2 multipar
 - **sha256 blocklist.** KV lookup already present on upload; operator tooling to populate it comes post-MVP.
 - **`/report/:token`.** MVP stores rows, review is manual. Post-MVP adds an ops dashboard.
 - **Geographic gates.** Cloudflare edge carries country/region data. Post-MVP adds an allow/deny list per link.
-- **Proxy-mode per link.** Opt-in per link: instead of 302 to a signed R2 GET, the Worker streams the body through itself. Enables password prompts, download-count enforcement on each chunk, and watermarking. Held back in MVP because of Workers CPU limits on large videos.
+- **Per-link download policy.** Password prompts, max-download enforcement, and manual expiry can be layered onto the existing Worker-streamed resolve path.
 - **CSAM scanning.** Integrate a scanner (e.g. PhotoDNA via a partner) at complete-time against `image/*`. Requires KYC with the vendor; out of scope for MVP.
-- **Account binding.** Let a user bind their current device token to an email + passkey. Enables cross-device history and loss-of-device recovery.
-- **2FA** for the account path above.
+- **Expanded account binding.** Use Sign in with Apple plus passkeys for cross-device history and loss-of-device recovery.
+- **2FA** for any future admin or non-Apple account path.
 - **Bucket-level encryption keys** managed by us rather than Cloudflare-managed — increases key hygiene burden; revisit once we have compliance customers.
