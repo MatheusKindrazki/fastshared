@@ -1,40 +1,41 @@
 ---
-// Tiny, non-sticky navigation.
-// Blurs on scroll for a native iOS feel.
+// Fixed navigation with the shipped app icon as the public brand mark.
 ---
 <nav
   class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
   id="main-nav"
   aria-label="Primary"
 >
-  <div class="frame flex items-center justify-between py-5">
+  <div class="frame flex items-center justify-between py-4">
     <a
       href="/"
-      aria-label="fastshared — home"
-      class="inline-flex items-center text-charcoal transition-colors nav-brand"
+      aria-label="FastShared home"
+      class="nav-brand inline-flex items-center gap-3 text-charcoal transition-colors"
     >
       <img
-        src="/brand/logo-horizontal.svg"
-        alt="fastshared"
-        width="180"
-        height="32"
-        style="height:26px;width:auto;display:block;"
+        src="/brand/appicon-1024.png"
+        alt=""
+        width="34"
+        height="34"
+        class="nav-brand__icon"
         decoding="async"
-        loading="lazy"
+        loading="eager"
+        aria-hidden="true"
       />
+      <span class="font-display text-[16px] font-bold leading-none">FastShared</span>
     </a>
 
-    <div class="flex items-center gap-7">
+    <div class="flex items-center gap-5">
       <a
         href="/pricing"
-        class="nav-link font-mono text-[13px] tracking-wider uppercase text-charcoal/50 transition-colors hidden sm:inline-flex"
+        class="nav-link font-mono text-[12px] uppercase text-charcoal/55 transition-colors hidden sm:inline-flex"
         data-testid="nav-pricing"
       >
         Pricing
       </a>
       <a
         href="https://testflight.apple.com/join/fastshared"
-        class="nav-link font-mono text-[13px] tracking-wider uppercase text-charcoal/50 transition-colors hidden sm:inline-flex items-center gap-2"
+        class="nav-link font-mono text-[12px] uppercase text-charcoal/55 transition-colors hidden sm:inline-flex items-center gap-2"
         data-testid="nav-testflight"
         target="_blank"
         rel="noopener noreferrer"
@@ -62,17 +63,24 @@
 <style>
   .nav-link:hover,
   .nav-brand:hover { color: var(--violet-hot); }
-  .nav-brand img { filter: none; }
+
+  .nav-brand__icon {
+    display: block;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    box-shadow: 0 10px 22px -14px rgba(15, 12, 34, 0.55);
+  }
 
   .theme-toggle {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: transparent;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(var(--canvas-rgb), 0.62);
     border: 1px solid var(--rule);
     color: var(--charcoal);
     cursor: pointer;
@@ -93,8 +101,6 @@
 
   [data-theme="dark"] .theme-toggle .icon-sun { opacity: 0; transform: scale(0.8); }
   [data-theme="dark"] .theme-toggle .icon-moon { opacity: 1; transform: scale(1); }
-
-  [data-theme="dark"] .nav-brand img { filter: invert(1) brightness(1.1); }
 </style>
 
 <script>

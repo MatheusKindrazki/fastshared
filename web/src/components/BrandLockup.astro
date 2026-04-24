@@ -1,11 +1,9 @@
 ---
 /**
- * BrandLockup — PlaneArc mark + wordmark.
- * Mirrors design-v3/screens.jsx BrandLockup (lines 53–63).
- * The violet dot after "fastshared" is the only ornament — do not add others.
+ * BrandLockup — app icon + product name.
+ * The landing rebrand uses the shipped app icon as the primary mark so the
+ * website, README, and TestFlight builds all point at the same identity.
  */
-
-import PlaneArc from './PlaneArc.astro';
 
 interface Props {
   markSize?: number;
@@ -18,19 +16,37 @@ const {
   markSize = 22,
   textSize = 15,
   class: className = '',
-  ariaLabel = 'fastshared',
+  ariaLabel = 'FastShared',
 } = Astro.props;
 ---
 <span
   class={`brand-lockup inline-flex items-center ${className}`}
-  style={`gap:8px;`}
+  style={`gap:${Math.max(8, Math.round(markSize * 0.36))}px;`}
   aria-label={ariaLabel}
 >
-  <PlaneArc size={markSize} decorative ariaLabel={ariaLabel} />
+  <img
+    src="/brand/appicon-1024.png"
+    alt=""
+    width={markSize}
+    height={markSize}
+    class="brand-lockup__icon"
+    style={`width:${markSize}px;height:${markSize}px;`}
+    decoding="async"
+    loading="lazy"
+    aria-hidden="true"
+  />
   <span
-    class="font-display font-bold tracking-[-0.05em]"
-    style={`font-size:${textSize}px;letter-spacing:-0.02em;line-height:1;`}
+    class="font-display font-bold"
+    style={`font-size:${textSize}px;letter-spacing:0;line-height:1;`}
   >
-    fastshared<span style="color: var(--violet-hot);">.</span>
+    FastShared
   </span>
 </span>
+
+<style>
+  .brand-lockup__icon {
+    display: block;
+    border-radius: 22%;
+    box-shadow: 0 8px 18px -12px rgba(15, 12, 34, 0.45);
+  }
+</style>
