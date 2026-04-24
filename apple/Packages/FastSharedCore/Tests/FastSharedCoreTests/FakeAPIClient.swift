@@ -74,9 +74,9 @@ final class FakeAPIClient: APIClientProtocol, @unchecked Sendable {
         URL(string: "https://fastsha.red/s/\(token)")!
     }
 
-    func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse {
-        lock.lock(); verifyIAPCalls.append(signedTransactionJWS); lock.unlock()
-        if let onVerifyIAP { return try await onVerifyIAP(signedTransactionJWS) }
+    func verifyIAP(jwsRepresentation: String) async throws -> IAPVerifyResponse {
+        lock.lock(); verifyIAPCalls.append(jwsRepresentation); lock.unlock()
+        if let onVerifyIAP { return try await onVerifyIAP(jwsRepresentation) }
         return IAPVerifyResponse(isPro: false, tier: nil, expiresAt: nil, caps: TierCaps.free.toDTO())
     }
 

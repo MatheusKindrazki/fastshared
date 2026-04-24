@@ -217,7 +217,7 @@ struct PaywallView: View {
         case .longRetentionRequested:
             return "Pro supports up to 30-day retention. Free tops out at 24 hours."
         case .largeFileRequested:
-            return "Pro raises the cap to 5 GB per file and keeps the same one-gesture flow."
+            return "Pro raises the cap to 2 GB per file and keeps the same one-gesture flow."
         case .serverForced:
             return "Your session hit a Pro-only limit on the server. Unlock the full flow here."
         }
@@ -350,7 +350,7 @@ struct PaywallView: View {
         case .monthly:
             return [
                 "Unlimited daily uploads",
-                "Files up to 5 GB",
+                "Files up to 2 GB",
                 "Retention up to 30 days",
                 "Cross-device sync"
             ]

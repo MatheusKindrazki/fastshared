@@ -539,10 +539,10 @@ public struct HistoryPage: Sendable, Codable, Equatable {
 /// Body for `POST /v1/iap/verify`. Sends a single signed StoreKit 2 transaction JWS
 /// representation — the backend decodes + validates against Apple's App Store Server API.
 public struct IAPVerifyRequest: Sendable, Codable, Equatable {
-    public let signedTransaction: String
+    public let jwsRepresentation: String
 
-    public init(signedTransaction: String) {
-        self.signedTransaction = signedTransaction
+    public init(jwsRepresentation: String) {
+        self.jwsRepresentation = jwsRepresentation
     }
 }
 

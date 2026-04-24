@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import type { AppBindings } from '~/env';
 import { problem } from '~/lib/problem';
+import { hmacSha256Hex } from '~/lib/hash';
 
 export interface RatelimitOptions {
   bucket: string;
@@ -20,10 +21,11 @@ export const ratelimit = (opts: RatelimitOptions): MiddlewareHandler<AppBindings
       keyFrom === 'device'
         ? (c.get('deviceId') ?? anonKey(c.req.header('cf-connecting-ip')))
         : anonKey(c.req.header('cf-connecting-ip'));
+    const identityKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, identity)).slice(0, 32);
 
     const now = Math.floor(Date.now() / 1000);
     const windowStart = now - (now % windowSeconds);
-    const key = `rl:${identity}:${bucket}:${windowStart}`;
+    const key = `rl:${identityKey}:${bucket}:${windowStart}`;
     const ttl = windowSeconds + 60;
 
     const existing = await c.env.RATE_LIMIT.get(key);

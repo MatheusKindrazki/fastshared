@@ -12,7 +12,7 @@
 	<array>
 		<!--
 		    UserDefaults: consumed by RootView (has_seen_onboarding flag),
-		    SettingsView, DeviceTokenStore fallback, and RetentionPolicy —
+		    SettingsView, DeviceTokenStore one-time legacy migration, and RetentionPolicy —
 		    all within the same app + its App Group, never for cross-app
 		    tracking. Reason: CA92.1 ("Access info from same app").
 		-->

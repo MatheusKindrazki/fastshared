@@ -501,7 +501,7 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         URL(string: "https://fastsha.red/s/\(token)")!
     }
 
-    func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse {
+    func verifyIAP(jwsRepresentation: String) async throws -> IAPVerifyResponse {
         IAPVerifyResponse(isPro: false, tier: nil, expiresAt: nil, caps: TierCaps.free.toDTO())
     }
 
@@ -601,4 +601,3 @@ final actor AlwaysProSubscriptionStore: SubscriptionStoreProtocol {
     func restore() async throws {}
     func syncCurrentEntitlements() async {}
 }
-

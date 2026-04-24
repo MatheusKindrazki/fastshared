@@ -6,7 +6,9 @@ import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { log } from '~/lib/logger';
+import { PRO_CAPS, FREE_CAPS, toWireCaps, type TierCapsWire } from '~/lib/tierCaps';
 import {
+  AppStoreApiError,
   InvalidJwsError,
   createAppStoreServerApi,
   mapAppleStatusInt,
@@ -15,9 +17,15 @@ import {
   deriveStatusFromNotificationType,
   deriveTierFromProductId,
   findByOriginalTransactionId,
+  isSubscriptionEntitled,
   upsertFromAppleEvent,
 } from '~/services/subscriptions';
-import type { SubscriptionStatus } from '~/db/schema';
+import type {
+  Subscription,
+  SubscriptionStatus,
+  SubscriptionTier,
+  SubscriptionVerificationStatus,
+} from '~/db/schema';
 
 export const iapRoutes = new Hono<AppBindings>();
 
@@ -35,7 +43,16 @@ iapRoutes.use(
   ratelimit({ bucket: 'iap_webhook_ip', limit: 1000, windowSeconds: 60, keyFrom: 'ip' }),
 );
 
-const verifyBodySchema = z.object({ jwsRepresentation: z.string().min(20) });
+const verifyBodySchema = z
+  .object({
+    jwsRepresentation: z.string().min(20).optional(),
+    signedTransaction: z.string().min(20).optional(),
+  })
+  .refine((body) => body.jwsRepresentation || body.signedTransaction, {
+    message: 'missing jwsRepresentation',
+  });
+
+const VERIFICATION_GRACE_MS = 24 * 60 * 60 * 1000;
 
 iapRoutes.post('/verify', async (c) => {
   const deviceId = c.get('deviceId');
@@ -47,13 +64,15 @@ iapRoutes.post('/verify', async (c) => {
   } catch {
     return problem(c, 400, 'bad_request', 'Bad Request', 'invalid body');
   }
+  const jwsRepresentation = parsed.jwsRepresentation ?? parsed.signedTransaction;
+  if (!jwsRepresentation) return problem(c, 400, 'bad_request', 'Bad Request', 'invalid body');
 
   const api = createAppStoreServerApi(c.env);
 
   // 1. Decode + verify the JWS signed transaction the client handed us.
   let decoded;
   try {
-    decoded = await api.verifyTransactionJWS(parsed.jwsRepresentation);
+    decoded = await api.verifyTransactionJWS(jwsRepresentation);
   } catch (err) {
     const reason = err instanceof InvalidJwsError ? err.reason : 'unknown';
     log.warn({ msg: 'iap_verify_jws_invalid', requestId: c.get('requestId'), reason });
@@ -91,6 +110,8 @@ iapRoutes.post('/verify', async (c) => {
   let autoRenewStatus: boolean;
   let latestTransactionId = decoded.transactionId;
   let statusRaw: unknown = null;
+  let verificationStatus: SubscriptionVerificationStatus = 'verified';
+  let verificationGraceUntil: Date | null = null;
 
   if (tier === 'lifetime') {
     status = 'active';
@@ -105,13 +126,15 @@ iapRoutes.post('/verify', async (c) => {
       latestTransactionId = statusResp.latestTransactionId;
       statusRaw = statusResp.raw;
     } catch (err) {
+      const now = Date.now();
+      verificationStatus = 'grace';
+      verificationGraceUntil = capGraceUntil(decoded.expiresDate, now);
       log.warn({
         msg: 'iap_verify_status_fetch_failed',
         requestId: c.get('requestId'),
-        error: err instanceof Error ? err.message : String(err),
+        reason: err instanceof AppStoreApiError ? err.reason : 'unknown',
+        graceUntil: verificationGraceUntil?.toISOString() ?? null,
       });
-      // Best-effort fall-through: trust the client's receipt. The webhook
-      // will correct us on any mismatch within minutes.
       status = 'active';
       expiresAt = decoded.expiresDate;
       autoRenewStatus = true;
@@ -120,7 +143,7 @@ iapRoutes.post('/verify', async (c) => {
 
   // 4. Upsert the row.
   const db = createDb(c.env.DATABASE_URL);
-  await upsertFromAppleEvent(db, {
+  const sub = await upsertFromAppleEvent(db, {
     deviceId,
     originalTransactionId: decoded.originalTransactionId,
     tier,
@@ -128,18 +151,15 @@ iapRoutes.post('/verify', async (c) => {
     expiresAt,
     autoRenewStatus,
     latestTransactionId,
+    verificationStatus,
+    verificationGraceUntil,
     rawNotificationPayload: {
       source: 'verify',
       apple: statusRaw,
     },
   });
 
-  return c.json({
-    tier,
-    status,
-    expiresAt: expiresAt ? expiresAt.toISOString() : null,
-    autoRenewStatus,
-  });
+  return c.json(iapEntitlementResponse(sub));
 });
 
 iapRoutes.post('/webhook', async (c) => {
@@ -283,6 +303,8 @@ iapRoutes.post('/webhook', async (c) => {
     expiresAt: transaction.expiresDate ?? existing.expiresAt,
     autoRenewStatus: nextAutoRenew,
     latestTransactionId: transaction.transactionId,
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
     rawNotificationPayload: {
       source: 'webhook',
       notificationUUID: notification.notificationUUID,
@@ -298,3 +320,50 @@ iapRoutes.post('/webhook', async (c) => {
   await c.env.RATE_LIMIT.put(idempotencyKey, '1', { expirationTtl: 604_800 });
   return c.json({ ok: true });
 });
+
+function capGraceUntil(expiresDate: Date | null, nowMs: number): Date {
+  const defaultUntil = nowMs + VERIFICATION_GRACE_MS;
+  if (!expiresDate) return new Date(defaultUntil);
+  return new Date(Math.min(defaultUntil, expiresDate.getTime()));
+}
+
+interface IAPVerifyResponse {
+  isPro: boolean;
+  tier: 'free' | SubscriptionTier;
+  expiresAt: string | null;
+  caps: TierCapsWire;
+  subscription: {
+    status: SubscriptionStatus;
+    autoRenewStatus: boolean;
+    verificationStatus: SubscriptionVerificationStatus;
+    verificationGraceUntil: string | null;
+  } | null;
+}
+
+function iapEntitlementResponse(sub: Subscription, now = new Date()): IAPVerifyResponse {
+  const entitled = isSubscriptionEntitled(sub, now);
+  if (!entitled) {
+    return {
+      isPro: false,
+      tier: 'free',
+      expiresAt: null,
+      caps: toWireCaps(FREE_CAPS),
+      subscription: null,
+    };
+  }
+
+  return {
+    isPro: true,
+    tier: sub.tier as SubscriptionTier,
+    expiresAt: sub.expiresAt ? sub.expiresAt.toISOString() : null,
+    caps: toWireCaps(PRO_CAPS),
+    subscription: {
+      status: sub.status as SubscriptionStatus,
+      autoRenewStatus: sub.autoRenewStatus,
+      verificationStatus: sub.verificationStatus as SubscriptionVerificationStatus,
+      verificationGraceUntil: sub.verificationGraceUntil
+        ? sub.verificationGraceUntil.toISOString()
+        : null,
+    },
+  };
+}

@@ -635,15 +635,14 @@ public actor UploadService: UploadServiceProtocol {
             tier = .free
         }
 
-        let bypass = DevOverrides.unlimitedFreeCaps
-        if !bypass, size > caps.maxFileSizeBytes {
+        if size > caps.maxFileSizeBytes {
             throw SubscriptionGate.fileTooLarge(sizeBytes: size, cap: caps.maxFileSizeBytes)
         }
-        if !bypass, retention.ttlSeconds > caps.maxRetentionSeconds {
+        if retention.ttlSeconds > caps.maxRetentionSeconds {
             throw SubscriptionGate.retentionTooLong(requestedSeconds: retention.ttlSeconds,
                                                     cap: caps.maxRetentionSeconds)
         }
-        if let cap = caps.dailyUploadLimit, !bypass {
+        if let cap = caps.dailyUploadLimit {
             let used = await usageTracker.currentCount()
             if used >= cap {
                 throw SubscriptionGate.dailyCapReached(used: used, cap: cap)

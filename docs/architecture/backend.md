@@ -4,7 +4,7 @@ Implementation notes for the Workers backend. Paired with [System design](./syst
 
 ## Runtime
 
-Cloudflare Workers with the Hono framework. One Worker per environment (`fastshared-dev`, `fastshared-prod`). Wrangler handles deploys. No long-lived connections: Neon access uses the HTTP driver and R2 access uses signed HTTP to the S3-compat endpoint. The same Worker additionally exports a `scheduled` handler for the three cron triggers.
+Cloudflare Workers with the Hono framework. One Worker per environment (`fastshared-api-stg`, `fastshared-api`). Wrangler handles deploys. No long-lived connections: Neon access uses the HTTP driver, uploads use signed R2/S3-compatible URLs, and downloads stream private R2 objects through the Worker. The same Worker additionally exports a `scheduled` handler for the cron triggers.
 
 ## Environment bindings
 
@@ -20,10 +20,15 @@ export interface Env {
   DEVICE_TOKEN_PEPPER: string;
   SHORT_LINK_HOST: string;
   PUBLIC_API_HOST: string;
-  RATE_LIMITS: KVNamespace;
-  TOKEN_RESERVATIONS: KVNamespace;
-  SIGNED_GET_TTL_SECONDS: string;   // "60"
-  DELETE_AFTER_GRACE_SECONDS: string; // "86400"
+  APP_ENV: string;
+  APP_STORE_CONNECT_KEY_ID: string;
+  APP_STORE_CONNECT_ISSUER_ID: string;
+  APP_STORE_CONNECT_P8_KEY_BASE64: string;
+  APPLE_BUNDLE_ID: string;
+  DEV_PRO_APPLE_USER_IDS?: string;
+  BETA_UNLIMITED_APPLE_USER_IDS?: string;
+  RATE_LIMIT: KVNamespace;
+  R2: R2Bucket;
 }
 ```
 
@@ -34,10 +39,10 @@ Wrangler configuration supplies secrets via `wrangler secret put`. No secret is 
 Order matters; each layer is small and testable on its own.
 
 1. `requestId` — generates `req_<ulid>`, attaches to `c.var.requestId`, echoes as `X-Request-Id`.
-2. `logger` — JSON log at end of request with `requestId`, route, status, durMs. Tokens truncated to `token[:8]…`.
+2. `logger` — JSON log at end of request with `requestId`, route, status, durMs. Sensitive fields are redacted recursively.
 3. `errorShape` — catches thrown `HttpError` subclasses and formats as RFC 7807.
 4. `cors` — allow-list for `app://fastshared` and `https://fastsha.red`. The resolve route intentionally has no CORS.
-5. `rateLimit` — KV-based, keyed by device id (owner API), IP (unauthed device mint), or IP + token (resolve route).
+5. `rateLimit` — KV-based, keyed by HMAC(device token/device id), IP (unauthed device mint), or HMAC(share token) on the resolve route.
 6. `auth` — verifies bearer, loads `device` + `user`. Runs after rate limiting so hostile traffic pays less database cost. Skipped for `/s/:token` and `/v1/devices`.
 7. `idempotency` — only on `POST /v1/uploads`; looks up `(device_id, client_job_id)` and short-circuits with a prior response when present.
 8. Route handlers.
@@ -52,7 +57,7 @@ Order matters; each layer is small and testable on its own.
 | GET    | `/v1/uploads/:id`                     | yes     | per-device               | -          | Poll upload status                                                                              |
 | GET    | `/v1/history`                         | yes     | per-device               | -          | List user's share links, cursor-paginated; rows include `expiresAt`, `deleteAfter`, `linkStatus`, `retentionPolicy`, `accessCount` |
 | POST   | `/v1/links/:token/revoke`             | yes     | per-device               | yes        | Owner-only; flips `link_status='revoked'`, schedules immediate deletion job                      |
-| GET    | `/s/:token`                           | no      | per-IP (60/min) + per-token (300/min) | - | Anonymous resolve; 302 to 60 s signed R2 GET; 410 Gone on expired/revoked/deleted; 404 on unknown |
+| GET    | `/s/:token`                           | no      | per-IP (60/min) + per-token (300/min) | - | Anonymous resolve; streams private R2 object after DB validation; 410 Gone on expired/revoked/deleted; 404 on unknown |
 | POST   | `/v1/report/:token`                   | no      | per-IP                   | -          | Abuse report (post-MVP-ready stub in MVP)                                                       |
 | GET    | `/errors/:code`                       | no      | none                     | -          | RFC 7807 `type` explainer page                                                                  |
 | GET    | `/health`                             | no      | none                     | -          | Liveness probe                                                                                  |
@@ -98,8 +103,9 @@ Each cron dispatches through a switch inside `scheduled(event, env, ctx)` keyed 
 1. **Expire stale links.** `UPDATE share_link SET link_status='expired' WHERE link_status='active' AND expires_at <= now()`. Drives the server-side truth; clients independently do `lazyMarkExpiredIfNeeded` on row render.
 2. **Enqueue missing deletion jobs.** `INSERT INTO deletion_job (asset_id, scheduled_for, status) SELECT a.id, a.delete_after, 'pending' FROM asset a LEFT JOIN deletion_job dj ON dj.asset_id = a.id AND dj.status IN ('pending','running','done') WHERE a.deleted_at IS NULL AND a.delete_after <= now() + INTERVAL '1 hour' AND dj.id IS NULL ON CONFLICT DO NOTHING`. Partial unique index prevents duplicates.
 3. **Reset stuck running jobs.** `UPDATE deletion_job SET status='pending', locked_at=NULL WHERE status='running' AND locked_at < now() - INTERVAL '10 minutes'`.
+4. **Expire IAP verification grace.** Subscriptions in `verification_status='grace'` are marked expired when `verification_grace_until <= now()` unless a later verified App Store state has arrived.
 
-A fourth pass is a short HEAD probe on a random sample of recently-verified assets whose `delete_after` has passed; if HEAD returns 404 we mark `asset.deletion_status='deleted'` and `asset.deleted_at=now()` without creating a duplicate R2 call.
+A final pass is a short HEAD probe on a random sample of recently-verified assets whose `delete_after` has passed; if HEAD returns 404 we mark `asset.deletion_status='deleted'` and `asset.deleted_at=now()` without creating a duplicate R2 call.
 
 ## Drizzle schema overview
 
@@ -108,6 +114,7 @@ erDiagram
     USER ||--o{ DEVICE : "owns"
     DEVICE ||--o{ UPLOAD_JOB : "creates"
     DEVICE ||--o{ ASSET : "owns"
+    DEVICE ||--o{ SUBSCRIPTION : "entitled by"
     ASSET ||--o{ SHARE_LINK : "served by"
     ASSET ||--o{ DELETION_JOB : "scheduled for"
     UPLOAD_JOB }o--|| ASSET : "produces"
@@ -182,6 +189,16 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
+    SUBSCRIPTION {
+        uuid id PK
+        uuid device_id FK
+        text apple_user_id
+        text tier
+        text status
+        text verification_status
+        timestamptz verification_grace_until
+        timestamptz expires_at
+    }
 ```
 
 Full schema SQL lives in [Data model](./data-model.md).
@@ -189,7 +206,7 @@ Full schema SQL lives in [Data model](./data-model.md).
 ## R2 access pattern
 
 - **Writes.** Server presigns PUT with 5-minute TTL, content-length range, and fixed `Content-Type`. Client PUTs directly to R2; the Worker never sees bytes. Object key format: `a/<yyyy>/<mm>/<dd>/<device_id>/<asset_uuid>` (column name `storage_key`).
-- **Reads.** Only via `GET /s/:token`. Handler loads `share_link` + `asset`, checks `link_status` and `expires_at`, presigns a GET with **60 s TTL**, returns `302 Found` with `Location` and `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer`. No public caching of redirects — short TTL bounds any leaked signed URL.
+- **Reads.** Only via `GET /s/:token`. Handler loads `share_link` + `asset`, checks `link_status`, `expires_at`, and deletion state, then streams the object from private R2 with `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, and `Referrer-Policy: no-referrer`. The browser never receives a raw R2 read URL.
 - **Verification.** `POST /v1/uploads/:id/complete` issues an S3 HEAD against the object, compares `Content-Length` against the registered size, stores the returned `ETag` on the asset row, and rejects with `409` if the target `expires_at <= now() + 60s` (protects against zombie completes).
 - **Deletes.** Deletion worker calls `DELETE object(storage_key)`. 404 is treated as success (already gone).
 - **Bucket-level lifecycle rule.** `fastshared-*` buckets have a 90 d `Expire` lifecycle as a safety net. Configured via `wrangler r2 bucket lifecycle put`. This covers objects whose app-level deletion fails permanently.
@@ -204,7 +221,7 @@ Full schema SQL lives in [Data model](./data-model.md).
 ## Rate limiting strategy
 
 - KV namespace `RATE_LIMITS` with keys:
-  - `rl:dev:<deviceId>:<bucket>` — owner API per-device counters.
+  - `rl:dev:<deviceHash>:<bucket>` — owner API per-device counters. `deviceHash` is `HMAC-SHA256(pepper, deviceId)` truncated; never the raw ID.
   - `rl:ip:<ip>:<bucket>` — per-IP counters (resolve + device mint).
   - `rl:tok:<tokenHash>:<bucket>` — per-token counters on resolve. `tokenHash` is `HMAC-SHA256(pepper, token)` truncated; never the raw token.
 - Sliding window: two adjacent fixed windows summed with a weighting factor.
@@ -217,7 +234,7 @@ Full schema SQL lives in [Data model](./data-model.md).
 - Generator: `crypto.getRandomValues(new Uint8Array(32))` then base62-encoded and truncated to 22 chars.
 - Collision handling: try to reserve the token in `TOKEN_RESERVATIONS` KV with `put(token, "1", { expirationTtl: 60 })`; if already present, regenerate. Then insert into `share_link` with a unique index that will reject a concurrent collision. On conflict, regenerate again.
 - No dictionary-derived tokens and no user-chosen tokens in MVP.
-- Treat the token as a **bearer secret**: never log in cleartext; truncate to `token[:8]…` in all observability output.
+- Treat the token as a **bearer secret**: never log it in cleartext. The centralized logger redacts raw token-like fields, and rate-limit keys store HMAC digests only.
 
 ## Error shape
 
@@ -249,20 +266,18 @@ One JSON line per request:
   "level": "info",
   "requestId": "req_01HFXK...",
   "route": "GET /s/:token",
-  "tokenPrefix": "aB3dG7kP",
-  "deviceHash": "9f2c...",
-  "status": 302,
+  "status": 200,
   "durMs": 37
 }
 ```
 
-No PII. `deviceHash` is `HMAC-SHA256(pepper, deviceId)` truncated to 8 bytes. `tokenPrefix` is the first 8 characters of the token followed by an ellipsis when logged at all — no raw token ever reaches disk.
+No PII. Device IDs, share tokens, bearer tokens, storage keys, asset IDs, and App Store transaction IDs are redacted before serialization; hashed counters are kept only in KV.
 
 ## Deployment
 
-- `wrangler deploy --env prod` for production, `--env dev` for staging.
+- `wrangler deploy` for production, `wrangler deploy --env staging` for staging.
 - Secrets set via `wrangler secret put DATABASE_URL --env prod` etc.
-- KV namespaces and R2 buckets are created with `wrangler kv namespace create` and `wrangler r2 bucket create` during M0; their ids are pasted into `wrangler.toml`.
+- KV namespaces and R2 buckets are created separately for production and staging with `wrangler kv namespace create` and `wrangler r2 bucket create`; their ids are pasted into `wrangler.toml`.
 - R2 lifecycle rule (90 d expire) configured with `wrangler r2 bucket lifecycle put` during M4.5.
 - Cron triggers registered in `wrangler.toml` under `[triggers]` with the three expressions from the Scheduled workers table.
 - Schema migrations run via `pnpm drizzle-kit migrate` against Neon, executed from a CI job (not from the Worker).

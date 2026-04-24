@@ -19,24 +19,17 @@ public struct TierCaps: Sendable, Codable, Equatable {
         self.allowsCloudSync = allowsCloudSync
     }
 
-    /// ⚠️ TEMPORARY OVERRIDE — 2026-04-20
-    /// Mirror of `.pro` while Apple's Paid Apps Agreement is pending: W-8BEN +
-    /// BR tax form + bank account. StoreKit returns 0 products in that state,
-    /// so TestFlight users can't unlock Pro via purchase. Clamping every gate
-    /// open lets the beta run without paywall whiplash. Revert to the canonical
-    /// Free tier (3 / 100 MB / 24h / false) as soon as `/v1/me` reports real
-    /// subscriptions again.
     public static let free = TierCaps(
-        dailyUploadLimit: nil,
-        maxFileSizeBytes: 5 * 1024 * 1024 * 1024,
-        maxRetentionSeconds: 2_592_000,
-        allowsCloudSync: true
+        dailyUploadLimit: 3,
+        maxFileSizeBytes: 100 * 1024 * 1024,
+        maxRetentionSeconds: 86_400,
+        allowsCloudSync: false
     )
 
-    /// Pro tier defaults — unlimited uploads, 5 GB per file, 30 days retention, sync allowed.
+    /// Pro tier defaults — unlimited uploads, 2 GB per file, 30 days retention, sync allowed.
     public static let pro = TierCaps(
         dailyUploadLimit: nil,
-        maxFileSizeBytes: 5 * 1024 * 1024 * 1024,
+        maxFileSizeBytes: 2 * 1024 * 1024 * 1024,
         maxRetentionSeconds: 2_592_000,
         allowsCloudSync: true
     )

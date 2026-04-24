@@ -8,10 +8,14 @@ public enum AppGroupConfig {
     }
 
     public static var keychainAccessGroup: String {
-        // WHY: the access group must include the team's App Identifier Prefix at runtime; the prefix is
-        // folded in automatically by the entitlements `$(AppIdentifierPrefix)` substitution. We expose the
-        // unprefixed form here since Security framework handles prefix matching based on entitlement.
-        "dev.kindrazki.fastshared"
+        if let value = Bundle.main.object(forInfoDictionaryKey: "KEYCHAIN_ACCESS_GROUP") as? String,
+           !value.isEmpty, !value.contains("$(") {
+            return value
+        }
+        // SwiftPM tests and unsigned local utilities do not receive the
+        // expanded AppIdentifierPrefix. Empty means "do not set an access
+        // group" and avoids errSecMissingEntitlement outside signed app builds.
+        return ""
     }
 
     // WHY: Info.plist keys stay supported for future override, but the default

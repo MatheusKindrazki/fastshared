@@ -36,7 +36,7 @@ binding = "RATE_LIMIT"
 id = "6fba7370dd774b42b4ac36d00ec90238"
 
 [triggers]
-crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 7"]
+crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 0"]
 
 [vars]
 APP_ENV = "production"
@@ -53,12 +53,14 @@ APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
 # feature set without a real StoreKit transaction. Not a credential — just an
 # opaque Apple identifier — but keep the list short.
 DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
+BETA_UNLIMITED_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 
 # --- Staging environment ------------------------------------------------------
 # Deploy with: wrangler deploy --env staging
 # Uses the default workers.dev subdomain (no custom domain needed).
-# KV and R2 bindings are shared with production for simplicity; in a
-# multi-tenant setup you would create separate namespaces/buckets.
+# Staging must never share prod data-plane resources. Provision the bucket and
+# KV namespace before deploying this env; the placeholder KV id intentionally
+# fails fast if it is not replaced.
 [env.staging]
 name = "fastshared-api-stg"
 
@@ -68,17 +70,18 @@ custom_domain = false
 
 [[env.staging.r2_buckets]]
 binding = "R2"
-bucket_name = "fastshared"
+bucket_name = "fastshared-staging"
 
 [[env.staging.kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "6fba7370dd774b42b4ac36d00ec90238"
+id = "00000000000000000000000000000000"
 
 [env.staging.vars]
 APP_ENV = "staging"
 SHORT_LINK_HOST = "https://fastshared-api-stg.kindrazki.workers.dev"
 PUBLIC_API_HOST = "https://fastshared-api-stg.kindrazki.workers.dev"
-R2_BUCKET_NAME = "fastshared"
+R2_BUCKET_NAME = "fastshared-staging"
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
 APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
 DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
+BETA_UNLIMITED_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"

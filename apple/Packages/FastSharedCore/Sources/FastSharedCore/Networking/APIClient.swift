@@ -24,7 +24,7 @@ public protocol APIClientProtocol: Sendable {
     func deleteAsset(_ id: UUID) async throws
     func revokeLink(token: String) async throws -> RevokeResponse
     func shortURL(forToken token: String) -> URL
-    func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse
+    func verifyIAP(jwsRepresentation: String) async throws -> IAPVerifyResponse
     func fetchMe() async throws -> MeResponse
     func fetchPricingFlags() async throws -> PricingFlags
 }
@@ -206,8 +206,8 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         shortLinkHost.appendingPathComponent("s").appendingPathComponent(token)
     }
 
-    public func verifyIAP(signedTransactionJWS: String) async throws -> IAPVerifyResponse {
-        let body = IAPVerifyRequest(signedTransaction: signedTransactionJWS)
+    public func verifyIAP(jwsRepresentation: String) async throws -> IAPVerifyResponse {
+        let body = IAPVerifyRequest(jwsRepresentation: jwsRepresentation)
         return try await perform(endpoint: .iapVerify, body: body)
     }
 

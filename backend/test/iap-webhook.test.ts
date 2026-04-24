@@ -147,6 +147,8 @@ function seedSubscription(overrides: Partial<(typeof store.subscriptions)[number
     expiresAt: new Date('2026-05-01T00:00:00Z'),
     autoRenewStatus: true,
     latestTransactionId: 'TX-INITIAL',
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
     rawNotificationPayload: null,
     createdAt: new Date(),
     updatedAt: new Date(),

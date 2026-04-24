@@ -88,7 +88,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited uploads, 5 GB files, 30-day retention, cross-device sync.",
+              "description" : "Unlimited uploads, 2 GB files, 30-day retention, cross-device sync.",
               "displayName" : "FastShared Pro Monthly",
               "locale" : "en_US"
             }
@@ -109,7 +109,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited uploads, 5 GB files, 30-day retention, cross-device sync. Save 44% vs monthly.",
+              "description" : "Unlimited uploads, 2 GB files, 30-day retention, cross-device sync. Save 44% vs monthly.",
               "displayName" : "FastShared Pro Annual",
               "locale" : "en_US"
             }

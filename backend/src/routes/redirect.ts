@@ -16,6 +16,7 @@ import {
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { log } from '~/lib/logger';
+import { hmacSha256Hex } from '~/lib/hash';
 
 export const redirectRoutes = new Hono<AppBindings>();
 export const bundleRedirectRoutes = new Hono<AppBindings>();
@@ -367,7 +368,8 @@ function tokenRateLimit(opts: TokenRateLimitOpts): MiddlewareHandler<AppBindings
     }
     const now = Math.floor(Date.now() / 1000);
     const windowStart = now - (now % opts.windowSeconds);
-    const key = `rl:tok:${token}:${opts.bucket}:${windowStart}`;
+    const tokenKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, token)).slice(0, 32);
+    const key = `rl:tok:${tokenKey}:${opts.bucket}:${windowStart}`;
     const ttl = opts.windowSeconds + 60;
     const existing = await c.env.RATE_LIMIT.get(key);
     const current = existing ? Number(existing) : 0;

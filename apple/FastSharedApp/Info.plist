@@ -31,6 +31,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>KEYCHAIN_ACCESS_GROUP</key>
+	<string>$(KEYCHAIN_ACCESS_GROUP)</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>FastShared reads your most recent screenshot only when you ask — to upload it and give you a shareable link.</string>
 	<key>NSSupportsLiveActivities</key>
