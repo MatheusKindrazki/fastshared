@@ -17,7 +17,7 @@ export default defineConfig({
   },
   compressHTML: true,
   server: {
-    host: '127.0.0.1',
+    host: true,
     port: 4321,
   },
 });
