@@ -85,6 +85,18 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             raw: {},
           };
         }
+        if (jws === 'JWS_STATUS_FAIL_FIXTURE_0006') {
+          return {
+            transactionId: 'TX-GRACE',
+            originalTransactionId: 'OTX-GRACE',
+            productId: 'red.fastsha.pro.monthly',
+            purchaseDate: new Date('2026-04-01T00:00:00Z'),
+            expiresDate: new Date(Date.now() + 7 * 86_400 * 1000),
+            environment: 'Production' as const,
+            bundleId: 'red.fastsha.FastShared',
+            raw: {},
+          };
+        }
         throw new actual.InvalidJwsError('unknown_fixture');
       },
       verifyRenewalInfoJWS: async () => {
@@ -93,16 +105,21 @@ vi.mock('~/lib/appStoreServerApi', async () => {
       verifyNotificationJWS: async () => {
         throw new Error('not used in verify tests');
       },
-      getSubscriptionStatus: async () => ({
-        status: 0,
-        tier: 'monthly' as const,
-        expiresDate: new Date('2026-05-01T00:00:00Z'),
-        autoRenewStatus: true,
-        latestTransactionId: 'TX-1',
-        originalTransactionId: 'OTX-1',
-        environment: 'Production' as const,
-        raw: {},
-      }),
+      getSubscriptionStatus: async (originalTransactionId: string) => {
+        if (originalTransactionId === 'OTX-GRACE') {
+          throw new actual.AppStoreApiError('network_failure');
+        }
+        return {
+          status: 0,
+          tier: 'monthly' as const,
+          expiresDate: new Date('2026-05-01T00:00:00Z'),
+          autoRenewStatus: true,
+          latestTransactionId: 'TX-1',
+          originalTransactionId: 'OTX-1',
+          environment: 'Production' as const,
+          raw: {},
+        };
+      },
     }),
   };
 });
@@ -159,14 +176,18 @@ describe('POST /v1/iap/verify', () => {
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
+      isPro: boolean;
       tier: string;
-      status: string;
       expiresAt: string | null;
-      autoRenewStatus: boolean;
+      caps: { maxFileSizeBytes: number };
+      subscription: { status: string; autoRenewStatus: boolean; verificationStatus: string } | null;
     };
+    expect(body.isPro).toBe(true);
     expect(body.tier).toBe('monthly');
-    expect(body.status).toBe('active');
+    expect(body.subscription?.status).toBe('active');
+    expect(body.subscription?.verificationStatus).toBe('verified');
     expect(body.expiresAt).not.toBeNull();
+    expect(body.caps.maxFileSizeBytes).toBe(2 * 1024 * 1024 * 1024);
 
     expect(store.subscriptions.length).toBe(1);
     const row = store.subscriptions[0]!;
@@ -174,6 +195,7 @@ describe('POST /v1/iap/verify', () => {
     expect(row.appleOriginalTransactionId).toBe('OTX-1');
     expect(row.tier).toBe('monthly');
     expect(row.status).toBe('active');
+    expect(row.verificationStatus).toBe('verified');
   });
 
   it('lifetime JWS returns tier=lifetime with expiresAt=null', async () => {
@@ -233,5 +255,40 @@ describe('POST /v1/iap/verify', () => {
     expect(store.subscriptions.length).toBe(1);
     // Upsert keyed on originalTransactionId — same OTX, one row.
     expect(store.subscriptions[0]!.appleOriginalTransactionId).toBe('OTX-1');
+  });
+
+  it('accepts legacy signedTransaction field during client rollout', async () => {
+    const { token } = await seedDevice();
+    const res = await post(
+      '/v1/iap/verify',
+      { signedTransaction: 'JWS_MONTHLY_PROD_FIXTURE_0001' },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isPro: boolean; tier: string };
+    expect(body.isPro).toBe(true);
+    expect(body.tier).toBe('monthly');
+  });
+
+  it('App Store Server API failure grants only a 24h verification grace', async () => {
+    const { token } = await seedDevice();
+    const before = Date.now();
+    const res = await post(
+      '/v1/iap/verify',
+      { jwsRepresentation: 'JWS_STATUS_FAIL_FIXTURE_0006' },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isPro: boolean;
+      subscription: { verificationStatus: string; verificationGraceUntil: string | null } | null;
+    };
+    expect(body.isPro).toBe(true);
+    expect(body.subscription?.verificationStatus).toBe('grace');
+    expect(body.subscription?.verificationGraceUntil).not.toBeNull();
+    const graceUntil = Date.parse(body.subscription!.verificationGraceUntil!);
+    expect(graceUntil).toBeGreaterThanOrEqual(before + 24 * 60 * 60 * 1000 - 5_000);
+    expect(graceUntil).toBeLessThanOrEqual(before + 24 * 60 * 60 * 1000 + 5_000);
+    expect(store.subscriptions[0]!.verificationStatus).toBe('grace');
   });
 });

@@ -35,6 +35,8 @@ function seedSub(
     expiresAt: new Date(Date.now() + 30 * 86_400 * 1000),
     autoRenewStatus: true,
     latestTransactionId: 'TX',
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
     rawNotificationPayload: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -120,6 +122,46 @@ describe('GET /v1/me', () => {
     };
     expect(body.caps).toEqual(toWireCaps(PRO_CAPS));
     expect(body.subscription?.status).toBe('active');
+  });
+
+  it('active row with expired verification grace → Free caps', async () => {
+    const { deviceId, token } = await seedDevice();
+    seedSub(deviceId, {
+      status: 'active',
+      verificationStatus: 'grace',
+      verificationGraceUntil: new Date(Date.now() - 60_000),
+    });
+    const res = await get('/v1/me', { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isPro: boolean;
+      tier: string;
+      caps: TierCapsWire;
+      subscription: unknown;
+    };
+    expect(body.isPro).toBe(false);
+    expect(body.tier).toBe('free');
+    expect(body.caps).toEqual(toWireCaps(FREE_CAPS));
+    expect(body.subscription).toBeNull();
+  });
+
+  it('active row within verification grace → Pro caps', async () => {
+    const { deviceId, token } = await seedDevice();
+    seedSub(deviceId, {
+      status: 'active',
+      verificationStatus: 'grace',
+      verificationGraceUntil: new Date(Date.now() + 60_000),
+    });
+    const res = await get('/v1/me', { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      isPro: boolean;
+      caps: TierCapsWire;
+      subscription: { verificationStatus: string } | null;
+    };
+    expect(body.isPro).toBe(true);
+    expect(body.caps).toEqual(toWireCaps(PRO_CAPS));
+    expect(body.subscription?.verificationStatus).toBe('grace');
   });
 
   it('lifetime sub → Pro caps + expiresAt=null', async () => {

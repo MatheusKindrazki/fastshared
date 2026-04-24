@@ -3,7 +3,12 @@ import type { AppBindings } from '~/env';
 import { createDb } from '~/db/client';
 import { problem } from '~/lib/problem';
 import { FREE_CAPS } from '~/lib/tierCaps';
-import { findActiveProForDevice, parseDevProAllowList } from '~/services/subscriptions';
+import {
+  findActiveProForDevice,
+  isSubscriptionEntitled,
+  parseAppleUserAllowList,
+} from '~/services/subscriptions';
+import { hmacSha256Hex } from '~/lib/hash';
 import { log } from '~/lib/logger';
 
 const UPGRADE_TARGET = { tier: 'pro' as const, url: 'https://fastsha.red/pricing' };
@@ -32,7 +37,7 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     const active = await findActiveProForDevice(
       db,
       deviceId,
-      parseDevProAllowList(c.env.DEV_PRO_APPLE_USER_IDS),
+      parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
     ).catch((err) => {
       log.warn({
         msg: 'free_tier_sub_lookup_failed',
@@ -41,11 +46,7 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
       });
       return null;
     });
-    const now = Date.now();
-    const isPro =
-      active !== null &&
-      active.status === 'active' &&
-      (active.expiresAt === null || active.expiresAt.getTime() > now);
+    const isPro = active !== null && isSubscriptionEntitled(active);
     if (isPro) {
       await next();
       return;
@@ -114,7 +115,8 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
     // phantom usage on the override path.
     if (FREE_CAPS.uploadsPerDay >= 0) {
       const utcDate = new Date().toISOString().slice(0, 10);
-      const kvKey = `ft:${deviceId}:${utcDate}`;
+      const deviceKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, deviceId)).slice(0, 32);
+      const kvKey = `ft:${deviceKey}:${utcDate}`;
       const currentStr = await c.env.RATE_LIMIT.get(kvKey);
       const currentCount = currentStr ? Number(currentStr) : 0;
       const safeCount = Number.isFinite(currentCount) ? currentCount : 0;

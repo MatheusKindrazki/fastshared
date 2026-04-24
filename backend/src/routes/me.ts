@@ -5,8 +5,8 @@ import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { FREE_CAPS, PRO_CAPS, toWireCaps, type TierCapsWire } from '~/lib/tierCaps';
-import { findActiveProForDevice, parseDevProAllowList } from '~/services/subscriptions';
-import type { SubscriptionStatus } from '~/db/schema';
+import { findActiveProForDevice, parseAppleUserAllowList } from '~/services/subscriptions';
+import type { SubscriptionStatus, SubscriptionVerificationStatus } from '~/db/schema';
 
 export const meRoutes = new Hono<AppBindings>();
 
@@ -28,6 +28,8 @@ interface MeResponse {
   subscription: {
     status: SubscriptionStatus;
     autoRenewStatus: boolean;
+    verificationStatus: SubscriptionVerificationStatus;
+    verificationGraceUntil: string | null;
   } | null;
 }
 
@@ -39,7 +41,7 @@ meRoutes.get('/', async (c) => {
   const active = await findActiveProForDevice(
     db,
     deviceId,
-    parseDevProAllowList(c.env.DEV_PRO_APPLE_USER_IDS),
+    parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
   );
 
   // No active row at all → pure Free.
@@ -83,6 +85,10 @@ meRoutes.get('/', async (c) => {
     subscription: {
       status,
       autoRenewStatus: active.autoRenewStatus,
+      verificationStatus: active.verificationStatus as SubscriptionVerificationStatus,
+      verificationGraceUntil: active.verificationGraceUntil
+        ? active.verificationGraceUntil.toISOString()
+        : null,
     },
   };
   return c.json(body);

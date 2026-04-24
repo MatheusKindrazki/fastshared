@@ -8,13 +8,11 @@ import {
   ctx,
   seedDevice,
 } from './support';
+import { hmacSha256Hex } from '~/lib/hash';
 
 installDrizzleFake();
 
-// FREE_CAPS in production currently mirrors PRO_CAPS via a temporary override
-// (Apple Paid Apps Agreement is pending). To exercise the daily-cap rejection
-// path on /uploads/batch we restore the canonical Free values inside this
-// suite — 3 uploads/day, 100 MB per file, 24h retention.
+// Keep the Free gate explicit in this suite even if caps are retuned later.
 vi.mock('~/lib/tierCaps', async () => {
   const actual = await vi.importActual<typeof import('~/lib/tierCaps')>('~/lib/tierCaps');
   return {
@@ -27,6 +25,12 @@ vi.mock('~/lib/tierCaps', async () => {
     },
   };
 });
+
+async function freeTierKvKey(deviceId: string): Promise<string> {
+  const utcDate = new Date().toISOString().slice(0, 10);
+  const digest = await hmacSha256Hex(TEST_ENV.DEVICE_TOKEN_PEPPER, deviceId);
+  return `ft:${digest.slice(0, 32)}:${utcDate}`;
+}
 
 // R2 presigns: replicate the lightweight stubs used by uploads.test.ts /
 // rateLimitFreeTier.test.ts so the batch route can complete without touching
@@ -109,6 +113,8 @@ function seedActiveSub(deviceId: string) {
     expiresAt: new Date(Date.now() + 30 * 86_400 * 1000),
     autoRenewStatus: true,
     latestTransactionId: 'TX',
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
     rawNotificationPayload: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -180,8 +186,7 @@ describe('POST /uploads/batch', () => {
 
   it('free cap rejection: KV pre-seeded at 2, batch of 2 trips daily cap and rolls back', async () => {
     const { deviceId, token } = await seedDevice();
-    const utcDate = new Date().toISOString().slice(0, 10);
-    const kvKey = `ft:${deviceId}:${utcDate}`;
+    const kvKey = await freeTierKvKey(deviceId);
     // 2 already used + 2 in this batch = 4 > FREE_CAPS.uploadsPerDay (3).
     await TEST_ENV.RATE_LIMIT.put(kvKey, '2');
 
@@ -285,9 +290,8 @@ describe('POST /uploads/batch', () => {
     expect(store.uploadJobs).toHaveLength(10);
 
     // Pro path doesn't touch the Free-tier KV counter.
-    const utcDate = new Date().toISOString().slice(0, 10);
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
-    expect(kvMap.get(`ft:${deviceId}:${utcDate}`)).toBeUndefined();
+    expect(kvMap.get(await freeTierKvKey(deviceId))).toBeUndefined();
   });
 
   it('two consecutive batches mint distinct bundle tokens', async () => {

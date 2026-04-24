@@ -13,6 +13,7 @@
 // x5c chain verification against Apple's root CA. `getSubscriptionStatus`
 // uses a short-lived (30-min) ES256 JWT signed with the ASC p8 private key.
 
+import 'reflect-metadata';
 import {
   SignJWT,
   decodeProtectedHeader,
@@ -20,6 +21,12 @@ import {
   importX509,
   jwtVerify,
 } from 'jose';
+import {
+  BasicConstraintsExtension,
+  KeyUsageFlags,
+  KeyUsagesExtension,
+  X509Certificate,
+} from '@peculiar/x509';
 import type { Env } from '~/env';
 import { log } from '~/lib/logger';
 import type { SubscriptionStatus, SubscriptionTier } from '~/db/schema';
@@ -230,8 +237,7 @@ async function verifyAppleSignedJws(jws: string): Promise<Record<string, unknown
   if (!Array.isArray(chain) || chain.length === 0) {
     throw new InvalidJwsError('missing_x5c');
   }
-  const leafPem = pemFromBase64(chain[0]);
-  await assertChainTerminatesAtAppleRoot(chain);
+  const leafPem = await verifyX5cChainAgainstRoot(chain, APPLE_ROOT_CA_G3_PEM);
 
   const leafKey = await importX509(leafPem, 'ES256');
   try {
@@ -244,48 +250,86 @@ async function verifyAppleSignedJws(jws: string): Promise<Record<string, unknown
   }
 }
 
-async function assertChainTerminatesAtAppleRoot(chain: string[]): Promise<void> {
-  // Cheapest-possible anchor check: the last certificate in Apple's chains is
-  // always one of their intermediates; the ROOT they're chained to is not
-  // included. We compare the trailing entry's issuer by trusting that Apple
-  // signs notifications with a chain whose last certificate's issuer subject
-  // matches our bundled Root CA subject, and whose leaf is signed by a
-  // predecessor, and so on. Without a full X.509 path validator in Workers we
-  // treat the following as a sufficient structural anchor:
-  //   - at least two certificates in the chain (leaf + intermediate)
-  //   - the final certificate's PEM body includes an "Apple" AKI/SAN marker
-  //     OR its DER bytes match our bundled root fingerprint
-  // Tests that pass a chain rooted at a non-Apple cert MUST fail.
-  //
-  // WHY this is acceptable for MVP: Apple signs with their documented chain;
-  // the leaf's public-key binding is still verified by `jwtVerify`. Adding
-  // full path validation buys us almost nothing without also persisting CRLs.
+export async function verifyX5cChainAgainstRoot(
+  chain: string[],
+  trustedRootPem: string,
+  now: Date = new Date(),
+): Promise<string> {
   if (chain.length < 1) throw new InvalidJwsError('chain_too_short');
-  const lastPem = pemFromBase64(chain[chain.length - 1]).trim();
-  const rootNormalized = APPLE_ROOT_CA_G3_PEM.trim();
-  // Exact match → root is in-band (typical for notification JWS, which
-  // includes the root explicitly). If not included, accept the chain only when
-  // a bundled Apple intermediate's issuer line is present in the last cert's
-  // DER — but we can't parse DER subjects in Workers without a certificate
-  // library, so for MVP we require the last cert to match our bundled root.
-  if (lastPem === rootNormalized) return;
-  // Allow the leaf + intermediate case where chain[chain.length - 1] is
-  // Apple's intermediate that itself chains to our bundled root. We cannot
-  // verify that second hop without a DER parser; the fallback is to require
-  // chain length >= 3 AND presence of the Apple root fingerprint appearing
-  // as chain[2]. Tests that truly want to exercise this path must include
-  // the full 3-cert chain.
-  if (chain.length >= 3) {
-    const rootPem = pemFromBase64(chain[2]).trim();
-    if (rootPem === rootNormalized) return;
+
+  const certs: X509Certificate[] = [];
+  const pems: string[] = [];
+  try {
+    for (const cert of chain) {
+      const pem = pemFromBase64(cert);
+      pems.push(pem);
+      certs.push(new X509Certificate(pem));
+    }
+  } catch (err) {
+    if (err instanceof InvalidJwsError) throw err;
+    throw new InvalidJwsError('bad_certificate');
   }
-  throw new InvalidJwsError('untrusted_root');
+
+  const root = new X509Certificate(trustedRootPem);
+  const lastPem = normalizePem(pems[pems.length - 1] ?? '');
+  const rootPem = normalizePem(trustedRootPem);
+  const rootIncluded = lastPem === rootPem;
+  const path = rootIncluded ? certs : [...certs, root];
+
+  if (path.length < 2) throw new InvalidJwsError('chain_too_short');
+  if (rootIncluded && !path[path.length - 1]?.equal(root)) {
+    throw new InvalidJwsError('untrusted_root');
+  }
+  if (!rootIncluded) {
+    const last = certs[certs.length - 1];
+    if (!last || last.issuer !== root.subject) {
+      throw new InvalidJwsError('untrusted_root');
+    }
+  }
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const child = path[i];
+    const issuer = path[i + 1];
+    if (!child || !issuer) throw new InvalidJwsError('chain_too_short');
+    if (child.issuer !== issuer.subject) {
+      throw new InvalidJwsError('chain_issuer_mismatch');
+    }
+    assertIssuerCanSign(issuer, i + 1 === path.length - 1, root);
+    const ok = await child.verify({ publicKey: issuer.publicKey, date: now });
+    if (!ok) throw new InvalidJwsError('chain_signature_invalid');
+  }
+
+  const rootOk = await root.verify({ publicKey: root.publicKey, date: now });
+  if (!rootOk) throw new InvalidJwsError('root_signature_invalid');
+
+  return pems[0]!;
+}
+
+function assertIssuerCanSign(
+  cert: X509Certificate,
+  isTrustAnchor: boolean,
+  trustedRoot: X509Certificate,
+): void {
+  const basic = cert.getExtension(BasicConstraintsExtension);
+  if (!basic?.ca) throw new InvalidJwsError('issuer_not_ca');
+  const keyUsage = cert.getExtension(KeyUsagesExtension);
+  if (keyUsage && (keyUsage.usages & KeyUsageFlags.keyCertSign) === 0) {
+    throw new InvalidJwsError('issuer_cannot_sign');
+  }
+  if (!isTrustAnchor) return;
+  if (!cert.equal(trustedRoot)) {
+    throw new InvalidJwsError('untrusted_root');
+  }
 }
 
 function pemFromBase64(b64: string | undefined): string {
   if (!b64 || typeof b64 !== 'string') throw new InvalidJwsError('empty_cert_in_chain');
   const lines = chunk(b64.replace(/\s+/g, ''), 64);
   return ['-----BEGIN CERTIFICATE-----', ...lines, '-----END CERTIFICATE-----'].join('\n');
+}
+
+function normalizePem(pem: string): string {
+  return pem.replace(/\r/g, '').trim();
 }
 
 // -- Claims → typed shapes ----------------------------------------------------

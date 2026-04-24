@@ -92,6 +92,8 @@ export interface SubscriptionRow {
   expiresAt: Date | null;
   autoRenewStatus: boolean;
   latestTransactionId: string;
+  verificationStatus: 'verified' | 'grace';
+  verificationGraceUntil: Date | null;
   rawNotificationPayload: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -520,6 +522,10 @@ export function installDrizzleFake(): void {
                       expiresAt: (v.expiresAt as Date | null) ?? null,
                       autoRenewStatus: (v.autoRenewStatus as boolean) ?? true,
                       latestTransactionId: v.latestTransactionId as string,
+                      verificationStatus:
+                        (v.verificationStatus as 'verified' | 'grace' | undefined) ?? 'verified',
+                      verificationGraceUntil:
+                        (v.verificationGraceUntil as Date | null | undefined) ?? null,
                       rawNotificationPayload: v.rawNotificationPayload ?? null,
                       createdAt: new Date(),
                       updatedAt: new Date(),

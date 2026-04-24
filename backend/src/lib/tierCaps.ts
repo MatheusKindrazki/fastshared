@@ -1,8 +1,8 @@
 // Single source of truth for per-tier quota limits. Both the free-tier
 // enforcement middleware and `GET /v1/me` read these — no drift allowed.
 //
-// Values are aligned with memory/pricing-and-monetization.md:
-//   Free:  3 uploads/day, max 100 MB, TTL fixed at 24h
+// Values are aligned with the public beta hotfix plan:
+//   Free:  3 uploads/day, max 100 MB, TTL fixed at 24h, no Cloud Sync
 //   Pro:   unlimited (-1 sentinel) uploads, max 2 GB, TTL up to 30 days
 
 export interface TierCaps {
@@ -31,22 +31,11 @@ export function toWireCaps(caps: TierCaps): TierCapsWire {
   };
 }
 
-// ⚠️ TEMPORARY OVERRIDE — 2026-04-20
-// Apple Paid Apps Agreement is still pending user information (W-8BEN + BR
-// tax form + bank account), so StoreKit returns 0 products in sandbox and
-// TestFlight users can't unlock Pro via purchase. To unblock beta testing,
-// FREE_CAPS is temporarily mirrored onto PRO_CAPS so every gate passes.
-// REVERT this back to the canonical free tier (3 uploads/day, 100 MB, 24h)
-// as soon as the Paid Apps Agreement flips to "Active" and StoreKit returns
-// the three IAPs (`red.fastsha.pro.*`).
-//
-// Canonical Free values to restore:
-//   uploadsPerDay: 3, maxFileSizeMB: 100, maxRetentionHours: 24
 export const FREE_CAPS: TierCaps = {
-  uploadsPerDay: -1,
-  maxFileSizeMB: 2048,
-  maxRetentionHours: 720,
-  allowsCloudSync: true,
+  uploadsPerDay: 3,
+  maxFileSizeMB: 100,
+  maxRetentionHours: 24,
+  allowsCloudSync: false,
 };
 
 export const PRO_CAPS: TierCaps = {

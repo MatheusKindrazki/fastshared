@@ -8,12 +8,11 @@ import {
   ctx,
   seedDevice,
 } from './support';
+import { hmacSha256Hex } from '~/lib/hash';
 
 installDrizzleFake();
 
-// FREE_CAPS in production is temporarily mirrored onto PRO_CAPS while the
-// Apple Paid Apps Agreement is pending (see tierCaps.ts). Restore canonical
-// Free values here so the gate behaviour these tests cover stays exercised.
+// Keep the Free gate explicit in this suite even if caps are retuned later.
 vi.mock('~/lib/tierCaps', async () => {
   const actual = await vi.importActual<typeof import('~/lib/tierCaps')>('~/lib/tierCaps');
   return {
@@ -26,6 +25,12 @@ vi.mock('~/lib/tierCaps', async () => {
     },
   };
 });
+
+async function freeTierKvKey(deviceId: string): Promise<string> {
+  const utcDate = new Date().toISOString().slice(0, 10);
+  const digest = await hmacSha256Hex(TEST_ENV.DEVICE_TOKEN_PEPPER, deviceId);
+  return `ft:${digest.slice(0, 32)}:${utcDate}`;
+}
 
 // R2 presigns are not the subject of these tests; mock them out so
 // /v1/uploads/ returns a clean success without hitting the AWS SDK.
@@ -84,6 +89,8 @@ function seedActiveSub(deviceId: string) {
     expiresAt: new Date(Date.now() + 30 * 86_400 * 1000),
     autoRenewStatus: true,
     latestTransactionId: 'TX',
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
     rawNotificationPayload: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -111,16 +118,15 @@ describe('rateLimitFreeTier', () => {
     );
     expect(res.status).toBe(200);
 
-    const utcDate = new Date().toISOString().slice(0, 10);
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
-    expect(kvMap.get(`ft:${deviceId}:${utcDate}`)).toBe('1');
+    expect(kvMap.get(await freeTierKvKey(deviceId))).toBe('1');
   });
 
   it('4th Free upload returns 402 free_tier_daily_exceeded', async () => {
     const { deviceId, token } = await seedDevice();
     // Pre-seed the counter at 3 → next request trips the cap.
-    const utcDate = new Date().toISOString().slice(0, 10);
-    await TEST_ENV.RATE_LIMIT.put(`ft:${deviceId}:${utcDate}`, '3');
+    const kvKey = await freeTierKvKey(deviceId);
+    await TEST_ENV.RATE_LIMIT.put(kvKey, '3');
 
     const res = await post(
       '/v1/uploads',
@@ -139,7 +145,7 @@ describe('rateLimitFreeTier', () => {
 
     // Counter unchanged on the rejection.
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
-    expect(kvMap.get(`ft:${deviceId}:${utcDate}`)).toBe('3');
+    expect(kvMap.get(kvKey)).toBe('3');
   });
 
   it('Free 200MB upload returns 402 free_tier_size_exceeded without incrementing counter', async () => {
@@ -159,9 +165,8 @@ describe('rateLimitFreeTier', () => {
     expect(body.limitMB).toBe(100);
     expect(body.actualMB).toBe(200);
 
-    const utcDate = new Date().toISOString().slice(0, 10);
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
-    expect(kvMap.get(`ft:${deviceId}:${utcDate}`)).toBeUndefined();
+    expect(kvMap.get(await freeTierKvKey(deviceId))).toBeUndefined();
   });
 
   it('Free retentionPolicy=oneWeek silently clamps to oneDay', async () => {
@@ -206,9 +211,8 @@ describe('rateLimitFreeTier', () => {
       );
       expect(res.status).toBe(200);
     }
-    const utcDate = new Date().toISOString().slice(0, 10);
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
-    expect(kvMap.get(`ft:${deviceId}:${utcDate}`)).toBeUndefined();
+    expect(kvMap.get(await freeTierKvKey(deviceId))).toBeUndefined();
   });
 
   it('Pro retentionPolicy=oneMonth is NOT clamped', async () => {

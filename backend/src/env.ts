@@ -24,6 +24,9 @@ export interface Env {
   // Optional — absent/empty means no devs overridden. Public (it's just an
   // opaque Apple sub, not a credential); kept in `[vars]` for traceability.
   DEV_PRO_APPLE_USER_IDS?: string;
+  // Same wire format as DEV_PRO_APPLE_USER_IDS, reserved for TestFlight/beta
+  // unlimited access so Free is not globally mirrored to Pro in production.
+  BETA_UNLIMITED_APPLE_USER_IDS?: string;
 }
 
 export interface AppVars {

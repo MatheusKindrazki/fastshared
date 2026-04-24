@@ -249,6 +249,9 @@ export const SUBSCRIPTION_STATUSES = [
 ] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
+export const SUBSCRIPTION_VERIFICATION_STATUSES = ['verified', 'grace'] as const;
+export type SubscriptionVerificationStatus = (typeof SUBSCRIPTION_VERIFICATION_STATUSES)[number];
+
 export const subscription = pgTable(
   'subscription',
   {
@@ -266,6 +269,8 @@ export const subscription = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     autoRenewStatus: boolean('auto_renew_status').notNull().default(true),
     latestTransactionId: text('latest_transaction_id').notNull(),
+    verificationStatus: text('verification_status').notNull().default('verified'),
+    verificationGraceUntil: timestamp('verification_grace_until', { withTimezone: true }),
     rawNotificationPayload: jsonb('raw_notification_payload'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

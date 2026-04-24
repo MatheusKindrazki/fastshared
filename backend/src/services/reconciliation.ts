@@ -47,7 +47,19 @@ export async function runReconciliation(env: Env): Promise<void> {
     RETURNING id
   `);
 
-  // 4) Sweep stale pending share_links. Two cohorts:
+  // 4) Downgrade subscriptions that only had a temporary verification grace
+  //    after the App Store Server API was unavailable.
+  const graceExpired = await db.execute<{ id: string }>(sql`
+    UPDATE subscription
+       SET status = 'expired',
+           updated_at = now()
+     WHERE verification_status = 'grace'
+       AND verification_grace_until < now()
+       AND status IN ('active','in_grace','in_billing_retry')
+    RETURNING id
+  `);
+
+  // 5) Sweep stale pending share_links. Two cohorts:
   //    a) Single (is_bundle=false) OR bundle with zero junction rows, older
   //       than 1h: nothing landed. Drop the row outright.
   //    b) Bundle with partial junction rows older than 24h: caller gave up
@@ -82,6 +94,7 @@ export async function runReconciliation(env: Env): Promise<void> {
     expired: rowCount(expired),
     enqueued: rowCount(enqueued),
     requeued: rowCount(requeued),
+    subscriptionGraceExpired: rowCount(graceExpired),
     pendingCleaned: rowCount(cleaned),
     bundlesPartialExpired: rowCount(partialExpired),
   });

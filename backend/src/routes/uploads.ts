@@ -26,8 +26,13 @@ import { isAllowedContentType, resolveSizeLimit } from '~/lib/sizeLimits';
 import { resolveRetention } from '~/lib/retention';
 import { problem } from '~/lib/problem';
 import { FREE_CAPS } from '~/lib/tierCaps';
-import { findActiveProForDevice, parseDevProAllowList } from '~/services/subscriptions';
+import {
+  findActiveProForDevice,
+  isSubscriptionEntitled,
+  parseAppleUserAllowList,
+} from '~/services/subscriptions';
 import { log } from '~/lib/logger';
+import { hmacSha256Hex } from '~/lib/hash';
 
 const RETENTION_POLICIES = ['oneHour', 'oneDay', 'oneWeek', 'oneMonth', 'custom'] as const;
 
@@ -153,7 +158,6 @@ uploadRoutes.post('/', async (c) => {
         retentionPolicy: retention.retentionPolicy,
         expiresAt: retention.expiresAt,
         deleteAfter: retention.deleteAfter,
-        pendingShareLinkToken: shareToken,
         updatedAt: sql`now()`,
       },
     })
@@ -880,7 +884,7 @@ async function enforceBatchFreeTierLimits(
   const active = await findActiveProForDevice(
     db,
     deviceId,
-    parseDevProAllowList(c.env.DEV_PRO_APPLE_USER_IDS),
+    parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
   ).catch((err) => {
     log.warn({
       msg: 'batch_free_tier_sub_lookup_failed',
@@ -889,10 +893,7 @@ async function enforceBatchFreeTierLimits(
     });
     return null;
   });
-  const isPro =
-    active !== null &&
-    active.status === 'active' &&
-    (active.expiresAt === null || active.expiresAt.getTime() > now);
+  const isPro = active !== null && isSubscriptionEntitled(active, new Date(now));
   if (isPro) return null;
 
   // Per-file size cap. Fail on the first oversized item — Free users get a
@@ -927,7 +928,8 @@ async function enforceBatchFreeTierLimits(
   if (FREE_CAPS.uploadsPerDay >= 0) {
     const itemCount = body.items.length;
     const utcDate = new Date().toISOString().slice(0, 10);
-    const kvKey = `ft:${deviceId}:${utcDate}`;
+    const deviceKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, deviceId)).slice(0, 32);
+    const kvKey = `ft:${deviceKey}:${utcDate}`;
     const currentStr = await c.env.RATE_LIMIT.get(kvKey);
     const currentCount = currentStr ? Number(currentStr) : 0;
     const safeCount = Number.isFinite(currentCount) ? currentCount : 0;
@@ -1014,7 +1016,6 @@ async function presignBatchItem(args: PresignBatchItemArgs): Promise<BatchPresig
         retentionPolicy: retention.retentionPolicy,
         expiresAt: retention.expiresAt,
         deleteAfter: retention.deleteAfter,
-        pendingShareLinkToken: bundleToken,
         updatedAt: sql`now()`,
       },
     })

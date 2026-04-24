@@ -7,6 +7,7 @@ import {
   type Subscription,
   type SubscriptionStatus,
   type SubscriptionTier,
+  type SubscriptionVerificationStatus,
 } from '~/db/schema';
 
 // StoreKit product IDs. Keep in lockstep with the entries registered in App
@@ -19,9 +20,9 @@ export async function findActiveByDeviceId(db: Db, deviceId: string): Promise<Su
   const rows = await db
     .select()
     .from(subscription)
-    .where(and(eq(subscription.deviceId, deviceId), eq(subscription.status, 'active')))
-    .limit(1);
-  return rows[0] ?? null;
+    .where(eq(subscription.deviceId, deviceId));
+  const now = new Date();
+  return rows.find((row) => isSubscriptionEntitled(row, now)) ?? null;
 }
 
 // Pro-override check for developer/internal accounts. Resolves the device's
@@ -58,6 +59,8 @@ export async function findDevProOverride(
     expiresAt: null,
     autoRenewStatus: false,
     latestTransactionId: `dev-pro:${sub}`,
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
     rawNotificationPayload: null,
     createdAt: now,
     updatedAt: now,
@@ -80,17 +83,20 @@ export async function findActiveProForDevice(
 
 // Parse the comma-separated env var into a deduped, trimmed list. Empty /
 // missing → empty array so callers can pass directly without null-checking.
-export function parseDevProAllowList(raw: string | undefined): string[] {
-  if (!raw) return [];
+export function parseAppleUserAllowList(...rawValues: Array<string | undefined>): string[] {
   return [
     ...new Set(
-      raw
+      rawValues
+        .filter((raw): raw is string => typeof raw === 'string')
+        .join(',')
         .split(',')
         .map((s) => s.trim())
         .filter((s) => s.length > 0),
     ),
   ];
 }
+
+export const parseDevProAllowList = parseAppleUserAllowList;
 
 export async function findByOriginalTransactionId(
   db: Db,
@@ -112,6 +118,8 @@ export interface UpsertFromAppleEventArgs {
   expiresAt: Date | null;
   autoRenewStatus: boolean;
   latestTransactionId: string;
+  verificationStatus?: SubscriptionVerificationStatus;
+  verificationGraceUntil?: Date | null;
   rawNotificationPayload: unknown;
 }
 
@@ -146,6 +154,8 @@ export async function upsertFromAppleEvent(
     expiresAt: args.expiresAt,
     autoRenewStatus: args.autoRenewStatus,
     latestTransactionId: args.latestTransactionId,
+    verificationStatus: args.verificationStatus ?? 'verified',
+    verificationGraceUntil: args.verificationGraceUntil ?? null,
     rawNotificationPayload: args.rawNotificationPayload,
   };
 
@@ -160,6 +170,8 @@ export async function upsertFromAppleEvent(
         expiresAt: args.expiresAt,
         autoRenewStatus: args.autoRenewStatus,
         latestTransactionId: args.latestTransactionId,
+        verificationStatus: args.verificationStatus ?? 'verified',
+        verificationGraceUntil: args.verificationGraceUntil ?? null,
         rawNotificationPayload: args.rawNotificationPayload,
         updatedAt: sql`now()`,
       },
@@ -168,6 +180,25 @@ export async function upsertFromAppleEvent(
 
   if (!row) throw new Error('subscription upsert returned no rows');
   return row;
+}
+
+export function isSubscriptionEntitled(sub: Subscription, now: Date = new Date()): boolean {
+  const status = sub.status as SubscriptionStatus;
+  const appleEntitled =
+    status === 'active' || status === 'in_grace' || status === 'in_billing_retry';
+  if (!appleEntitled) return false;
+
+  if (status === 'active' && sub.expiresAt !== null && sub.expiresAt.getTime() <= now.getTime()) {
+    return false;
+  }
+
+  const verification = sub.verificationStatus as SubscriptionVerificationStatus;
+  if (verification === 'verified') return true;
+  if (verification !== 'grace') return false;
+  return (
+    sub.verificationGraceUntil !== null &&
+    sub.verificationGraceUntil.getTime() > now.getTime()
+  );
 }
 
 // Pure map of product ID → tier. Unknown → throw (route turns that into 422).
