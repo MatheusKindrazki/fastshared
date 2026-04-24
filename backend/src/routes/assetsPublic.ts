@@ -6,7 +6,7 @@ import { log } from '~/lib/logger';
 // card-unfurlers hit this file without a Pages origin round-trip for every
 // scrape. We proxy the bytes from the Pages origin once and cache at the
 // Worker edge for a day. Plan C ships the actual PNG on the Pages origin.
-const PAGES_ORIGIN = 'https://fastshared-web.pages.dev';
+const PAGES_ORIGIN = 'https://fastshared-web-bia.pages.dev';
 const CACHE_MAX_AGE_SECONDS = 86_400;
 
 export const assetsPublicRoutes = new Hono<AppBindings>();
