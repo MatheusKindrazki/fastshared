@@ -14,6 +14,7 @@
 		276FEF9BBDB6E96911E1F7A4 /* UrgencyRingShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9294615409F135199972467 /* UrgencyRingShape.swift */; };
 		27BD30A13A1AD9CC8F5B8558 /* FastSharedCore in Frameworks */ = {isa = PBXBuildFile; productRef = 39C1B78FFB7ED92D39E00443 /* FastSharedCore */; };
 		286793A093643D3EF66312D4 /* IOSShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5469E3BDF783E396C930702D /* IOSShortcuts.swift */; };
+		328DA449A83E264C1A21295F /* AppStoreScreenshotsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57CB3F32E435BBED1A811DC0 /* AppStoreScreenshotsUITests.swift */; };
 		333DC1C558F01A914C916FC9 /* BrandLockup.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA90874696B4F367CD6E19A9 /* BrandLockup.swift */; };
 		3499E7DF9879858A2D659BEB /* FastSharedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A90C315E4E42DAF559921EF /* FastSharedApp.swift */; };
 		36AD6810F21FDF82745E3372 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A9F98BBB924186324802FF0 /* OnboardingView.swift */; };
@@ -21,6 +22,7 @@
 		3D2894115A0C33074CCE1DD0 /* UploadServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E8E3BF7E89828611589104 /* UploadServiceLocator.swift */; };
 		3EE6650FD00693859C9C5E60 /* PaywallTierCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D78B3635A5613DE5C407BE /* PaywallTierCard.swift */; };
 		3F8D077718AE0A772C214E21 /* FastSharedBundleUploadLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369456C3993F826C3DE11C18 /* FastSharedBundleUploadLiveActivity.swift */; };
+		4EF2A2D9F164EE7ED5CD84E7 /* AppStoreScreenshotHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7622975EF5567723FD15992 /* AppStoreScreenshotHostView.swift */; };
 		4FFB06EB8F0F71250BDE2EFE /* MacCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9955F5B072E458EFAAEC2814 /* MacCompanionView.swift */; };
 		59C15BC15A08D1B38939D2EF /* FastShareScreenshotIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD436E022465736AE78B1B3F /* FastShareScreenshotIntent.swift */; };
 		6212AFAF6F3D4FBEF9115A9B /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86E8F3C9466C78558F4B50BA /* ShareViewController.swift */; };
@@ -39,6 +41,7 @@
 		A996594F880A34A6BDF92DBA /* SubscriptionStoreEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79895413B24C726EF3064EDE /* SubscriptionStoreEnvironment.swift */; };
 		AB5322BAB726C6ADAAB007AE /* ShareRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2382274A1EDEC1633088B309 /* ShareRootView.swift */; };
 		AC6EB180C15787A65215BEB3 /* Ring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CE87A839EFF97B8133F73A9 /* Ring.swift */; };
+		AF32F865233736B50B50FC86 /* AppStoreScreenshotExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B305A49108CF9D495C56F80 /* AppStoreScreenshotExporter.swift */; };
 		B344D60EC4D57DB7A482CD56 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4EC203896546B3EFAB76E7A4 /* PrivacyInfo.xcprivacy */; };
 		B507DC7676BADCEA4146D08A /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36556BBD8D23476FEC5103D0 /* LibraryView.swift */; };
 		B78A3F22F722FF3F5CC7C428 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F0CCBFF2A59244E0D7C422 /* SplashView.swift */; };
@@ -55,6 +58,7 @@
 		DF09A9E2732B2B320BD2C532 /* UploadProgressBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0937D9D36179C7625238A6FB /* UploadProgressBanner.swift */; };
 		E18BB847D70C19CA5CA2D39A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EBE8DDB006BD859FE7299A11 /* PrivacyInfo.xcprivacy */; };
 		F5FAC1BF2F52E3EABECC9874 /* MacDropHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97AD5286ABB21E895C3AE32E /* MacDropHandler.swift */; };
+		F8FD62A0EF264FF9ABF533D5 /* AppStoreScreenshotMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 621E57A64D2E80C7B31C3457 /* AppStoreScreenshotMode.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +68,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 222ED4F423445BE6FCDC1356;
 			remoteInfo = FastSharedShareExt;
+		};
+		E900E5C8BA5222188CE5105D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2FE7EC2D61A2AAE99E73EEA8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0AD0DFFD72C43552480B2356;
+			remoteInfo = FastSharedApp;
 		};
 		FC1A2CFC2EB1C22B057E9A3F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -110,14 +121,17 @@
 		4BEC7A567804182C96A9315A /* FastSharedApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FastSharedApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EC203896546B3EFAB76E7A4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5469E3BDF783E396C930702D /* IOSShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSShortcuts.swift; sourceTree = "<group>"; };
+		57CB3F32E435BBED1A811DC0 /* AppStoreScreenshotsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotsUITests.swift; sourceTree = "<group>"; };
 		5BC678E7280D9B2285C3FDA5 /* FastSharedLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastSharedLiveActivityBundle.swift; sourceTree = "<group>"; };
 		5C7F97DC9B7CF98310330E77 /* FastSharedCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FastSharedCore; path = Packages/FastSharedCore; sourceTree = SOURCE_ROOT; };
 		5C97B518FAD14B7B537E32ED /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5CE87A839EFF97B8133F73A9 /* Ring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ring.swift; sourceTree = "<group>"; };
 		5E28D5A1CCDD414A5FAF7B3D /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		5E51E9CDA15F39DD65F1B780 /* BrandPalette+Redesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BrandPalette+Redesign.swift"; sourceTree = "<group>"; };
+		621E57A64D2E80C7B31C3457 /* AppStoreScreenshotMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotMode.swift; sourceTree = "<group>"; };
 		652830B367D5AF398175B07E /* FastSharedUploadLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastSharedUploadLiveActivity.swift; sourceTree = "<group>"; };
 		69AAF4A117D52B6FD66C2CCB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6B305A49108CF9D495C56F80 /* AppStoreScreenshotExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotExporter.swift; sourceTree = "<group>"; };
 		70A6D87C839A504A9F3CE8BE /* FileGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileGlyph.swift; sourceTree = "<group>"; };
 		73E8E3BF7E89828611589104 /* UploadServiceLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadServiceLocator.swift; sourceTree = "<group>"; };
 		7792C76F5174A2A45CCA632A /* FastSharedLiveActivity.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FastSharedLiveActivity.entitlements; sourceTree = "<group>"; };
@@ -125,6 +139,7 @@
 		79895413B24C726EF3064EDE /* SubscriptionStoreEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStoreEnvironment.swift; sourceTree = "<group>"; };
 		7F3145FBF97AEBC20F81E2B6 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		86E8F3C9466C78558F4B50BA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		87ADBA22C6F3BF8B95DBC806 /* FastSharedAppUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FastSharedAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8C1A374FB5491CB5F03DF1C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9134F6593A21FC649024BD85 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		97AD5286ABB21E895C3AE32E /* MacDropHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDropHandler.swift; sourceTree = "<group>"; };
@@ -135,6 +150,7 @@
 		B11B370818419C58E3A881BB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		B9294615409F135199972467 /* UrgencyRingShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UrgencyRingShape.swift; sourceTree = "<group>"; };
 		C028C74633A53A360A1538FE /* FastSharedShareExt.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FastSharedShareExt.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C7622975EF5567723FD15992 /* AppStoreScreenshotHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotHostView.swift; sourceTree = "<group>"; };
 		D00E8DDE7A71E1DB0DD93ABA /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
 		D97221F517EC0AC485772D24 /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
 		DA90874696B4F367CD6E19A9 /* BrandLockup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandLockup.swift; sourceTree = "<group>"; };
@@ -180,6 +196,7 @@
 			children = (
 				D44024A905DAA5C14C6FA7B8 /* Config */,
 				603A0AB5E9C210DC5F7C716B /* FastSharedApp */,
+				61CD8BEC18DEDB376D32086E /* FastSharedAppUITests */,
 				1E4906F8F703B17F99EB4108 /* FastSharedLiveActivity */,
 				D05F942AF656E5F9F23D6124 /* FastSharedShareExt */,
 				E4E058FC2C390CBC0EBAB91D /* Packages */,
@@ -204,6 +221,7 @@
 			isa = PBXGroup;
 			children = (
 				4BEC7A567804182C96A9315A /* FastSharedApp.app */,
+				87ADBA22C6F3BF8B95DBC806 /* FastSharedAppUITests.xctest */,
 				988DD6EAF3C4A04479959EE7 /* FastSharedLiveActivity.appex */,
 				C028C74633A53A360A1538FE /* FastSharedShareExt.appex */,
 			);
@@ -223,6 +241,9 @@
 		5E9CCBF851E93B49ABB2F102 /* Screenshot */ = {
 			isa = PBXGroup;
 			children = (
+				6B305A49108CF9D495C56F80 /* AppStoreScreenshotExporter.swift */,
+				C7622975EF5567723FD15992 /* AppStoreScreenshotHostView.swift */,
+				621E57A64D2E80C7B31C3457 /* AppStoreScreenshotMode.swift */,
 				E1C69D354A644321814E4D19 /* ScreenshotBanner.swift */,
 				48E66E57D299F69FE9B5430D /* ScreenshotDetector.swift */,
 			);
@@ -248,6 +269,14 @@
 				73E8E3BF7E89828611589104 /* UploadServiceLocator.swift */,
 			);
 			path = FastSharedApp;
+			sourceTree = "<group>";
+		};
+		61CD8BEC18DEDB376D32086E /* FastSharedAppUITests */ = {
+			isa = PBXGroup;
+			children = (
+				57CB3F32E435BBED1A811DC0 /* AppStoreScreenshotsUITests.swift */,
+			);
+			path = FastSharedAppUITests;
 			sourceTree = "<group>";
 		};
 		651936F1F659925836BB0E97 /* AppIntents */ = {
@@ -378,6 +407,24 @@
 			productReference = C028C74633A53A360A1538FE /* FastSharedShareExt.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		49AB239D72A43760B1730E3C /* FastSharedAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 10E317800CDA278E2FE3CC5D /* Build configuration list for PBXNativeTarget "FastSharedAppUITests" */;
+			buildPhases = (
+				0B34229AA433347695139F55 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C9675828CA96CC5F6967C349 /* PBXTargetDependency */,
+			);
+			name = FastSharedAppUITests;
+			packageProductDependencies = (
+			);
+			productName = FastSharedAppUITests;
+			productReference = 87ADBA22C6F3BF8B95DBC806 /* FastSharedAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		72FAE479E4BAB77FAD598234 /* FastSharedLiveActivity */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7579FAADD8A6841EAA186350 /* Build configuration list for PBXNativeTarget "FastSharedLiveActivity" */;
@@ -415,6 +462,11 @@
 						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
 						ProvisioningStyle = Automatic;
 					};
+					49AB239D72A43760B1730E3C = {
+						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 0AD0DFFD72C43552480B2356;
+					};
 					72FAE479E4BAB77FAD598234 = {
 						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
 						ProvisioningStyle = Automatic;
@@ -439,6 +491,7 @@
 			projectRoot = "";
 			targets = (
 				0AD0DFFD72C43552480B2356 /* FastSharedApp */,
+				49AB239D72A43760B1730E3C /* FastSharedAppUITests */,
 				72FAE479E4BAB77FAD598234 /* FastSharedLiveActivity */,
 				222ED4F423445BE6FCDC1356 /* FastSharedShareExt */,
 			);
@@ -479,6 +532,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AF32F865233736B50B50FC86 /* AppStoreScreenshotExporter.swift in Sources */,
+				4EF2A2D9F164EE7ED5CD84E7 /* AppStoreScreenshotHostView.swift in Sources */,
+				F8FD62A0EF264FF9ABF533D5 /* AppStoreScreenshotMode.swift in Sources */,
 				333DC1C558F01A914C916FC9 /* BrandLockup.swift in Sources */,
 				761F9E35C73774C1AEBE12FB /* BrandPalette+Redesign.swift in Sources */,
 				D1AF06DD0CE941978F8BE9AE /* DetailView.swift in Sources */,
@@ -511,6 +567,14 @@
 				DF09A9E2732B2B320BD2C532 /* UploadProgressBanner.swift in Sources */,
 				3D2894115A0C33074CCE1DD0 /* UploadServiceLocator.swift in Sources */,
 				276FEF9BBDB6E96911E1F7A4 /* UrgencyRingShape.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0B34229AA433347695139F55 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				328DA449A83E264C1A21295F /* AppStoreScreenshotsUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -550,9 +614,38 @@
 			target = 72FAE479E4BAB77FAD598234 /* FastSharedLiveActivity */;
 			targetProxy = FC1A2CFC2EB1C22B057E9A3F /* PBXContainerItemProxy */;
 		};
+		C9675828CA96CC5F6967C349 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0AD0DFFD72C43552480B2356 /* FastSharedApp */;
+			targetProxy = E900E5C8BA5222188CE5105D /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0956F48F38B691B0E14CDA71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.kindrazki.fastshared.UITests;
+				PRODUCT_NAME = FastSharedAppUITests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "";
+				TEST_TARGET_NAME = FastSharedApp;
+			};
+			name = Debug;
+		};
 		1168462F8A53EB2327B06E46 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 002D70967CA49821BF19298A /* Debug.xcconfig */;
@@ -713,6 +806,30 @@
 			};
 			name = Debug;
 		};
+		836EC211C79D150EE94FCB59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.kindrazki.fastshared.UITests;
+				PRODUCT_NAME = FastSharedAppUITests;
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "";
+				TEST_TARGET_NAME = FastSharedApp;
+			};
+			name = Release;
+		};
 		849C411397D9072214B35BB0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -827,6 +944,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		10E317800CDA278E2FE3CC5D /* Build configuration list for PBXNativeTarget "FastSharedAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0956F48F38B691B0E14CDA71 /* Debug */,
+				836EC211C79D150EE94FCB59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		142BFCF33BDD38B506FF34F7 /* Build configuration list for PBXProject "FastShared" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

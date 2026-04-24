@@ -1,0 +1,87 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base
+  title="Support - FastShared"
+  description="Contact FastShared support, report abuse, request deletion, or get help with App Store purchases."
+>
+  <Nav />
+  <main class="frame pt-16 pb-24 max-w-[760px]">
+    <h1
+      class="font-display font-bold text-milk mb-8"
+      style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
+    >
+      Support.
+    </h1>
+
+    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-violet-hot mb-10">
+      FastShared help desk
+    </p>
+
+    <div class="space-y-8 text-milk/75 text-[17px] leading-[1.8]">
+      <p>
+        For app issues, upload problems, Pro purchase questions, deletion
+        requests, or general feedback, email
+        <a href="mailto:support@fastsha.red" class="text-violet-hot hover:underline">support@fastsha.red</a>.
+        Pro support is answered within one business day. Free support is
+        answered as capacity allows.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        What to include
+      </h2>
+      <ul class="space-y-3 pl-1">
+        <li class="flex gap-3 items-start">
+          <span class="text-violet-hot flex-none" aria-hidden="true">-&gt;</span>
+          <span>Your device type and OS version.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-violet-hot flex-none" aria-hidden="true">-&gt;</span>
+          <span>The action that failed: Share Extension, Mac drag-and-drop, history, revoke, or Pro purchase.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-violet-hot flex-none" aria-hidden="true">-&gt;</span>
+          <span>The approximate time of the issue and any visible error text.</span>
+        </li>
+        <li class="flex gap-3 items-start">
+          <span class="text-violet-hot flex-none" aria-hidden="true">-&gt;</span>
+          <span>For deletion requests, the affected FastShared link or the device identifier shown in the app.</span>
+        </li>
+      </ul>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Report abuse
+      </h2>
+      <p>
+        To report an unsafe or unlawful FastShared link, email
+        <a href="mailto:abuse@fastsha.red" class="text-violet-hot hover:underline">abuse@fastsha.red</a>
+        with the full URL and a short reason. We can revoke a live link and
+        queue the underlying file for deletion.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Purchases and refunds
+      </h2>
+      <p>
+        Pro purchases are processed by Apple. Manage subscriptions at
+        <a href="https://apps.apple.com/account/subscriptions" class="text-violet-hot hover:underline">apps.apple.com/account/subscriptions</a>.
+        Refunds go through
+        <a href="https://reportaproblem.apple.com" class="text-violet-hot hover:underline">reportaproblem.apple.com</a>;
+        when Apple grants a refund, FastShared receives the App Store server
+        notification and Pro access is removed.
+      </p>
+
+      <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">
+        Operator
+      </h2>
+      <p>
+        FastShared is operated by Matheus Kindrazki, an individual developer
+        based in Brazil. Privacy requests can also be sent to
+        <a href="mailto:privacy@fastsha.red" class="text-violet-hot hover:underline">privacy@fastsha.red</a>.
+      </p>
+    </div>
+  </main>
+  <Footer />
+</Base>

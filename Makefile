@@ -1,7 +1,8 @@
-.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy testflight testflight-ios testflight-macos testflight-doctor testflight-bootstrap
+.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy testflight testflight-ios testflight-macos testflight-doctor testflight-bootstrap appstore-doctor appstore-screenshots appstore-privacy appstore-metadata appstore-metadata-ios appstore-metadata-macos appstore-sync appstore-submit
 
 BUNDLER_VERSION ?= 2.4.22
 BUNDLE ?= bundle _$(BUNDLER_VERSION)_
+APPLE_ENV = set -a && { [ ! -f ./.env.testflight ] || . ./.env.testflight; } && { [ ! -f ./.env.appstore.local ] || . ./.env.appstore.local; } && set +a
 
 bootstrap:
 	@command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -66,3 +67,32 @@ testflight-ios:
 
 testflight-macos:
 	cd apple && set -a && . ./.env.testflight && set +a && $(BUNDLE) exec fastlane mac beta
+
+# --- App Store metadata / submission ----------------------------------------
+# `apple/.env.testflight` provides the App Store Connect API key. Optional
+# App Review contact/submission fields live in `apple/.env.appstore.local`
+# (copy from `apple/.env.appstore.example`).
+
+appstore-doctor:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_doctor
+
+appstore-screenshots:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_screenshots
+
+appstore-privacy:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_privacy
+
+appstore-metadata:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_metadata
+
+appstore-metadata-ios:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane ios store_metadata
+
+appstore-metadata-macos:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane mac store_metadata
+
+appstore-sync:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_sync
+
+appstore-submit:
+	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_submit

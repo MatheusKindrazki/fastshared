@@ -1,0 +1,17 @@
+FastShared does not require sign-in for the basic upload flow.
+
+Suggested review script:
+1. Launch the app and accept the default Free state.
+2. Use the app file picker, drag-and-drop on macOS, or the iOS share sheet to upload an image, PDF, zip, text, or video file.
+3. Confirm the generated short link is copied to the clipboard.
+4. Open the link in Safari and confirm the file downloads or previews.
+5. Revoke the link from History and confirm the same URL returns expired/deleted state.
+
+To test Pro, use a sandbox Apple ID and these App Store Connect products:
+- red.fastsha.pro.monthly
+- red.fastsha.pro.annual
+- red.fastsha.pro.lifetime
+
+Pro unlocks unlimited uploads, 2 GB file size, 30-day retention, iCloud history sync, and priority support. Lifetime has Family Sharing enabled.
+
+User-generated content is limited to private bearer links created by the reviewer during testing. There is no public feed, user search, follower graph, chat, comments, or permanent hosting. Uploaded files are private, revocable, and automatically deleted after their retention window. The public report endpoint for abuse is /v1/report/:token.

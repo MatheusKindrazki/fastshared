@@ -48,11 +48,11 @@ xcodebuild -project FastShared.xcodeproj -scheme FastSharedApp \
 
 **Files (create):** `apple/Packages/FastSharedCore/Sources/FastSharedCore/Subscription/ProTier.swift`, `.../Subscription/TierCaps.swift`.
 
-**Intent:** `ProTier: String, Sendable, Codable, CaseIterable { case monthly, annual, lifetime }` with `var productID: String` returning the hardcoded ASC IDs. `TierCaps: Sendable, Codable` with `dailyUploadLimit: Int?` (nil = unlimited), `maxFileSizeBytes: Int64`, `maxRetentionSeconds: TimeInterval`, `allowsCloudSync: Bool`. Statics: `.free` = (3, 100 MB, 86_400 s, false); `.pro` = (nil, 5 GB, 2_592_000 s, true). Broader `enum Tier: Sendable { case free; case pro(ProTier) }` with computed `caps: TierCaps`.
+**Intent:** `ProTier: String, Sendable, Codable, CaseIterable { case monthly, annual, lifetime }` with `var productID: String` returning the hardcoded ASC IDs. `TierCaps: Sendable, Codable` with `dailyUploadLimit: Int?` (nil = unlimited), `maxFileSizeBytes: Int64`, `maxRetentionSeconds: TimeInterval`, `allowsCloudSync: Bool`. Statics: `.free` = (3, 100 MB, 86_400 s, false); `.pro` = (nil, 2 GB, 2_592_000 s, true). Broader `enum Tier: Sendable { case free; case pro(ProTier) }` with computed `caps: TierCaps`.
 
 **Verification:** `swift build --package-path apple/Packages/FastSharedCore` → Build complete.
 
-**Acceptance:** Types compile; `TierCaps.free.dailyUploadLimit == 3`; `ProTier.monthly.productID == "dev.kindrazki.fastshared.pro.monthly"`. Parallel-safe with B1.5, B1.7, B5.1, B5.2.
+**Acceptance:** Types compile; `TierCaps.free.dailyUploadLimit == 3`; `ProTier.monthly.productID == "red.fastsha.pro.monthly"`. Parallel-safe with B1.5, B1.7, B5.1, B5.2.
 
 ---
 
@@ -154,9 +154,9 @@ New types (alongside existing endpoint types): `IAPVerifyRequest { signedTransac
 **Files (create):** `apple/FastSharedApp/FastShared.storekit`. **Modify:** `apple/project.yml`.
 
 **Intent:** Hand-author JSON (keep version-controlled; do NOT generate via Xcode UI):
-- `dev.kindrazki.fastshared.pro.monthly` — auto-renewable, 1 month, USD 4.99.
-- `dev.kindrazki.fastshared.pro.annual` — auto-renewable, 1 year, USD 29.99 (≈45% savings vs monthly drives the badge copy).
-- `dev.kindrazki.fastshared.pro.lifetime` — non-consumable, USD 69.00.
+- `red.fastsha.pro.monthly` — auto-renewable, 1 month, USD 2.99.
+- `red.fastsha.pro.annual` — auto-renewable, 1 year, USD 19.99 (≈44% savings vs monthly drives the badge copy).
+- `red.fastsha.pro.lifetime` — non-consumable, USD 49.99.
 
 Group the two subscriptions under subscription group `pro_access` so they're mutually exclusive (native upgrade/crossgrade).
 
@@ -246,8 +246,8 @@ public enum PaywallTriggerContext: Sendable, Identifiable {
 **Intent:** Props: `product: StoreProductView`, `tier: ProTier`, `features: [String]`, `badge: CardBadge?` (`.savePercentage(Int)` / `.earlyAccess(endsAt: Date?)` / nil), `isLoading: Bool`, `onPurchase: () -> Void`. VStack: title3 tier name, `.largeTitle.monospacedDigit()` price, caption cadence, checkmark-bulleted features (`Image(systemName: "checkmark.circle.fill")` in `BrandPalette.ember`), CTA button bottom. Badge pill via `.overlay(alignment: .topTrailing)`. Card chrome: `RoundedRectangle(cornerRadius: 16)` filled `BrandPalette.paper`, `BrandPalette.line` stroke. Annual card uses `BrandPalette.arc` gradient stroke ("recommended" signal).
 
 Feature copy (English, flag `TODO(i18n)`):
-- Monthly: unlimited daily uploads · files up to 5 GB · retention up to 30 days · cross-device sync.
-- Annual: same + "Save ~45% vs monthly".
+- Monthly: unlimited daily uploads · files up to 2 GB · retention up to 30 days · cross-device sync.
+- Annual: same + "Save ~44% vs monthly".
 - Lifetime: all monthly features · one-time payment · future Pro features included.
 
 **Depends:** B2.2. **Verify:** Build, preview all three tiers. **Acceptance:** CTA disables when `isLoading`.
@@ -282,7 +282,7 @@ Feature copy (English, flag `TODO(i18n)`):
 - Every interactive element gets `.accessibilityLabel` + `.accessibilityHint` where action is non-obvious. Restore hint: "Reactivates your existing Pro subscription on this device". Close button: `.accessibilityAddTraits(.isButton)`, label "Close paywall".
 - Replace all `.font(.system(size: N))` with Dynamic Type variants (`.title3`/`.body`/`.caption`). Clamp range: `.dynamicTypeSize(.xSmall ... .accessibility3)` on the root `ScrollView`.
 - `@Environment(\.accessibilityReduceMotion) var reduceMotion`. When true: dismiss wraps `.transaction { $0.animation = nil }`; spring becomes no-op; scale/opacity transitions skip.
-- Tier card: `.accessibilityElement(children: .combine)` with full spoken label (example annual): `"Annual plan, 29 dollars 99 cents per year, save 45 percent vs monthly. Unlimited uploads. Files up to 5 gigabytes. Retention up to 30 days. Cross-device sync. Double tap to subscribe."`
+- Tier card: `.accessibilityElement(children: .combine)` with full spoken label (example annual): `"Annual plan, 19 dollars 99 cents per year, save 44 percent vs monthly. Unlimited uploads. Files up to 2 gigabytes. Retention up to 30 days. Cross-device sync. Double tap to subscribe."`
 
 **Depends:** B2.4. **Verify:** Simulator + Accessibility Inspector → VoiceOver walks the sheet with meaningful labels, no unlabeled buttons; Dynamic Type `.accessibility1` renders without truncation on iPhone 15. **Acceptance:** Reduce Motion disables animations.
 

@@ -24,10 +24,11 @@ struct FastSharedApp: App {
     private let orchestrator: UploadOrchestrator
     private let clipboard: ClipboardProtocol
     private let subscriptionStore: SubscriptionStore
-    private let cloudKitEngine: CloudKitSyncEngine
+    private let cloudKitEngine: CloudKitSyncEngine?
     @State private var paywallCoordinator = PaywallCoordinator()
 
     init() {
+        let isScreenshotMode = AppStoreScreenshotMode.isEnabled
         let store = SwiftDataStore.shared
         let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
         let tokenStore = DeviceTokenStore(keychain: keychain)
@@ -35,8 +36,10 @@ struct FastSharedApp: App {
         let clipboard = Clipboard.make()
         let orchestrator = UploadOrchestrator(apiClient: apiClient, store: store, clipboard: clipboard)
         let background = BackgroundSessionManager.shared
-        background.bind(orchestrator: orchestrator, store: store)
-        background.prewarm()
+        if !isScreenshotMode {
+            background.bind(orchestrator: orchestrator, store: store)
+            background.prewarm()
+        }
         let subscriptionStore = SubscriptionStore(apiClient: apiClient)
         let uploadService = UploadService(apiClient: apiClient,
                                           store: store,
@@ -44,6 +47,18 @@ struct FastSharedApp: App {
                                           background: background,
                                           orchestrator: orchestrator,
                                           subscriptionStore: subscriptionStore)
+        self.store = store
+        self.apiClient = apiClient
+        self.uploadService = uploadService
+        self.orchestrator = orchestrator
+        self.clipboard = clipboard
+        self.subscriptionStore = subscriptionStore
+
+        guard !isScreenshotMode else {
+            self.cloudKitEngine = nil
+            return
+        }
+
         // WHY: device-stable UUID — per-install is fine, we only use this to
         // tag CloudKit records with the origin. Stored in App Group defaults.
         let deviceId = Self.loadOrCreateDeviceSyncId()
@@ -54,13 +69,6 @@ struct FastSharedApp: App {
             subscriptionStore: subscriptionStore,
             deviceId: deviceId
         )
-
-        self.store = store
-        self.apiClient = apiClient
-        self.uploadService = uploadService
-        self.orchestrator = orchestrator
-        self.clipboard = clipboard
-        self.subscriptionStore = subscriptionStore
         self.cloudKitEngine = cloudKitEngine
 
         // WHY: App Intents (FastShareScreenshotIntent) need access to the same UploadService the
@@ -135,6 +143,28 @@ struct FastSharedApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if AppStoreScreenshotMode.isEnabled {
+                AppStoreScreenshotHostView(scene: AppStoreScreenshotMode.scene)
+                    #if os(macOS)
+                    .task { await AppStoreScreenshotExporter.exportAllIfNeeded() }
+                    #endif
+            } else {
+                normalWindowContent
+            }
+            #else
+            normalWindowContent
+            #endif
+        }
+        #if os(macOS)
+        .windowToolbarStyle(.unified)
+        .defaultSize(width: AppStoreScreenshotMode.isEnabled ? 1440 : 1100,
+                     height: AppStoreScreenshotMode.isEnabled ? 900 : 720)
+        #endif
+    }
+
+    @ViewBuilder
+    private var normalWindowContent: some View {
             #if os(macOS)
             // WHY: redesigned macOS window — `LibraryView` is the shared
             // sidebar+table surface (also used on iPad regular). Replaces the
@@ -178,11 +208,6 @@ struct FastSharedApp: App {
                     processPendingShareUploads(trigger: nil, service: uploadService, paywallCoordinator: paywallCoordinator)
                 }
             #endif
-        }
-        #if os(macOS)
-        .windowToolbarStyle(.unified)
-        .defaultSize(width: 1100, height: 720)
-        #endif
     }
 }
 
@@ -192,6 +217,7 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        guard !AppStoreScreenshotMode.isEnabled else { return true }
         // WHY: CKSyncEngine uses push notifications to trigger real-time sync
         // when records change on another device. Without this, cross-device sync
         // only happens on launch / foreground, causing multi-minute delays.

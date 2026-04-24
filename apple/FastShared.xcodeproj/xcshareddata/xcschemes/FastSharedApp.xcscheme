@@ -67,6 +67,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "49AB239D72A43760B1730E3C"
+               BuildableName = "FastSharedAppUITests.xctest"
+               BlueprintName = "FastSharedAppUITests"
+               ReferencedContainer = "container:FastShared.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

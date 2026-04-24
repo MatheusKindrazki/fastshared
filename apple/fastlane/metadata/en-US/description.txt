@@ -1,0 +1,47 @@
+Share anything. Get a link. Watch it vanish.
+
+FastShared is a native Apple utility that turns "share a file" into "get a temporary link on my clipboard" in one gesture. Every link is temporary by design: default 24 hours, custom up to 30 days. When the window closes, the underlying file is deleted automatically.
+
+WHAT IT DOES
+- Share any file from any app through the iOS share sheet.
+- Drag a file onto the Mac app, or paste anything with Command-V.
+- Pick how long the link lives: 1 hour, 24 hours, 1 week, 1 month, or custom from 5 minutes to 30 days.
+- The short link lands on your clipboard. Paste it anywhere.
+- Watch upload progress in a Live Activity and Dynamic Island on supported iPhones.
+- Browse recent links with a live countdown. Revoke any link instantly.
+
+BUILT FOR APPLE
+- iOS 17 and later, iPadOS 17 and later, macOS 14 and later.
+- Native Share Extension on iPhone and iPad.
+- Drag-and-drop, file import, and Paste to Upload on Mac.
+- Background uploads with URLSession.
+- Universal Clipboard friendly: copy on iPhone, paste on Mac seconds later.
+- Apple-native UI. No account wall for basic sharing.
+
+YOUR FILES, YOUR RULES
+- Ephemeral by design. Every link has an expiry. Expired links return 410 Gone and the file is deleted.
+- No required accounts. There is no sign-up, email, or password for Free.
+- No tracking. No analytics SDKs, no advertising IDs, no third-party trackers.
+- Private storage. Files live in a private Cloudflare R2 bucket. Downloads are served only after the link is validated.
+- Bearer links with high-entropy tokens. The link is the credential. Revoke any time.
+- noindex, no-referrer, no-store on every resolve so tokens stay out of search engines, referrer chains, and caches.
+
+FASTSHARED PRO
+- Unlimited uploads per day.
+- Files up to 2 GB.
+- Link retention up to 30 days.
+- iCloud history sync across iPhone, iPad, and Mac.
+- Family Sharing on Lifetime.
+- Priority support.
+- Monthly, annual, or lifetime purchase.
+
+NOT INCLUDED - ON PURPOSE
+- No permanent hosting. Every file has a deletion deadline.
+- No folders, tags, public profiles, comments, or reactions.
+- No Android or Windows app. FastShared is Apple-native.
+
+The recipient never signs in. They open the link in any browser or messaging preview, and the file downloads through FastShared after the link state is checked. When the window ends, the link stops working for everyone at once.
+
+Support - https://www.fastsha.red/support
+Privacy - https://www.fastsha.red/privacy
+Terms - https://www.fastsha.red/terms
