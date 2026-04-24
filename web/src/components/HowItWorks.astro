@@ -1,54 +1,46 @@
 ---
-// How It Works — bento-style tiles, no borders, generous space.
 const steps = [
   {
     n: '01',
-    title: 'Pick a file',
-    caption: 'From any app. Photos, files, screenshots — anything.',
+    title: 'Pick the file',
+    caption: 'Share sheet on iPhone and iPad. Drag, drop, or paste on Mac.',
+    meta: 'Any supported file',
   },
   {
     n: '02',
-    title: 'Choose when it expires',
-    caption: '1 hour. 24 hours. A week. You decide.',
+    title: 'Set the deadline',
+    caption: 'Default 24 hours. Pro can keep links alive up to 30 days.',
+    meta: 'Expiry is required',
   },
   {
     n: '03',
-    title: 'Paste the link anywhere',
-    caption: 'It lands on your clipboard. Share it. Then forget it.',
+    title: 'Paste the link',
+    caption: 'The short URL lands on your clipboard while the upload finishes.',
+    meta: 'fastsha.red/s/...',
   },
 ];
 ---
-<section id="how" class="frame py-24 md:py-40" aria-labelledby="how-heading">
-  <header class="section-head reveal">
-    <span class="section-num" id="how-heading">
-      How it works
-    </span>
+<section id="how" class="frame section-block" aria-labelledby="how-heading">
+  <header class="section-head">
+    <span class="section-num">Flow</span>
+    <h2 id="how-heading" class="section-title">One gesture. Three states.</h2>
   </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-4">
+  <div class="flow-grid">
     {steps.map((step, i) => (
-      <div
+      <article
         class:list={[
-          'group px-2 py-8 md:py-10 flex flex-col gap-5 reveal',
+          'flow-card reveal',
           `reveal-delay-${i + 1}`,
         ]}
       >
-        <span
-          class="font-mono text-violet-hot text-[13px] tracking-wider"
-          aria-hidden="true"
-        >
-          {step.n}
-        </span>
-        <h3
-          class="font-display font-semibold text-charcoal"
-          style="font-size: 24px; line-height: 1.15; letter-spacing: -0.03em;"
-        >
-          {step.title}
-        </h3>
-        <p class="font-display text-[16px] leading-[1.55] text-charcoal/50 max-w-[320px]">
-          {step.caption}
-        </p>
-      </div>
+        <div class="flow-card__top">
+          <span class="flow-card__number" aria-hidden="true">{step.n}</span>
+          <span class="flow-card__meta">{step.meta}</span>
+        </div>
+        <h3>{step.title}</h3>
+        <p>{step.caption}</p>
+      </article>
     ))}
   </div>
 </section>

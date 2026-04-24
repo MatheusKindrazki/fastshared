@@ -1,89 +1,87 @@
 ---
-// Hero — centered, confident, Apple-premium.
-// Headline + subhead + CTA above an iPhone mockup showing the app.
-import PlaneArc from './PlaneArc.astro';
-import PhoneFrame from './PhoneFrame.astro';
+// Rebranded hero — product mark, final tagline, and the core file/link/countdown flow.
 ---
 <section
-  class="frame relative pt-32 md:pt-44 pb-16 md:pb-24 flex flex-col items-center text-center"
+  class="brand-hero"
   aria-labelledby="hero-headline"
 >
-  <!-- Eyebrow -->
-  <span class="mono-eyebrow block mb-8 md:mb-10 reveal" data-testid="hero-eyebrow">
-    FastShared
-  </span>
+  <div class="brand-hero__scene" aria-hidden="true">
+    <img
+      src="/brand/appicon-1024.png"
+      alt=""
+      width="1024"
+      height="1024"
+      class="brand-hero__icon"
+      decoding="async"
+      loading="eager"
+    />
 
-  <!-- Headline -->
-  <h1
-    id="hero-headline"
-    class="display-line font-display font-bold text-charcoal max-w-[900px] reveal reveal-delay-1"
-    style="font-size: clamp(42px, 7.5vw, 104px); letter-spacing: -0.055em; line-height: 0.92;"
-  >
-    <span class="block">Share anything.</span>
-    <span class="block">It disappears.</span>
-  </h1>
+    <div class="hero-transfer hero-transfer--file">
+      <span class="hero-transfer__label">screen-recording.mov</span>
+      <span class="hero-transfer__meta">284 MB · Pro</span>
+    </div>
 
-  <!-- Subhead -->
-  <p
-    class="mt-8 md:mt-10 font-display text-[17px] md:text-[19px] leading-[1.55] text-charcoal/50 max-w-[520px] reveal reveal-delay-2"
-  >
-    Temporary share links for iPhone, iPad, and Mac. Pick an expiry, paste anywhere — the file deletes itself.
-  </p>
+    <div class="hero-transfer hero-transfer--link">
+      <span class="hero-transfer__label">fastsha.red/s/K9H4</span>
+      <span class="hero-transfer__meta">copied</span>
+    </div>
 
-  <!-- CTA -->
-  <div class="mt-10 reveal reveal-delay-3">
-    <a
-      href="https://testflight.apple.com/join/fastshared"
-      class="btn-primary"
-      data-testid="hero-cta"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Join the TestFlight
-      <span aria-hidden="true">→</span>
-    </a>
+    <div class="hero-countdown">
+      <span>expires in</span>
+      <strong>23:59:41</strong>
+    </div>
   </div>
 
-  <!-- iPhone Mockup -->
-  <div class="mt-16 md:mt-24 w-full max-w-[340px] mx-auto reveal reveal-delay-4" data-hero-mockup>
-    <PhoneFrame>
-      <!-- App screen content inside the phone -->
-      <div class="w-full h-full flex flex-col items-center justify-center gap-6 p-6 pt-16">
-        <!-- App icon area -->
-        <div class="relative">
-          <PlaneArc size={72} animate ariaLabel="FastShared app icon" />
-        </div>
-        <!-- File card -->
-        <div
-          class="w-full rounded-2xl p-4 flex items-center gap-3"
-          style="background: var(--surface-warm);"
-        >
-          <div class="w-10 h-10 rounded-xl bg-violet-hot/10 flex items-center justify-center flex-none">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--violet-hot)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-          </div>
-          <div class="flex-1 min-w-0 text-left">
-            <p class="font-display text-[14px] font-medium text-charcoal truncate">screenshot.png</p>
-            <p class="font-mono text-[11px] text-charcoal/40">2.4 MB · 24h</p>
-          </div>
-          <div class="w-8 h-8 rounded-full bg-violet-hot flex items-center justify-center flex-none">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-        </div>
-        <!-- Link pill -->
-        <div
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full font-mono text-[12px] tracking-wide"
-          style="background: var(--charcoal); color: var(--cream);"
-        >
-          <span class="w-2 h-2 rounded-full bg-green-400"></span>
-          fastsha.red/s/a3f9
-        </div>
-        <p class="font-mono text-[11px] text-charcoal/35">Copied to clipboard</p>
+  <div class="frame brand-hero__content">
+    <span class="brand-hero__eyebrow reveal">
+      <img src="/brand/appicon-1024.png" alt="" width="24" height="24" aria-hidden="true" />
+      Native for iPhone, iPad, and Mac
+    </span>
+
+    <h1
+      id="hero-headline"
+      class="brand-hero__headline reveal reveal-delay-1"
+    >
+      <span>Share anything.</span>
+      <span>Get a link.</span>
+      <span>Watch it vanish.</span>
+    </h1>
+
+    <p class="brand-hero__copy reveal reveal-delay-2">
+      FastShared turns any file into a temporary link on your clipboard.
+      Recipients open it in a browser. The countdown handles the cleanup.
+    </p>
+
+    <div class="brand-hero__actions reveal reveal-delay-3">
+      <a
+        href="https://testflight.apple.com/join/fastshared"
+        class="btn-primary"
+        data-testid="hero-cta"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Join TestFlight
+        <span aria-hidden="true">→</span>
+      </a>
+      <a href="#how" class="btn-ghost">
+        See the flow
+        <span aria-hidden="true">↓</span>
+      </a>
+    </div>
+
+    <dl class="brand-hero__proof reveal reveal-delay-4">
+      <div>
+        <dt>Free</dt>
+        <dd>100 MB · 24 h</dd>
       </div>
-    </PhoneFrame>
+      <div>
+        <dt>Pro</dt>
+        <dd>2 GB · 30 d</dd>
+      </div>
+      <div>
+        <dt>Storage</dt>
+        <dd>Private R2</dd>
+      </div>
+    </dl>
   </div>
 </section>

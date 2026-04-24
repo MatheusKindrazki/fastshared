@@ -1,54 +1,36 @@
 ---
-// The ephemeral promise — full-bleed dark moment.
-// Always dark regardless of theme, because "this is the product."
+const guarantees = [
+  ['Recipient access', 'No account. The bearer link is the credential.'],
+  ['Download path', 'Private bucket, Worker-gated resolve, short-lived signed reads.'],
+  ['Cleanup', 'Expired links return 410 and move into deletion workflow.'],
+];
 ---
 <section
-  class="relative w-full py-32 md:py-48 overflow-hidden"
+  class="promise-band"
   aria-labelledby="ephemeral-heading"
-  style="background: #0a0a0c;"
 >
-  <!-- subtle ambient glow -->
-  <div
-    aria-hidden="true"
-    class="absolute inset-0 pointer-events-none"
-    style="background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(157,122,255,0.06) 0%, transparent 70%);"
-  ></div>
+  <div class="frame promise-band__inner">
+    <div class="promise-band__copy">
+      <span class="section-num reveal">By design</span>
+      <h2
+        id="ephemeral-heading"
+        class="promise-band__title reveal reveal-delay-1"
+      >
+        Every link expires. Every file has a deadline.
+      </h2>
+      <p class="promise-band__text reveal reveal-delay-2">
+        FastShared is not another drive. It is a temporary handoff surface:
+        upload, share, expire, delete.
+      </p>
+    </div>
 
-  <div class="frame relative z-10">
-    <h2
-      id="ephemeral-heading"
-      class="font-display font-bold text-white max-w-[900px] reveal"
-      style="font-size: clamp(36px, 6.5vw, 88px); letter-spacing: -0.045em; line-height: 0.95;"
-    >
-      <span class="block">Every link expires.</span>
-      <span class="block" style="color: var(--coral);">Every file is deleted.</span>
-    </h2>
-
-    <p
-      class="mt-10 md:mt-14 font-display text-[17px] md:text-[19px] leading-[1.6] text-white/45 max-w-[520px] reveal reveal-delay-1"
-    >
-      Default is 24 hours. Custom from 5 minutes to 30 days. One anonymous bearer. No accounts, ever.
-    </p>
-
-    <div class="mt-14 md:mt-20 flex flex-col sm:flex-row gap-8 sm:gap-14 reveal reveal-delay-2">
-      <div class="flex items-start gap-3">
-        <span class="text-violet-hot mt-1" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </span>
-        <span class="font-mono text-[13px] text-white/50 leading-relaxed">Private R2 bucket</span>
-      </div>
-      <div class="flex items-start gap-3">
-        <span class="text-violet-hot mt-1" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </span>
-        <span class="font-mono text-[13px] text-white/50 leading-relaxed">Signed 60s URLs</span>
-      </div>
-      <div class="flex items-start gap-3">
-        <span class="text-violet-hot mt-1" aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </span>
-        <span class="font-mono text-[13px] text-white/50 leading-relaxed">131-bit tokens</span>
-      </div>
+    <div class="promise-ledger reveal reveal-delay-3">
+      {guarantees.map(([label, value]) => (
+        <div class="promise-ledger__row">
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+      ))}
     </div>
   </div>
 </section>
