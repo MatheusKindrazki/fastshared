@@ -17,13 +17,13 @@ private var sysSecondaryLabel:    Color { Color(nsColor: .secondaryLabelColor) }
 private var sysTertiaryLabel:     Color { Color(nsColor: .tertiaryLabelColor) }
 private var sysSeparator:         Color { Color(nsColor: .separatorColor) }
 #else
-private var sysBackground:         Color { sysBackground }
-private var sysSecondaryBackground: Color { sysSecondaryBackground }
-private var sysTertiaryBackground:  Color { sysTertiaryBackground }
-private var sysLabel:             Color { sysLabel }
-private var sysSecondaryLabel:    Color { sysSecondaryLabel }
-private var sysTertiaryLabel:     Color { sysTertiaryLabel }
-private var sysSeparator:         Color { sysSeparator }
+private var sysBackground:         Color { Color(uiColor: .systemBackground) }
+private var sysSecondaryBackground: Color { Color(uiColor: .secondarySystemBackground) }
+private var sysTertiaryBackground:  Color { Color(uiColor: .tertiarySystemBackground) }
+private var sysLabel:             Color { Color(uiColor: .label) }
+private var sysSecondaryLabel:    Color { Color(uiColor: .secondaryLabel) }
+private var sysTertiaryLabel:     Color { Color(uiColor: .tertiaryLabel) }
+private var sysSeparator:         Color { Color(uiColor: .separator) }
 #endif
 
 /// Share extension root — Friendly redesign.
