@@ -127,7 +127,7 @@ export default {
       ctx.waitUntil(runDueDeletionJobs(env, ctx));
     } else if (cron === '0 * * * *') {
       ctx.waitUntil(runReconciliation(env));
-    } else if (cron === '0 3 * * 0') {
+    } else if (cron === '0 3 * * SUN') {
       ctx.waitUntil(runMultipartSweeper(env));
     } else {
       log.warn({ msg: 'scheduled_unknown_cron', cron });
