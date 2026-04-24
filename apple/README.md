@@ -131,6 +131,16 @@ xcodebuild -exportArchive \
 The signed IPA lands in `build/ipa/FastShared.ipa` and the macOS `.pkg`
 (or `.app.zip` depending on `method`) lands in `build/app/`.
 
+For real TestFlight uploads, use the fastlane wrapper from the repo root:
+
+```bash
+make testflight
+```
+
+This is intentionally an all-platform release command: it uploads both the iOS
+build and the native macOS build. Use `make testflight-ios` or
+`make testflight-macos` only when recovering one failed platform upload.
+
 `CURRENT_PROJECT_VERSION` defaults to the committed fallback (`1`). For a
 real App Store Connect submission pass a monotonic build number:
 

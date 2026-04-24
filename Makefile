@@ -1,4 +1,7 @@
-.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy testflight testflight-doctor testflight-bootstrap
+.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy testflight testflight-ios testflight-macos testflight-doctor testflight-bootstrap
+
+BUNDLER_VERSION ?= 2.4.22
+BUNDLE ?= bundle _$(BUNDLER_VERSION)_
 
 bootstrap:
 	@command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -49,11 +52,17 @@ web-deploy:
 # apple/.env.testflight (see docs/ops/testflight-setup.md).
 
 testflight-bootstrap:
-	@command -v bundle >/dev/null 2>&1 || gem install bundler --user-install
-	cd apple && bundle config set --local path "vendor/bundle" && bundle install
+	gem install bundler:$(BUNDLER_VERSION) --user-install || true
+	cd apple && $(BUNDLE) config set --local path "vendor/bundle" && $(BUNDLE) install
 
 testflight-doctor:
-	cd apple && set -a && . ./.env.testflight && set +a && bundle exec fastlane ios doctor
+	cd apple && set -a && . ./.env.testflight && set +a && $(BUNDLE) exec fastlane ios doctor && $(BUNDLE) exec fastlane mac doctor
 
 testflight:
-	cd apple && set -a && . ./.env.testflight && set +a && bundle exec fastlane ios beta
+	cd apple && set -a && . ./.env.testflight && set +a && $(BUNDLE) exec fastlane beta_all
+
+testflight-ios:
+	cd apple && set -a && . ./.env.testflight && set +a && $(BUNDLE) exec fastlane ios beta
+
+testflight-macos:
+	cd apple && set -a && . ./.env.testflight && set +a && $(BUNDLE) exec fastlane mac beta

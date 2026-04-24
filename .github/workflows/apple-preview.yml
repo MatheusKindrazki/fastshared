@@ -13,9 +13,23 @@ concurrency:
 
 jobs:
   testflight:
-    name: Build + Upload to TestFlight
+    name: Build + Upload ${{ matrix.platform.name }} to TestFlight
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: iOS
+            destination: "generic/platform=iOS"
+            archive: "FastShared-iOS.xcarchive"
+            export_subdir: "ios"
+            upload_platform: "ios"
+          - name: macOS
+            destination: "generic/platform=macOS"
+            archive: "FastShared-macOS.xcarchive"
+            export_subdir: "macos"
+            upload_platform: "macos"
     steps:
       - uses: actions/checkout@v4
 
@@ -24,36 +38,47 @@ jobs:
           mkdir -p "$RUNNER_TEMP/asc"
           echo "${{ secrets.APPSTORE_CONNECT_API_KEY_B64 }}" | base64 -d > "$RUNNER_TEMP/asc/AuthKey.p8"
 
-      - name: Archive iOS
+      - name: Archive ${{ matrix.platform.name }}
         working-directory: apple
         run: |
           xcodebuild archive \
             -scheme FastSharedApp \
             -project FastShared.xcodeproj \
-            -destination 'generic/platform=iOS' \
+            -destination '${{ matrix.platform.destination }}' \
             -configuration Release \
-            -archivePath "build/FastShared-iOS.xcarchive" \
+            -archivePath "build/${{ matrix.platform.archive }}" \
             CURRENT_PROJECT_VERSION=$(($(date +%s) - 1577836800)) \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
             -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
             -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
-          test -d "build/FastShared-iOS.xcarchive" || (
+          test -d "build/${{ matrix.platform.archive }}" || (
             echo "::error::archive did not produce an xcarchive"; exit 1
           )
 
-      - name: Export iOS
+      - name: Export ${{ matrix.platform.name }}
         working-directory: apple
         run: |
           xcodebuild -exportArchive \
-            -archivePath "build/FastShared-iOS.xcarchive" \
-            -exportPath "build/ipa" \
+            -archivePath "build/${{ matrix.platform.archive }}" \
+            -exportPath "build/${{ matrix.platform.export_subdir }}" \
             -exportOptionsPlist ExportOptions.plist \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
             -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
             -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
-          ls -la "build/ipa"
+          ls -la "build/${{ matrix.platform.export_subdir }}"
+
+      - name: Resolve upload artifact
+        id: artifact
+        working-directory: apple
+        run: |
+          file="$(find "build/${{ matrix.platform.export_subdir }}" -maxdepth 1 -type f \( -name '*.ipa' -o -name '*.pkg' \) -print -quit)"
+          if [ -z "$file" ]; then
+            echo "::error::No .ipa/.pkg artifact found in build/${{ matrix.platform.export_subdir }}"
+            exit 1
+          fi
+          echo "path=$file" >> "$GITHUB_OUTPUT"
 
       - name: Prepare API key for altool
         run: |
@@ -67,7 +92,7 @@ jobs:
           APPSTORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}
         run: |
           xcrun altool --upload-app \
-            --type ios \
-            --file "build/ipa/FastShared.ipa" \
+            --platform "${{ matrix.platform.upload_platform }}" \
+            --file "${{ steps.artifact.outputs.path }}" \
             --apiKey "$APPSTORE_CONNECT_API_KEY_ID" \
             --apiIssuer "$APPSTORE_CONNECT_API_KEY_ISSUER_ID"
