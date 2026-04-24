@@ -1,41 +1,43 @@
 ---
-// Rebranded hero — product mark, final tagline, and the core file/link/countdown flow.
+// Product-first hero — no floating glass, no decorative oversized mark.
 ---
 <section
   class="brand-hero"
   aria-labelledby="hero-headline"
 >
   <div class="brand-hero__scene" aria-hidden="true">
-    <img
-      src="/brand/appicon-1024.png"
-      alt=""
-      width="1024"
-      height="1024"
-      class="brand-hero__icon"
-      decoding="async"
-      loading="eager"
-    />
-
-    <div class="hero-transfer hero-transfer--file">
-      <span class="hero-transfer__label">screen-recording.mov</span>
-      <span class="hero-transfer__meta">284 MB · Pro</span>
-    </div>
-
-    <div class="hero-transfer hero-transfer--link">
-      <span class="hero-transfer__label">fastsha.red/s/K9H4</span>
-      <span class="hero-transfer__meta">copied</span>
-    </div>
-
-    <div class="hero-countdown">
-      <span>expires in</span>
-      <strong>23:59:41</strong>
+    <div class="hero-manifest">
+      <div class="hero-manifest__bar">
+        <span>FastShared</span>
+        <span>Transfer manifest</span>
+      </div>
+      <div class="hero-manifest__row">
+        <span>File</span>
+        <strong>screen-recording.mov</strong>
+        <em>284 MB</em>
+      </div>
+      <div class="hero-manifest__row">
+        <span>Link</span>
+        <strong>fastsha.red/s/K9H4</strong>
+        <em>Copied</em>
+      </div>
+      <div class="hero-manifest__row">
+        <span>Expiry</span>
+        <strong>23 h 59 min</strong>
+        <em>Scheduled</em>
+      </div>
+      <div class="hero-manifest__row hero-manifest__row--quiet">
+        <span>After</span>
+        <strong>410 Gone</strong>
+        <em>Deleted</em>
+      </div>
     </div>
   </div>
 
   <div class="frame brand-hero__content">
     <span class="brand-hero__eyebrow reveal">
       <img src="/brand/appicon-1024.png" alt="" width="24" height="24" aria-hidden="true" />
-      Native for iPhone, iPad, and Mac
+      Temporary file links for Apple devices
     </span>
 
     <h1
@@ -48,8 +50,9 @@
     </h1>
 
     <p class="brand-hero__copy reveal reveal-delay-2">
-      FastShared turns any file into a temporary link on your clipboard.
-      Recipients open it in a browser. The countdown handles the cleanup.
+      FastShared turns a file into a link you can paste anywhere. No folders,
+      no recipient accounts, no permanent upload sitting around after the job
+      is done.
     </p>
 
     <div class="brand-hero__actions reveal reveal-delay-3">
