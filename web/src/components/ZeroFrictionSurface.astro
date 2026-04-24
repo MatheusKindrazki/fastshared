@@ -1,61 +1,40 @@
 ---
-// Zero-friction surface — bento grid showing app triggers.
-// No cards, no borders, no shadows. Just space and type.
-
-const triggers = [
+const surfaces = [
   {
-    title: 'Action Button',
-    caption: 'One physical click on iPhone 15 Pro. Link in clipboard.',
-    wide: true,
+    title: 'Share Extension',
+    caption: 'Open the system share sheet, choose FastShared, and leave the app you came from.',
   },
   {
-    title: 'Siri',
-    caption: '"Fast share my screenshot" — hands-free.',
-    wide: false,
+    title: 'Mac menu bar',
+    caption: 'Keep recent links close, copy again, revoke, or drop a new file without hunting for a window.',
   },
   {
-    title: 'Back Tap',
-    caption: 'Double-tap the back of your phone, anywhere.',
-    wide: false,
+    title: 'Clipboard-first',
+    caption: 'The product ends where your next message starts: with the temporary link already copied.',
   },
   {
-    title: 'Universal Clipboard',
-    caption: 'Copied on iPhone. Pasted on Mac. No setup.',
-    wide: true,
+    title: 'Link history',
+    caption: 'A structured list shows what is live, what is expiring, and what is already gone.',
   },
 ];
 ---
-<section class="frame py-24 md:py-40" aria-labelledby="surface-heading">
+<section class="frame section-block" aria-labelledby="surface-heading">
   <header class="section-head reveal">
-    <span class="section-num" id="surface-heading">
-      Five ways to fire
-    </span>
+    <span class="section-num">Apple-native</span>
+    <h2 id="surface-heading" class="section-title">Built around the surfaces you already use.</h2>
   </header>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-1">
-    {triggers.map((t, i) => (
-      <div
+  <div class="surface-grid">
+    {surfaces.map((surface, i) => (
+      <article
         class:list={[
-          'group p-8 md:p-10 flex flex-col gap-3 rounded-[24px] transition-colors duration-300 hover:bg-charcoal/[0.02]',
-          t.wide ? 'md:col-span-2' : '',
-          'reveal',
+          'surface-card reveal',
           `reveal-delay-${(i % 3) + 1}`,
         ]}
       >
-        <h3
-          class="font-display font-semibold text-charcoal"
-          style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;"
-        >
-          {t.title}
-        </h3>
-        <p class="font-display text-[16px] leading-[1.55] text-charcoal/45 max-w-[420px]">
-          {t.caption}
-        </p>
-      </div>
+        <h3>{surface.title}</h3>
+        <p>{surface.caption}</p>
+      </article>
     ))}
   </div>
-
-  <p class="mt-8 font-mono text-[12px] tracking-[0.04em] text-charcoal/30 reveal">
-    + Screenshot banner when FastShared is open
-  </p>
 </section>
