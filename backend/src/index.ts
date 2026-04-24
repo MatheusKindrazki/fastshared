@@ -70,11 +70,11 @@ errors(app);
 
 // WHY: the apex fastsha.red serves two concerns on one hostname — the /s/:token
 // short-link resolver (always handled by this Worker) and the marketing landing
-// page (hosted on Cloudflare Pages at fastshared-web-bia.pages.dev). We proxy any
+// page (hosted on Cloudflare Pages at fastshared-web.pages.dev). We proxy any
 // non-app path on the apex through to Pages so a single Worker custom_domain
 // keeps working without needing a separate Pages custom-domain binding in the
 // CF dashboard. api.fastsha.red is unaffected — everything there is /v1/*.
-const PAGES_ORIGIN = 'https://fastshared-web-bia.pages.dev';
+const PAGES_ORIGIN = 'https://fastshared-web.pages.dev';
 // /.well-known MUST stay on the worker so iOS/macOS can fetch the AASA file
 // directly — if we proxied it to Pages, Apple's CDN would see a 404 HTML body
 // and the universal-link handoff would silently never install.
