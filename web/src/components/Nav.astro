@@ -10,7 +10,7 @@
     <a
       href="/"
       aria-label="FastShared home"
-      class="nav-brand inline-flex items-center gap-3 text-charcoal transition-colors"
+      class="nav-brand inline-flex items-center gap-3 transition-colors"
     >
       <img
         src="/brand/appicon-1024.png"
@@ -28,14 +28,14 @@
     <div class="flex items-center gap-5">
       <a
         href="/pricing"
-        class="nav-link font-mono text-[12px] uppercase text-charcoal/55 transition-colors hidden sm:inline-flex"
+        class="nav-link font-mono text-[12px] uppercase transition-colors hidden sm:inline-flex"
         data-testid="nav-pricing"
       >
         Pricing
       </a>
       <a
         href="https://testflight.apple.com/join/fastshared"
-        class="nav-link font-mono text-[12px] uppercase text-charcoal/55 transition-colors hidden sm:inline-flex items-center gap-2"
+        class="nav-link font-mono text-[12px] uppercase transition-colors hidden sm:inline-flex items-center gap-2"
         data-testid="nav-testflight"
         target="_blank"
         rel="noopener noreferrer"
@@ -61,6 +61,34 @@
 </nav>
 
 <style>
+  #main-nav {
+    --nav-fg: var(--charcoal);
+    --nav-muted: rgba(var(--charcoal-rgb), 0.55);
+    --nav-toggle-bg: rgba(var(--canvas-rgb), 0.62);
+    --nav-toggle-border: var(--rule);
+    color: var(--nav-fg);
+  }
+
+  #main-nav.nav-on-dark {
+    --nav-fg: #fafaff;
+    --nav-muted: rgba(250, 250, 255, 0.68);
+    --nav-toggle-bg: rgba(250, 250, 255, 0.07);
+    --nav-toggle-border: rgba(250, 250, 255, 0.16);
+    background:
+      linear-gradient(180deg, rgba(7, 3, 24, 0.88), rgba(7, 3, 24, 0.66));
+    border-bottom: 1px solid rgba(250, 250, 255, 0.10);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  }
+
+  .nav-brand {
+    color: var(--nav-fg);
+  }
+
+  .nav-link {
+    color: var(--nav-muted);
+  }
+
   .nav-link:hover,
   .nav-brand:hover { color: var(--violet-hot); }
 
@@ -80,9 +108,9 @@
     width: 34px;
     height: 34px;
     border-radius: 10px;
-    background: rgba(var(--canvas-rgb), 0.62);
-    border: 1px solid var(--rule);
-    color: var(--charcoal);
+    background: var(--nav-toggle-bg);
+    border: 1px solid var(--nav-toggle-border);
+    color: var(--nav-fg);
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s, color 0.2s;
   }
@@ -117,6 +145,7 @@
         html.setAttribute('data-theme', 'dark');
         localStorage.setItem('fs-theme', 'dark');
       }
+      window.dispatchEvent(new CustomEvent('fs-theme-change'));
       var themeColor = document.querySelector('meta[name="theme-color"]');
       if (themeColor) {
         themeColor.setAttribute('content', isDark ? '#fbf8f1' : '#0f0f12');
