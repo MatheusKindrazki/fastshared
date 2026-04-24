@@ -44,7 +44,21 @@ Bootstrap fastlane once:
 make testflight-bootstrap
 ```
 
-Verify local store config and API key:
+Create the local App Review contact config once before doctor/metadata
+sync/submission:
+
+```bash
+cp apple/.env.appstore.example apple/.env.appstore.local
+$EDITOR apple/.env.appstore.local
+```
+
+Use real reachable contact details. App Store Connect rejects metadata updates
+for a first app version if `FASTSHARED_REVIEW_FIRST_NAME`,
+`FASTSHARED_REVIEW_LAST_NAME`, `FASTSHARED_REVIEW_PHONE`, and
+`FASTSHARED_REVIEW_EMAIL` are missing; the phone must include `+` and the country
+code.
+
+Verify local store config, review contact, and API key:
 
 ```bash
 make appstore-doctor
@@ -63,12 +77,18 @@ This produces:
 - 5 macOS screenshots.
 - 1 IAP review screenshot copied from the Pro paywall capture.
 
-Upload privacy details, metadata, app icon, age rating, and screenshots without
-submitting:
+Generate screenshots and upload metadata, app icon, age rating, and screenshots
+without submitting:
 
 ```bash
 make appstore-sync
 ```
+
+`appstore-sync` also validates `apple/fastlane/app_privacy_details.json`.
+If Apple accepts the App Privacy API endpoint for the current account/key, it
+publishes the privacy answers. If App Store Connect rejects the `dataUsages`
+endpoint, the lane logs a warning and continues with the rest of the store sync
+instead of failing after screenshots have already been generated.
 
 Upload metadata only, reusing existing screenshots, if recovering a failed
 metadata upload:
@@ -84,7 +104,8 @@ make appstore-metadata-ios
 make appstore-metadata-macos
 ```
 
-Upload App Privacy only:
+Upload App Privacy only. This is intentionally strict and fails if Apple
+rejects the current App Privacy API endpoint:
 
 ```bash
 make appstore-privacy
@@ -94,8 +115,6 @@ Submit to App Review after metadata, screenshots, IAPs, privacy, and processed
 builds are ready:
 
 ```bash
-cp apple/.env.appstore.example apple/.env.appstore.local
-$EDITOR apple/.env.appstore.local
 make appstore-submit
 ```
 
@@ -223,8 +242,10 @@ Server-to-server notifications v2:
 - [ ] Latest iOS and macOS builds are processed in TestFlight.
 - [ ] `make appstore-doctor` passes.
 - [ ] `make appstore-screenshots` generates 16 validated PNGs.
-- [ ] `make appstore-sync` has uploaded App Privacy, metadata, icon, rating,
-      and screenshots.
+- [ ] `make appstore-sync` has uploaded metadata, icon, rating, and screenshots.
+- [ ] App Privacy is published in App Store Connect, either by the privacy lane
+      if Apple's endpoint accepts it or by confirming the JSON-backed answers in
+      App Store Connect.
 - [ ] Paid Apps Agreement, tax, and banking are active.
 - [ ] Pro IAP products are Ready to Submit with review screenshots.
 - [ ] Server notification test reaches the production backend.

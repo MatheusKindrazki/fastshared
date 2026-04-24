@@ -158,12 +158,12 @@ def store_common_options(platform:, api_key:)
     screenshots_path: store_screenshots_path(platform),
     app_icon: STORE_APP_ICON_PATH,
     app_rating_config_path: STORE_RATING_CONFIG_PATH,
-    primary_category: "Productivity",
-    secondary_category: "Utilities",
+    primary_category: "PRODUCTIVITY",
+    secondary_category: "UTILITIES",
     automatic_release: false,
     phased_release: false,
     force: true,
-    precheck_include_in_app_purchases: true,
+    precheck_include_in_app_purchases: false,
     submission_information: {
       export_compliance_uses_encryption: false,
       content_rights_contains_third_party_content: false,
@@ -193,6 +193,10 @@ def app_review_information_from_env(require_all: false)
     UI.user_error!(
       "Missing App Review contact env vars: #{missing.map { |key| env_names.fetch(key) }.join(", ")}"
     )
+  end
+  phone_number = info[:phone_number].to_s.strip
+  if require_all && !phone_number.match?(/\A\+\d[\d\s().-]+\z/)
+    UI.user_error!("FASTSHARED_REVIEW_PHONE must include country code, e.g. +55 11 99999 9999")
   end
 
   info
@@ -450,14 +454,30 @@ def generate_store_screenshots!
   validate_generated_screenshots!
 end
 
-def upload_store_privacy_details!(api_key:)
+def load_store_privacy_config!
+  usages = JSON.parse(File.read(STORE_PRIVACY_CONFIG_PATH))
+  UI.user_error!("App Privacy config must be a JSON array: #{STORE_PRIVACY_CONFIG_PATH}") unless usages.is_a?(Array)
+
+  usages.each_with_index do |usage, index|
+    protections = usage["data_protections"] || []
+    UI.user_error!("App Privacy entry #{index + 1} must include data_protections") if protections.empty?
+  end
+
+  usages
+end
+
+def app_privacy_api_unavailable?(error)
+  error.message.include?("dataUsages") || error.message.include?("appDataUsages")
+end
+
+def upload_store_privacy_details!(api_key:, required: true)
   require "spaceship"
 
+  usages = load_store_privacy_config!
   Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
   app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
   UI.user_error!("Could not find App Store Connect app #{APP_IDENTIFIER}") unless app
 
-  usages = JSON.parse(File.read(STORE_PRIVACY_CONFIG_PATH))
   all_usages = Spaceship::ConnectAPI::AppDataUsage.all(app_id: app.id, includes: "category,grouping,purpose,dataProtection", limit: 500)
   all_usages.each(&:delete!)
 
@@ -482,18 +502,30 @@ def upload_store_privacy_details!(api_key:)
   publish_state = Spaceship::ConnectAPI::AppDataUsagesPublishState.get(app_id: app.id)
   publish_state.publish! unless publish_state.published
   UI.success("App Privacy details uploaded and published for #{APP_IDENTIFIER}.")
+  true
+rescue Spaceship::UnexpectedResponse => e
+  raise unless app_privacy_api_unavailable?(e)
+
+  message = "App Privacy upload is unavailable through the current App Store Connect API key endpoint. " \
+            "The local source of truth was validated at #{STORE_PRIVACY_CONFIG_PATH}, but Apple rejected the dataUsages API path."
+  UI.user_error!(message) if required
+  UI.important(message)
+  false
 end
 
 private_lane :upload_store_metadata_internal do |options|
   platform = options.fetch(:platform)
   api_key = options[:api_key] || app_store_api_key
+  review_info = options[:app_review_information] || app_review_information_from_env(require_all: true)
   ensure_store_files!
 
   deliver(
     store_common_options(platform: platform, api_key: api_key).merge(
       skip_binary_upload: true,
       submit_for_review: false,
-      overwrite_screenshots: true
+      overwrite_screenshots: true,
+      run_precheck_before_submit: false,
+      app_review_information: review_info
     )
   )
 end
@@ -604,7 +636,9 @@ desc "Verify local App Store metadata structure and App Store Connect API key."
 lane :store_doctor do
   ensure_store_files!
   api_key = app_store_api_key
+  app_review_information_from_env(require_all: true)
   UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
+  UI.success("App Review contact config loaded.")
   UI.message("Store metadata version: #{marketing_version}")
   UI.message("iOS screenshots path: #{store_screenshots_path("ios")}")
   UI.message("macOS screenshots path: #{store_screenshots_path("osx")}")
@@ -620,24 +654,26 @@ desc "Upload and publish App Privacy details from fastlane/app_privacy_details.j
 lane :store_privacy do
   ensure_store_files!
   api_key = app_store_api_key
-  upload_store_privacy_details!(api_key: api_key)
+  upload_store_privacy_details!(api_key: api_key, required: true)
 end
 
 desc "Upload App Store metadata, app icon, age rating, and screenshots for iOS + macOS without submitting."
 lane :store_metadata do
   api_key = app_store_api_key
-  upload_store_metadata_internal(platform: "ios", api_key: api_key)
-  upload_store_metadata_internal(platform: "osx", api_key: api_key)
+  review_info = app_review_information_from_env(require_all: true)
+  upload_store_metadata_internal(platform: "ios", api_key: api_key, app_review_information: review_info)
+  upload_store_metadata_internal(platform: "osx", api_key: api_key, app_review_information: review_info)
 end
 
 desc "Generate screenshots, publish privacy details, and upload App Store metadata for iOS + macOS."
 lane :store_sync do
   api_key = app_store_api_key
+  review_info = app_review_information_from_env(require_all: true)
   regen
   generate_store_screenshots!
-  upload_store_privacy_details!(api_key: api_key)
-  upload_store_metadata_internal(platform: "ios", api_key: api_key)
-  upload_store_metadata_internal(platform: "osx", api_key: api_key)
+  upload_store_privacy_details!(api_key: api_key, required: false)
+  upload_store_metadata_internal(platform: "ios", api_key: api_key, app_review_information: review_info)
+  upload_store_metadata_internal(platform: "osx", api_key: api_key, app_review_information: review_info)
 end
 
 desc "Submit latest processed iOS + macOS builds to App Review. Requires FASTSHARED_SUBMIT_FOR_REVIEW=YES."

@@ -287,7 +287,7 @@ of the IAP list.
 
 1. Tax Category: **Software Utility** (confirm with accountant; this
    affects how Apple withholds tax). Save.
-2. Publish App Privacy from the repo:
+2. Try to publish App Privacy from the repo:
 
    ```bash
    cd /Users/matheuskindrazki/development/crazy-ideas/fastshared
@@ -295,7 +295,9 @@ of the IAP list.
    ```
 
    The source of truth is `apple/fastlane/app_privacy_details.json`, aligned
-   with `docs/ops/appstore-launch-setup.md`.
+   with `docs/ops/appstore-launch-setup.md`. If App Store Connect rejects the
+   current `dataUsages` API endpoint, keep the JSON as the reviewed source of
+   truth and confirm the same answers in App Store Connect before submission.
 
 **Acceptance:** App Privacy product-page preview matches
 `docs/ops/appstore-launch-setup.md`. ATT confirmation remains "Not

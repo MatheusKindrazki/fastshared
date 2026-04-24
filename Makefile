@@ -2,7 +2,7 @@
 
 BUNDLER_VERSION ?= 2.4.22
 BUNDLE ?= bundle _$(BUNDLER_VERSION)_
-APPLE_ENV = set -a && { [ ! -f ./.env.testflight ] || . ./.env.testflight; } && { [ ! -f ./.env.appstore.local ] || . ./.env.appstore.local; } && set +a
+APPLE_ENV = export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 && set -a && { [ ! -f ./.env.testflight ] || . ./.env.testflight; } && { [ ! -f ./.env.appstore.local ] || . ./.env.appstore.local; } && set +a
 
 bootstrap:
 	@command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
@@ -71,7 +71,9 @@ testflight-macos:
 # --- App Store metadata / submission ----------------------------------------
 # `apple/.env.testflight` provides the App Store Connect API key. Optional
 # App Review contact/submission fields live in `apple/.env.appstore.local`
-# (copy from `apple/.env.appstore.example`).
+# (copy from `apple/.env.appstore.example`). Metadata sync requires the contact
+# fields because App Store Connect requires review contact details on app
+# versions.
 
 appstore-doctor:
 	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_doctor

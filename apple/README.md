@@ -258,9 +258,17 @@ make appstore-sync
 ```
 
 `make appstore-screenshots` generates and validates iPhone, iPad, macOS, and
-IAP review screenshots. `make appstore-sync` regenerates screenshots, publishes
+IAP review screenshots. `make appstore-sync` regenerates screenshots, validates
 App Privacy details from `apple/fastlane/app_privacy_details.json`, and uploads
-metadata, icon, age rating, and screenshots for iOS/iPadOS + macOS.
+metadata, icon, age rating, and screenshots for iOS/iPadOS + macOS. If Apple
+accepts the current App Privacy API endpoint it also publishes those privacy
+answers; otherwise it logs the API limitation and keeps the rest of the sync
+moving.
+
+Before `make appstore-sync`, create `apple/.env.appstore.local` from
+`apple/.env.appstore.example` and fill the real App Review contact fields.
+The lane validates those fields before generating screenshots so failed config
+does not waste a store upload run.
 
 Apple-account-gated items still need to exist before the automation can finish:
 
