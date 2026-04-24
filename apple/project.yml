@@ -58,6 +58,10 @@ targets:
         KEYCHAIN_ACCESS_GROUP: $(KEYCHAIN_ACCESS_GROUP)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # WHY: App Store Connect requires a Mac App Store category when
+        # validating the macOS package. This must live in the source plist
+        # because GENERATE_INFOPLIST_FILE is disabled for this target.
+        LSApplicationCategoryType: public.app-category.productivity
         # WHY: ground the launch surface in brand ink. A missing UILaunchScreen
         # produces a white default, which flashes on cold start and — more
         # importantly — bleeds at physical screen edges (rounded corners,
@@ -100,7 +104,6 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Matheus Kindrazki. All rights reserved."
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO

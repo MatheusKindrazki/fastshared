@@ -1,9 +1,9 @@
-# Fastfile — FastShared iOS build + TestFlight upload.
+# Fastfile — FastShared iOS + macOS build + TestFlight upload.
 #
-# Primary lane: `bundle exec fastlane ios beta`
-# What it does: regenerates the Xcode project via XcodeGen, increments the
-# build number, archives the iOS scheme, and uploads the IPA to TestFlight
-# via the App Store Connect API (no Apple ID 2FA prompts).
+# Primary lane: `bundle exec fastlane beta_all`
+# What it does: regenerates the Xcode project via XcodeGen, stamps one
+# monotonic build number, archives both iOS and macOS variants, and uploads
+# the IPA + PKG to TestFlight via the App Store Connect API.
 #
 # Required env (see docs/ops/testflight-setup.md):
 #   APPSTORE_CONNECT_API_KEY_ID          — e.g. "A1B2C3D4E5"
@@ -16,84 +16,183 @@
 
 default_platform(:ios)
 
+require "fileutils"
+require "shellwords"
+
 APP_SCHEME     = "FastSharedApp"
 XCODE_PROJECT  = "FastShared.xcodeproj"
-IPA_OUTPUT_DIR = "build"
+BUILD_OUTPUT_DIR = "build/testflight"
 EXPORT_OPTIONS = "ExportOptions.plist"
+TEAM_ID = "YFYB6NKC73"
+
+APPLE_ROOT = File.expand_path("..", __dir__)
+XCODE_PROJECT_PATH = File.join(APPLE_ROOT, XCODE_PROJECT)
+EXPORT_OPTIONS_PATH = File.join(APPLE_ROOT, EXPORT_OPTIONS)
+BUILD_OUTPUT_ROOT = File.join(APPLE_ROOT, BUILD_OUTPUT_DIR)
+
+def monotonic_build_number
+  # WHY: monotonic build numbers per MARKETING_VERSION are required by App
+  # Store Connect. Epoch-seconds-since-the-year-2020 is fast, stable across
+  # machines, and never collides; we don't need cute counters.
+  (Time.now.to_i - 1_577_836_800).to_s
+end
+
+private_lane :regen do
+  sh("cd #{APPLE_ROOT.shellescape} && xcodegen generate")
+end
+
+private_lane :app_store_api_key do
+  app_store_connect_api_key(
+    key_id:      ENV.fetch("APPSTORE_CONNECT_API_KEY_ID"),
+    issuer_id:   ENV.fetch("APPSTORE_CONNECT_API_KEY_ISSUER_ID"),
+    key_filepath: ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH"),
+    is_key_content_base64: false,
+    in_house: false
+  )
+end
+
+private_lane :upload_ios_to_testflight_internal do |options|
+  api_key = options[:api_key] || app_store_api_key
+  build_number = options[:build_number] || monotonic_build_number
+  output_dir = File.join(BUILD_OUTPUT_ROOT, "ios")
+
+  # WHY: -allowProvisioningUpdates tells xcodebuild to consult App Store
+  # Connect (via the API key we just loaded) and mint App Store Distribution
+  # profiles on demand for the app + embedded iOS extensions.
+  build_app(
+    scheme:           APP_SCHEME,
+    project:          XCODE_PROJECT_PATH,
+    configuration:    "Release",
+    destination:      "generic/platform=iOS",
+    sdk:              "iphoneos",
+    export_method:    "app-store",
+    export_options:   EXPORT_OPTIONS_PATH,
+    output_directory: output_dir,
+    output_name:      "FastShared",
+    clean:            true,
+    silent:           false,
+    export_team_id:   TEAM_ID,
+    xcargs:           "-allowProvisioningUpdates CURRENT_PROJECT_VERSION=#{build_number}",
+    export_xcargs:    "-allowProvisioningUpdates",
+  )
+
+  upload_to_testflight(
+    api_key:               api_key,
+    app_platform:          "ios",
+    ipa:                   "#{output_dir}/FastShared.ipa",
+    skip_waiting_for_build_processing: false,
+    skip_submission:       true,
+    changelog:             ENV["FASTSHARED_CHANGELOG"] || "Build #{build_number}",
+    distribute_external:   options[:distribute_external] || false,
+  )
+end
+
+private_lane :upload_macos_to_testflight_internal do |options|
+  api_key = options[:api_key] || app_store_api_key
+  build_number = options[:build_number] || monotonic_build_number
+  output_dir = File.join(BUILD_OUTPUT_ROOT, "macos")
+
+  archive_path = File.join(output_dir, "FastShared-macos-#{build_number}.xcarchive")
+  pkg_path = File.join(output_dir, "FastShared.pkg")
+
+  FileUtils.rm_rf(output_dir)
+  FileUtils.mkdir_p(output_dir)
+
+  # WHY: fastlane's `build_mac_app` misclassifies this XcodeGen multiplatform
+  # project unless we pass a macOS SDK, but that forces the iOS Live Activity
+  # target to compile as macOS. Direct xcodebuild keeps Xcode's platform
+  # filtering intact and still gives us the App Store Connect PKG.
+  sh(
+    "xcodebuild archive " \
+    "-scheme #{APP_SCHEME} " \
+    "-project #{XCODE_PROJECT_PATH.shellescape} " \
+    "-destination 'generic/platform=macOS' " \
+    "-configuration Release " \
+    "-archivePath #{archive_path.shellescape} " \
+    "CURRENT_PROJECT_VERSION=#{build_number} " \
+    "-allowProvisioningUpdates"
+  )
+
+  sh(
+    "xcodebuild -exportArchive " \
+    "-archivePath #{archive_path.shellescape} " \
+    "-exportPath #{output_dir.shellescape} " \
+    "-exportOptionsPlist #{EXPORT_OPTIONS_PATH.shellescape} " \
+    "-allowProvisioningUpdates"
+  )
+
+  UI.user_error!("Expected macOS PKG at #{pkg_path}") unless File.exist?(pkg_path)
+
+  upload_to_testflight(
+    api_key:               api_key,
+    app_platform:          "osx",
+    pkg:                   pkg_path,
+    skip_waiting_for_build_processing: false,
+    skip_submission:       true,
+    changelog:             ENV["FASTSHARED_CHANGELOG"] || "Build #{build_number}",
+    distribute_external:   options[:distribute_external] || false,
+  )
+end
+
+desc "Build + upload both iOS and macOS apps to TestFlight."
+lane :beta_all do |options|
+  regen
+  api_key = app_store_api_key
+  build_number = options[:build_number] || monotonic_build_number
+
+  UI.header("Publishing FastShared #{build_number} to TestFlight for iOS and macOS")
+  upload_ios_to_testflight_internal(
+    api_key: api_key,
+    build_number: build_number,
+    distribute_external: false
+  )
+  upload_macos_to_testflight_internal(
+    api_key: api_key,
+    build_number: build_number,
+    distribute_external: false
+  )
+end
 
 platform :ios do
-  desc "Generate the Xcode project from project.yml so CI builds never drift from source."
-  lane :regen do
-    sh("cd .. && xcodegen generate")
-  end
-
   desc "Build + upload the iOS app to TestFlight (preview / internal testing)."
   lane :beta do
-    upload_to_testflight_internal(distribute_external: false)
+    regen
+    upload_ios_to_testflight_internal(distribute_external: false)
   end
 
   desc "Build + upload the iOS app to TestFlight for App Store release."
   lane :release do
-    upload_to_testflight_internal(distribute_external: false)
-  end
-
-  private_lane :upload_to_testflight_internal do |options|
     regen
-
-    api_key = app_store_connect_api_key(
-      key_id:      ENV.fetch("APPSTORE_CONNECT_API_KEY_ID"),
-      issuer_id:   ENV.fetch("APPSTORE_CONNECT_API_KEY_ISSUER_ID"),
-      key_filepath: ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH"),
-      is_key_content_base64: false,
-      in_house: false
-    )
-
-    # WHY: monotonic build numbers per MARKETING_VERSION are required by App
-    # Store Connect. Epoch-seconds-since-the-year-2020 is fast, stable across
-    # machines, and never collides; we don't need cute counters.
-    new_build = (Time.now.to_i - 1_577_836_800).to_s
-
-    # WHY: -allowProvisioningUpdates tells xcodebuild to consult App Store
-    # Connect (via the API key we just loaded) and mint App Store Distribution
-    # profiles on demand for all three targets (app, ShareExt, LiveActivity).
-    # Without it the first TestFlight upload fails with "No profiles for ...
-    # were found" because local automatic signing only seeds Development
-    # profiles. Applied to both archive and export so neither step stalls
-    # waiting for manually-managed profiles.
-    build_app(
-      scheme:           APP_SCHEME,
-      project:          XCODE_PROJECT,
-      configuration:    "Release",
-      export_method:    "app-store",
-      export_options:   EXPORT_OPTIONS,
-      output_directory: IPA_OUTPUT_DIR,
-      output_name:      "FastShared.ipa",
-      clean:            true,
-      silent:           false,
-      export_team_id:   "YFYB6NKC73",
-      xcargs:           "-allowProvisioningUpdates CURRENT_PROJECT_VERSION=#{new_build}",
-      export_xcargs:    "-allowProvisioningUpdates",
-    )
-
-    upload_to_testflight(
-      api_key:               api_key,
-      ipa:                   "#{IPA_OUTPUT_DIR}/FastShared.ipa",
-      skip_waiting_for_build_processing: false,
-      skip_submission:       true,
-      changelog:             ENV["FASTSHARED_CHANGELOG"] || "Build #{new_build}",
-      distribute_external:   options[:distribute_external] || false,
-    )
+    upload_ios_to_testflight_internal(distribute_external: false)
   end
 
   desc "Verify signing identities + API key without uploading. Run this before your first `beta`."
   lane :doctor do
     regen
-    api_key = app_store_connect_api_key(
-      key_id:       ENV.fetch("APPSTORE_CONNECT_API_KEY_ID"),
-      issuer_id:    ENV.fetch("APPSTORE_CONNECT_API_KEY_ISSUER_ID"),
-      key_filepath: ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH"),
-    )
+    api_key = app_store_api_key
     UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
-    UI.message("Project regenerated; run `bundle exec fastlane ios beta` to ship.")
+    UI.message("Project regenerated; run `bundle exec fastlane beta_all` to ship iOS + macOS.")
+  end
+end
+
+platform :mac do
+  desc "Build + upload the macOS app to TestFlight (preview / internal testing)."
+  lane :beta do
+    regen
+    upload_macos_to_testflight_internal(distribute_external: false)
+  end
+
+  desc "Build + upload the macOS app to TestFlight for App Store release."
+  lane :release do
+    regen
+    upload_macos_to_testflight_internal(distribute_external: false)
+  end
+
+  desc "Verify signing identities + API key without uploading."
+  lane :doctor do
+    regen
+    api_key = app_store_api_key
+    UI.success("App Store Connect API key loaded: #{api_key[:key_id]}")
+    UI.message("Project regenerated; run `bundle exec fastlane mac beta` for macOS only.")
   end
 end

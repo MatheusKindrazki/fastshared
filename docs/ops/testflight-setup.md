@@ -1,9 +1,9 @@
 # TestFlight · first-time setup
 
 Gets FastShared to a point where `make testflight` from the repo root archives
-the iOS app and uploads it to TestFlight → Internal Testing. Amigos adicionados
-no dashboard ficam com a build em ~10 min (review Apple é só na primeira submissão
-para External Testing, Internal não tem review).
+the iOS and macOS apps and uploads both to TestFlight → Internal Testing.
+Amigos adicionados no dashboard ficam com a build em ~10 min (review Apple é
+só na primeira submissão para External Testing, Internal não tem review).
 
 ## 1 · No Apple Developer Portal (≈ 30s)
 
@@ -25,7 +25,7 @@ https://appstoreconnect.apple.com/apps → **+** → **New App**
 
 | Campo | Valor |
 |---|---|
-| Platforms | iOS (macOS opcional, pode marcar depois) |
+| Platforms | iOS e macOS |
 | Name | **FastShared** (pode mudar a qualquer momento antes de submit pra App Store) |
 | Primary language | Portuguese (Brazil) |
 | Bundle ID | `dev.kindrazki.fastshared` |
@@ -42,6 +42,11 @@ Depois de criado, o app aparece em **Apps**. Clique nele, vá em **TestFlight**
   usa criptografia não-isenta. FastShared só usa HTTPS via iOS/URLSession, o que
   **é isento** pela Apple — pode responder "Yes, but only standard encryption"
   ou marcar a declaração de isenção (ECCN 5D002 exemption).
+
+Se o app já existir apenas como iOS, adicione a plataforma **macOS** no mesmo
+registro do App Store Connect antes do primeiro upload Mac. O bundle id é o
+mesmo (`dev.kindrazki.fastshared`); o build macOS é o que contém a experiência
+desktop com tray/sidebar/listagem.
 
 ## 3 · Gerar a App Store Connect API Key (≈ 30s, só uma vez)
 
@@ -96,23 +101,34 @@ make testflight
 
 O que acontece:
 1. `xcodegen generate` regenera o projeto a partir de `apple/project.yml`.
-2. `increment_build_number` carimba o `CURRENT_PROJECT_VERSION` com um timestamp
-   monotônico (epoch seconds desde 2020) — Apple só aceita builds com build
-   numbers crescentes.
-3. `build_app` arquiva o scheme `FastSharedApp` em Release, exporta com
-   `ExportOptions.plist` (app-store-connect, team `YFYB6NKC73`, automatic signing).
-4. `upload_to_testflight` envia o IPA para App Store Connect. **Não submete** pra
-   review externa — fica apenas disponível pra Internal Testing.
+2. O Fastfile carimba um único `CURRENT_PROJECT_VERSION` com timestamp monotônico
+   (epoch seconds desde 2020) e reutiliza esse número nas duas plataformas.
+3. `build_app` arquiva o iOS em Release e exporta `FastShared.ipa`.
+4. `xcodebuild archive` + `-exportArchive` arquivam o macOS em Release e
+   exportam `FastShared.pkg`.
+5. `upload_to_testflight` envia os dois artefatos para App Store Connect. **Não
+   submete** pra review externa — ficam apenas disponíveis pra Internal Testing.
 
-Primeira execução demora 6–10 min (archive completo + upload). A partir daí, o
-App Store Connect processa o binário por mais uns 5–8 min e a build aparece no
-TestFlight.
+Primeira execução demora mais que um iOS-only, porque são dois archives + dois
+uploads. A partir daí, o App Store Connect processa cada plataforma por mais
+alguns minutos e as builds aparecem no TestFlight de iPhone/iPad e Mac.
+
+Para recuperação isolada, existem comandos específicos:
+
+```bash
+make testflight-ios
+make testflight-macos
+```
+
+Use o comando padrão (`make testflight`) para releases normais. Ele deve subir
+iOS + macOS sempre.
 
 ## 8 · Adicionar amigos como Internal Testers
 
 App Store Connect → FastShared → TestFlight → **Internal Testing** → **+** no
 grupo (ou crie um grupo novo "Friends"). Adicione cada um por e-mail Apple ID.
-Eles recebem convite pelo TestFlight app no iPhone e instalam em 2 cliques.
+Eles recebem convite pelo TestFlight app no iPhone/iPad/Mac e instalam em 2
+cliques.
 
 Até **100 usuários internos**, sem review Apple, build disponível a cada push
 assim que processar.
