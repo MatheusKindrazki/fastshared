@@ -45,13 +45,14 @@ final class CloudKitSyncEngineTests: XCTestCase {
     private func makeStore() -> SwiftDataStore { SwiftDataStore.inMemoryForTests() }
 
     private func makeEngine(isPro: Bool,
-                            allowsCloudSync: Bool = true) -> (CloudKitSyncEngine, InMemorySyncEngineKernel, PersistenceEventStream) {
+                            allowsCloudSync: Bool? = nil) -> (CloudKitSyncEngine, InMemorySyncEngineKernel, PersistenceEventStream) {
         let kernel = InMemorySyncEngineKernel()
-        let caps: TierCaps = isPro ? .pro : TierCaps(
-            dailyUploadLimit: 3,
-            maxFileSizeBytes: 100 * 1024 * 1024,
-            maxRetentionSeconds: 86_400,
-            allowsCloudSync: allowsCloudSync
+        let baseCaps: TierCaps = isPro ? .pro : .free
+        let caps = TierCaps(
+            dailyUploadLimit: baseCaps.dailyUploadLimit,
+            maxFileSizeBytes: baseCaps.maxFileSizeBytes,
+            maxRetentionSeconds: baseCaps.maxRetentionSeconds,
+            allowsCloudSync: allowsCloudSync ?? baseCaps.allowsCloudSync
         )
         let subscriptionStore = TestSubscriptionStore(caps: caps, isPro: isPro)
         let events = PersistenceEventStream() // isolated per-test stream

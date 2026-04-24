@@ -27,10 +27,6 @@ struct SettingsView: View {
     @State private var usageCount: Int = 0
     @State private var copyLinkAuto: Bool = true
     @State private var notifyOnOpen: Bool = false
-    #if DEBUG
-    @State private var devUnlimitedCaps: Bool = DevOverrides.unlimitedFreeCaps
-    #endif
-
     private let appGroupDefaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
     private let retentionKey = "default_retention_policy"
     private let cloudSyncKey = "cloud_sync_enabled_v1"
@@ -251,37 +247,6 @@ struct SettingsView: View {
 
                         // Usage section (preserved from original)
                         usageSectionView
-
-                        #if DEBUG
-                        // Developer — DEBUG builds only. Toggles the dev bypass
-                        // for free-tier caps (daily count, file size, retention).
-                        SettingsSection(
-                            header: "Developer",
-                            textDim: textDim,
-                            paper: paper,
-                            line: line
-                        ) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Unlimited free uploads")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(textPrimary)
-                                    Text("DEBUG: skip all free-tier gates so you can test every flow.")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(textDim)
-                                }
-                                Spacer()
-                                Toggle("", isOn: $devUnlimitedCaps)
-                                    .labelsHidden()
-                                    .tint(BrandPalette.accent.hot)
-                                    .onChange(of: devUnlimitedCaps) { _, new in
-                                        DevOverrides.setUnlimitedFreeCaps(new)
-                                    }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                        }
-                        #endif
 
                         // Footer
                         Text("FastShared · \(appVersion)")

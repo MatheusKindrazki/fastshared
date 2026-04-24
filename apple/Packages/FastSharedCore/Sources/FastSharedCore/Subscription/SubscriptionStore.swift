@@ -194,15 +194,15 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
     }
 
     public func syncCurrentEntitlements() async {
-        var latest: Transaction?
+        var latest: (transaction: Transaction, jws: String?)?
         for await result in Transaction.currentEntitlements {
             guard case .verified(let tx) = result, tx.revocationDate == nil else { continue }
-            if latest == nil || (tx.purchaseDate > (latest?.purchaseDate ?? .distantPast)) {
-                latest = tx
+            if latest == nil || (tx.purchaseDate > (latest?.transaction.purchaseDate ?? .distantPast)) {
+                latest = (tx, jwsRepresentation(for: result))
             }
         }
 
-        guard let tx = latest else {
+        guard let latest else {
             // No StoreKit entitlement yet — but the server may still mark us
             // as Pro through the DEV_PRO_APPLE_USER_IDS override or through a
             // fallback subscription row that was never observed here (e.g.
@@ -216,10 +216,10 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
         }
 
         // Optimistic flip — server handshake happens below via handleIncomingTransaction().
-        optimisticallyApply(transaction: tx)
+        optimisticallyApply(transaction: latest.transaction)
 
         // Replay through the verify pipeline so the backend is nudged forward.
-        if let jws = jwsRepresentation(for: tx) {
+        if let jws = latest.jws {
             await verifyOnServer(jws: jws)
         }
     }
@@ -253,7 +253,7 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
                 // Optimistic UI flip. The server call below is the authority —
                 // on refusal we revert.
                 optimisticallyApply(transaction: tx)
-                if let jws = jwsRepresentation(for: tx) {
+                if let jws = jwsRepresentation(for: verification) {
                     let accepted = await verifyOnServer(jws: jws)
                     await tx.finish()
                     return accepted ? .success : .verificationFailed
@@ -299,7 +299,7 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
                 return
             }
             optimisticallyApply(transaction: tx)
-            if let jws = jwsRepresentation(for: tx) {
+            if let jws = jwsRepresentation(for: update) {
                 _ = await verifyOnServer(jws: jws)
             }
             await tx.finish()
@@ -313,7 +313,7 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
         let maxAttempts = 3
         for attempt in 1...maxAttempts {
             do {
-                let response = try await apiClient.verifyIAP(signedTransactionJWS: jws)
+                let response = try await apiClient.verifyIAP(jwsRepresentation: jws)
                 apply(server: response)
                 // B6.1: pull /v1/me after every successful verify so
                 // server-tuned caps propagate into the snapshot.
@@ -359,7 +359,7 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
         var count = 0
         for await result in Transaction.currentEntitlements {
             guard case .verified(let tx) = result, tx.revocationDate == nil else { continue }
-            if let jws = jwsRepresentation(for: tx) {
+            if let jws = jwsRepresentation(for: result) {
                 _ = await verifyOnServer(jws: jws)
                 count += 1
             }
@@ -430,23 +430,8 @@ public final actor SubscriptionStore: SubscriptionStoreProtocol {
 
     // MARK: - Helpers
 
-    private nonisolated func jwsRepresentation(for transaction: Transaction) -> String? {
-        // WHY: `Transaction.jsonRepresentation` returns JSON (not a JWS). The
-        // JWS the backend wants comes from VerificationResult directly. We
-        // reach it here via transaction.serializeJSON() -> then pair with the
-        // latest verification signed data when we receive it. StoreKit 2
-        // exposes the JWS only on `VerificationResult.jwsRepresentation`; we
-        // therefore encode the transaction dict as JSON AND, where we have a
-        // VerificationResult, its JWS. Callers of this helper pass Transaction
-        // objects obtained from `Transaction.currentEntitlements`, so we need
-        // to fetch the JWS via `Transaction.all` – StoreKit 2 exposes JWS on
-        // the current Transaction by its `signedTransaction` payload. Swift's
-        // StoreKit provides this lazily via Transaction.jsonRepresentation
-        // converted to base64; backend consumes either form since it re-checks
-        // via App Store Server API.
-        // In practice, pass the JSON representation (UTF-8) — the backend
-        // detects JSON vs JWS and normalizes.
-        return String(data: transaction.jsonRepresentation, encoding: .utf8)
+    private nonisolated func jwsRepresentation(for result: VerificationResult<Transaction>) -> String? {
+        result.jwsRepresentation
     }
 
     private static func project(_ product: Product) -> StoreProductView {
