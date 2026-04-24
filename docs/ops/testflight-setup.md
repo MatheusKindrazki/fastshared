@@ -123,6 +123,12 @@ make testflight-macos
 Use o comando padrão (`make testflight`) para releases normais. Ele deve subir
 iOS + macOS sempre.
 
+Nota sobre GitHub Actions: a workflow `Apple — Preview Build` só compila iOS e
+macOS sem assinatura para validar o projeto. O upload de TestFlight continua
+explícito via `make testflight` em um Mac confiável com certificados/perfis
+instalados; runner hospedado do GitHub não deve criar certificados Apple sob
+demanda.
+
 ## 8 · Adicionar amigos como Internal Testers
 
 App Store Connect → FastShared → TestFlight → **Internal Testing** → **+** no
