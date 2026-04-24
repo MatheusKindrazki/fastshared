@@ -36,7 +36,7 @@ binding = "RATE_LIMIT"
 id = "6fba7370dd774b42b4ac36d00ec90238"
 
 [triggers]
-crons = ["*/1 * * * *", "0 * * * *", "0 3 * * 0"]
+crons = ["*/1 * * * *", "0 * * * *", "0 3 * * SUN"]
 
 [vars]
 APP_ENV = "production"
