@@ -367,25 +367,12 @@ final class TrayManager: NSObject {
         let po = NSPopover()
         po.behavior = .transient
         po.contentSize = NSSize(width: 360, height: 400)
-        let host = NSHostingController(rootView: rootView)
+        let host = NSViewController()
+        let hostView = PopoverDropHostingView(rootView: rootView)
+        hostView.manager = self
+        host.view = hostView
         po.contentViewController = host
         self.popover = po
-
-        // WHY: SwiftUI .onDrop inside an NSPopover is unreliable on macOS
-        // (the drag session that started on the Finder window sometimes
-        // refuses to transfer into the popover's content window). We add a
-        // transparent AppKit overlay that implements NSDraggingDestination.
-        // CRITICAL: add to host.view.superview, NOT host.view itself —
-        // adding subviews to NSHostingController.view is unsupported and
-        // triggers layout recursion (rdar://FB9867432).
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            guard let container = host.view.superview else { return }
-            let dropOverlay = PopoverDropOverlay(frame: container.bounds)
-            dropOverlay.autoresizingMask = [.width, .height]
-            dropOverlay.manager = self
-            container.addSubview(dropOverlay)
-        }
     }
 
     // MARK: - Popover control
@@ -553,11 +540,7 @@ private final class TrayIconView: NSView {
         super.init(frame: frameRect)
         // Register both modern (public.file-url) and legacy (NSFilenamesPboardType)
         // types so Finder drags are always recognised.
-        registerForDraggedTypes([
-            NSPasteboard.PasteboardType.fileURL,
-            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
-            NSPasteboard.PasteboardType.URL
-        ])
+        registerForDraggedTypes(PasteboardFileURLs.draggedTypes)
     }
 
     required init?(coder: NSCoder) {
@@ -577,19 +560,12 @@ private final class TrayIconView: NSView {
 
     // MARK: NSDraggingDestination
 
-    // MARK: NSDraggingDestination
-
     override func wantsPeriodicDraggingUpdates() -> Bool {
         true
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        let pasteboard = sender.draggingPasteboard
-        let hasFiles = pasteboard.canReadObject(forClasses: [NSURL.self],
-                                                options: [.urlReadingFileURLsOnly: true])
-            || pasteboard.types?.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType")) ?? false
-
-        if hasFiles {
+        if PasteboardFileURLs.canReadFileURLs(from: sender.draggingPasteboard) {
             manager?.beginDragSession()
             return .copy
         }
@@ -609,17 +585,7 @@ private final class TrayIconView: NSView {
 
         guard let mgr = manager else { return false }
 
-        let pasteboard = sender.draggingPasteboard
-        var fileURLs: [URL] = []
-
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self],
-                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] {
-            fileURLs.append(contentsOf: urls)
-        }
-        if fileURLs.isEmpty,
-           let propertyList = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
-            fileURLs = propertyList.map { URL(fileURLWithPath: $0) }
-        }
+        let fileURLs = PasteboardFileURLs.read(from: sender.draggingPasteboard)
 
         guard !fileURLs.isEmpty else { return false }
         mgr.handleTrayDrop(urls: fileURLs)
@@ -627,58 +593,106 @@ private final class TrayIconView: NSView {
     }
 }
 
-// MARK: - PopoverDropOverlay
+// MARK: - PopoverDropHostingView
 
-/// Transparent overlay added to the NSPopover's content view so drops
-/// that enter the popover window are captured at the AppKit level and
-/// forwarded to the upload pipeline. Works around SwiftUI .onDrop
-/// reliability issues inside NSPopover on macOS.
-private final class PopoverDropOverlay: NSView {
+/// Hosting view registered as the popover's AppKit drag destination.
+/// SwiftUI `.onDrop` inside an `NSPopover` is unreliable for Finder drags, and
+/// installing an overlay before the popover is shown races with view creation.
+private final class PopoverDropHostingView<Root: View>: NSHostingView<Root> {
     weak var manager: TrayManager?
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        registerForDraggedTypes([
-            NSPasteboard.PasteboardType.fileURL,
-            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
-            NSPasteboard.PasteboardType.URL
-        ])
+    required init(rootView: Root) {
+        super.init(rootView: rootView)
+        registerForDraggedTypes(PasteboardFileURLs.draggedTypes)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Allow mouse clicks to pass through to SwiftUI buttons underneath.
-    // We only need this overlay for drag-and-drop, not for hit-testing.
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        return .copy
+        PasteboardFileURLs.canReadFileURLs(from: sender.draggingPasteboard) ? .copy : []
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        .copy
+        PasteboardFileURLs.canReadFileURLs(from: sender.draggingPasteboard) ? .copy : []
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let pasteboard = sender.draggingPasteboard
-        var fileURLs: [URL] = []
-
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self],
-                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] {
-            fileURLs.append(contentsOf: urls)
-        }
-        if fileURLs.isEmpty,
-           let propertyList = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
-            fileURLs = propertyList.map { URL(fileURLWithPath: $0) }
-        }
-
+        let fileURLs = PasteboardFileURLs.read(from: sender.draggingPasteboard)
         guard !fileURLs.isEmpty else { return false }
         manager?.handleTrayDrop(urls: fileURLs)
         return true
+    }
+}
+
+// MARK: - PasteboardFileURLs
+
+private enum PasteboardFileURLs {
+    private static let legacyFilenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+
+    static let draggedTypes: [NSPasteboard.PasteboardType] = [
+        .fileURL,
+        legacyFilenamesType,
+        .URL
+    ]
+
+    static func canReadFileURLs(from pasteboard: NSPasteboard) -> Bool {
+        pasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+            || (pasteboard.types?.contains(legacyFilenamesType) ?? false)
+            || fileURLString(from: pasteboard) != nil
+    }
+
+    static func read(from pasteboard: NSPasteboard) -> [URL] {
+        var urls: [URL] = []
+
+        let objects = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) ?? []
+        for object in objects {
+            if let url = object as? URL, url.isFileURL {
+                urls.append(url)
+            } else if let nsURL = object as? NSURL {
+                let url = nsURL as URL
+                if url.isFileURL {
+                    urls.append(url)
+                }
+            }
+        }
+
+        if urls.isEmpty,
+           let paths = pasteboard.propertyList(forType: legacyFilenamesType) as? [String] {
+            urls = paths.map { URL(fileURLWithPath: $0) }
+        }
+
+        if urls.isEmpty, let url = fileURLString(from: pasteboard) {
+            urls.append(url)
+        }
+
+        return deduplicated(urls)
+    }
+
+    private static func fileURLString(from pasteboard: NSPasteboard) -> URL? {
+        for type in [NSPasteboard.PasteboardType.fileURL, NSPasteboard.PasteboardType.URL] {
+            guard let raw = pasteboard.string(forType: type),
+                  let url = URL(string: raw),
+                  url.isFileURL else { continue }
+            return url
+        }
+        return nil
+    }
+
+    private static func deduplicated(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        var result: [URL] = []
+        for url in urls {
+            let key = url.standardizedFileURL.path
+            if seen.insert(key).inserted {
+                result.append(url)
+            }
+        }
+        return result
     }
 }
 #endif
