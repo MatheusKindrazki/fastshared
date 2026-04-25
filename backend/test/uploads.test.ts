@@ -47,6 +47,7 @@ interface UploadJob {
   clientJobId: string;
   assetId: string | null;
   status: string;
+  errorCode: string | null;
   retentionPolicy: string | null;
   expiresAt: Date | null;
   deleteAfter: Date | null;
@@ -267,6 +268,7 @@ vi.mock('~/db/client', () => {
                     clientJobId: v.clientJobId as string,
                     assetId: (v.assetId as string | null) ?? null,
                     status: v.status as string,
+                    errorCode: (v.errorCode as string | null) ?? null,
                     retentionPolicy: (v.retentionPolicy as string | null) ?? null,
                     expiresAt: (v.expiresAt as Date | null) ?? null,
                     deleteAfter: (v.deleteAfter as Date | null) ?? null,
@@ -616,6 +618,27 @@ describe('uploads flow', () => {
     expect(new Date(body.expiresAt).getTime()).toBeLessThanOrEqual(expected + 60_000);
   });
 
+  it('presign oneMinute applies a 60 second retention window', async () => {
+    const { token } = await seedDevice();
+    const t0 = Date.now();
+    const res = await post(
+      '/v1/uploads',
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'image/jpeg',
+        sizeBytes: 1024,
+        retentionPolicy: 'oneMinute',
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { expiresAt: string; retentionPolicy: string };
+    expect(body.retentionPolicy).toBe('oneMinute');
+    const deltaMs = new Date(body.expiresAt).getTime() - t0;
+    expect(deltaMs).toBeGreaterThanOrEqual(55_000);
+    expect(deltaMs).toBeLessThanOrEqual(65_000);
+  });
+
   it('duplicate clientJobId returns same uploadId', async () => {
     const { token } = await seedDevice();
     const clientJobId = crypto.randomUUID();
@@ -896,6 +919,40 @@ describe('uploads flow', () => {
     const row = store.shareLinks.find((l) => l.token === presignToken);
     expect(row?.linkStatus).toBe('active');
     expect(row?.assetId).toBe(body.assetId);
+  });
+
+  it('/complete returns complete_too_late when the pending short link already expired', async () => {
+    const { token } = await seedDevice();
+    const presign = await post(
+      '/v1/uploads',
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'image/jpeg',
+        sizeBytes: 1024,
+        retentionPolicy: 'oneMinute',
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    const { uploadId, token: presignToken } = (await presign.json()) as {
+      uploadId: string;
+      token: string;
+    };
+    const job = store.uploadJobs.find((j) => j.id === uploadId);
+    expect(job).toBeDefined();
+    job!.expiresAt = new Date(Date.now() - 1_000);
+
+    const res = await post(
+      `/v1/uploads/${uploadId}/complete`,
+      { contentType: 'image/jpeg', sizeBytes: 1024, sha256: 'c'.repeat(64) },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { code?: string };
+    expect(body.code).toBe('complete_too_late');
+    expect(job!.status).toBe('failed');
+    expect(job!.errorCode).toBe('complete_too_late');
+    expect(store.shareLinks.find((l) => l.token === presignToken)?.linkStatus).toBe('expired');
+    expect(headMock).not.toHaveBeenCalled();
   });
 
   // Tier 2 — multipart uploads

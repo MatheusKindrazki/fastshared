@@ -10,6 +10,7 @@ const MIN_CUSTOM_SECONDS = 300;
 const MAX_CUSTOM_SECONDS = 2_592_000; // 30 days
 
 const PRESET_SECONDS: Record<Exclude<RetentionPolicy, 'custom'>, number> = {
+  oneMinute: 60,
   oneHour: 3_600,
   oneDay: 86_400,
   oneWeek: 604_800,
@@ -40,6 +41,7 @@ export function resolveRetention(
 
 function asRetentionPolicy(value: string): RetentionPolicy {
   switch (value) {
+    case 'oneMinute':
     case 'oneHour':
     case 'oneDay':
     case 'oneWeek':

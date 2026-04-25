@@ -195,6 +195,28 @@ describe('rateLimitFreeTier', () => {
     expect(store.uploadJobs[0]!.retentionPolicy).toBe('oneDay');
   });
 
+  it('Free retentionPolicy=oneMinute is allowed without clamp', async () => {
+    const { token } = await seedDevice();
+    const res = await post(
+      '/v1/uploads',
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'image/jpeg',
+        sizeBytes: 2048,
+        retentionPolicy: 'oneMinute',
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      retentionPolicy: string;
+      retentionClamped?: boolean;
+    };
+    expect(body.retentionPolicy).toBe('oneMinute');
+    expect(body.retentionClamped).toBeUndefined();
+    expect(store.uploadJobs[0]!.retentionPolicy).toBe('oneMinute');
+  });
+
   it('Pro uploads bypass the daily cap even at 1 GB', async () => {
     const { deviceId, token } = await seedDevice();
     seedActiveSub(deviceId);

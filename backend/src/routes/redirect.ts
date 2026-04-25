@@ -69,8 +69,6 @@ async function loadActiveLinkAndAsset(
   const link = await findByToken(db, token);
   if (!link) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
-  // Pending: asset hasn't landed yet. Recipient sees the "Uploading…" page.
-  if (link.linkStatus === 'pending') return { status: 'pending', link };
   const now = Date.now();
   if (link.expiresAt.getTime() <= now) {
     // Lazy flip so the stored state matches reality for observers.
@@ -85,6 +83,8 @@ async function loadActiveLinkAndAsset(
     );
     return { status: 'gone', reason: 'expired' };
   }
+  // Pending: asset hasn't landed yet. Recipient sees the "Uploading…" page.
+  if (link.linkStatus === 'pending') return { status: 'pending', link };
   // assetId is nullable on the schema (pending rows), but any non-pending
   // state must have an asset — if it's missing the link is effectively gone.
   if (!link.assetId) return { status: 'gone', reason: 'deleted' };

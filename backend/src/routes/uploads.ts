@@ -34,7 +34,14 @@ import {
 import { log } from '~/lib/logger';
 import { hmacSha256Hex } from '~/lib/hash';
 
-const RETENTION_POLICIES = ['oneHour', 'oneDay', 'oneWeek', 'oneMonth', 'custom'] as const;
+const RETENTION_POLICIES = [
+  'oneMinute',
+  'oneHour',
+  'oneDay',
+  'oneWeek',
+  'oneMonth',
+  'custom',
+] as const;
 
 // Tier 2: files larger than this threshold go through R2 multipart (parallel
 // PUTs). Threshold and part size are frozen by the plan — don't tune here.
@@ -408,6 +415,18 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
     createdAt: job.createdAt,
     originalFilename: body.originalFilename,
   });
+
+  if (job.expiresAt.getTime() <= Date.now()) {
+    await markCompleteTooLate(c, db, job, storageKey, uploadId);
+    return problem(
+      c,
+      409,
+      'complete_too_late',
+      'Conflict',
+      'share link expired before upload completed',
+      { expiresAt: job.expiresAt.toISOString() },
+    );
+  }
 
   // Tier 2: multipart finalization. Enforce a bidirectional contract between
   // client and server — whatever path presign took, /complete must honor the
@@ -961,6 +980,8 @@ async function enforceBatchFreeTierLimits(
 function retentionExceedsFreeCap(policy: string, customTtlSeconds: number | undefined): boolean {
   const maxSeconds = FREE_CAPS.maxRetentionHours * 3600;
   switch (policy) {
+    case 'oneMinute':
+      return false;
     case 'oneHour':
       return false;
     case 'oneDay':
@@ -974,6 +995,51 @@ function retentionExceedsFreeCap(policy: string, customTtlSeconds: number | unde
     default:
       return true;
   }
+}
+
+async function markCompleteTooLate(
+  c: Context<AppBindings>,
+  db: Db,
+  job: LoadedUploadJob,
+  storageKey: string,
+  uploadId: string,
+): Promise<void> {
+  await db
+    .update(uploadJob)
+    .set({ status: 'failed', errorCode: 'complete_too_late', updatedAt: sql`now()` })
+    .where(eq(uploadJob.id, uploadId));
+
+  if (job.pendingShareLinkToken) {
+    await db
+      .update(shareLink)
+      .set({ linkStatus: 'expired' })
+      .where(
+        and(eq(shareLink.token, job.pendingShareLinkToken), eq(shareLink.linkStatus, 'pending')),
+      );
+  }
+
+  c.executionCtx.waitUntil(
+    cleanupExpiredUpload(c, storageKey, job.multipartUploadId).catch((err) => {
+      log.warn({
+        msg: 'complete_too_late_cleanup_failed',
+        requestId: c.get('requestId'),
+        uploadId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }),
+  );
+}
+
+async function cleanupExpiredUpload(
+  c: Context<AppBindings>,
+  storageKey: string,
+  multipartUploadId: string | null,
+): Promise<void> {
+  if (multipartUploadId) {
+    await abortMultipartUpload(c.env, storageKey, multipartUploadId);
+    return;
+  }
+  await deleteObject({ env: c.env, key: storageKey });
 }
 
 function nextUtcMidnight(now: Date = new Date()): Date {

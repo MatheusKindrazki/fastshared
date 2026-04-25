@@ -165,6 +165,8 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
 
 function ttlSecondsForPolicy(policy: string, customTtlSeconds?: number): number | null {
   switch (policy) {
+    case 'oneMinute':
+      return 60;
     case 'oneHour':
       return 3600;
     case 'oneDay':

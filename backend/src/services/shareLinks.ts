@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '~/db/client';
 import { asset, shareLink, type ShareLink, type NewShareLink } from '~/db/schema';
 import { generateToken, TOKEN_LENGTH } from '~/lib/tokens';
@@ -91,7 +91,7 @@ export async function markExpiredByToken(db: Db, token: string): Promise<void> {
   await db
     .update(shareLink)
     .set({ linkStatus: 'expired' })
-    .where(and(eq(shareLink.token, token), eq(shareLink.linkStatus, 'active')));
+    .where(and(eq(shareLink.token, token), inArray(shareLink.linkStatus, ['active', 'pending'])));
 }
 
 // Single UPDATE keeps the hot redirect path to one round trip.
