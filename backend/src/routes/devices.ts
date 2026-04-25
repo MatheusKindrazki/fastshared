@@ -7,7 +7,7 @@ import { toBase64Url } from '~/lib/hash';
 import { ratelimit } from '~/middleware/ratelimit';
 
 const registerSchema = z.object({
-  platform: z.enum(['ios', 'ipados', 'macos']),
+  platform: z.enum(['ios', 'ipados', 'macos', 'cli']),
   appVersion: z.string().min(1).max(64),
   idfv: z.string().min(1).max(128).optional(),
 });
