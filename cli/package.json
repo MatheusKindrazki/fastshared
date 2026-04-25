@@ -1,0 +1,29 @@
+{
+  "name": "@fastshared/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "FastShared command-line uploader for agents and scripts",
+  "bin": {
+    "fastshared": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "pack:release": "pnpm build && rm -rf dist-release && mkdir -p dist-release && npm pack --pack-destination dist-release"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
+  }
+}
