@@ -470,7 +470,6 @@ async function loadActiveBundle(
   const link = await findByToken(db, token);
   if (!link || !link.isBundle) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
-  if (link.linkStatus === 'pending') return { status: 'pending' };
   if (link.expiresAt.getTime() <= Date.now()) {
     c.executionCtx.waitUntil(
       markExpiredByToken(db, token).catch((err) => {
@@ -483,6 +482,7 @@ async function loadActiveBundle(
     );
     return { status: 'gone', reason: 'expired' };
   }
+  if (link.linkStatus === 'pending') return { status: 'pending' };
   // Two queries (junction + assets) instead of a JOIN — keeps the route
   // simple and lets the test fake stay dumb. Assets in displayOrder.
   const junctions = await db
