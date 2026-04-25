@@ -16,7 +16,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "pack:release": "pnpm build && rm -rf dist-release && mkdir -p dist-release && npm pack --pack-destination dist-release"
+    "pack:release": "pnpm build && node scripts/pack-release.mjs"
   },
   "engines": {
     "node": ">=20"
