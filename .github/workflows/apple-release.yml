@@ -65,7 +65,6 @@ jobs:
             -configuration Release \
             -archivePath "build/${{ matrix.platform.archive }}" \
             CURRENT_PROJECT_VERSION=${{ steps.build_number.outputs.value }} \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
             -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
