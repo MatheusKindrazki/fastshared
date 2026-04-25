@@ -76,6 +76,9 @@ bucket_name = "fastshared-staging"
 binding = "RATE_LIMIT"
 id = "00000000000000000000000000000000"
 
+[env.staging.triggers]
+crons = []
+
 [env.staging.vars]
 APP_ENV = "staging"
 SHORT_LINK_HOST = "https://fastshared-api-stg.kindrazki.workers.dev"
