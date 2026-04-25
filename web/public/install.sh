@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo="${FASTSHARED_CLI_REPO:-MatheusKindrazki/fastshared}"
-version="${FASTSHARED_CLI_VERSION:-latest}"
+version="${FASTSHARED_CLI_VERSION:-v0.1.1}"
 asset="${FASTSHARED_CLI_ASSET:-fastshared-cli.tgz}"
 install_dir="${FASTSHARED_INSTALL_DIR:-$HOME/.local/share/fastshared-cli}"
 bin_dir="${FASTSHARED_BIN_DIR:-$HOME/.local/bin}"

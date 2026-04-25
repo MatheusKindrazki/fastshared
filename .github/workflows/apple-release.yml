@@ -14,7 +14,7 @@ name: apple-release
 on:
   push:
     tags:
-      - 'v*'
+      - 'apple-v*'
   workflow_dispatch:
     inputs:
       build_number:
