@@ -1,6 +1,6 @@
 {
   "name": "@fastshared/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "FastShared command-line uploader for agents and scripts",
