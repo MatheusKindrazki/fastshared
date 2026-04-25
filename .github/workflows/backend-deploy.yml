@@ -41,6 +41,11 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Ensure Staging KV namespace
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/ensure-staging-rate-limit-kv.mjs
+
       - name: Deploy to Staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

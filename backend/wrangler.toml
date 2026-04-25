@@ -58,9 +58,9 @@ BETA_UNLIMITED_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 # --- Staging environment ------------------------------------------------------
 # Deploy with: wrangler deploy --env staging
 # Uses the default workers.dev subdomain (no custom domain needed).
-# Staging must never share prod data-plane resources. Provision the bucket and
-# KV namespace before deploying this env; the placeholder KV id intentionally
-# fails fast if it is not replaced.
+# Staging must never share prod data-plane resources. CI runs
+# scripts/ensure-staging-rate-limit-kv.mjs before deploy to create/reuse a
+# deterministic KV namespace and patch this placeholder in the runner checkout.
 [env.staging]
 name = "fastshared-api-stg"
 
