@@ -496,6 +496,7 @@ export interface RenderPendingPageArgs {
   sizeBytes: number;
   expiresAt: Date;
   canonicalUrl: string;
+  disableProbe?: boolean;
   requestNow?: Date;
 }
 
@@ -510,6 +511,25 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
   const safeFilename = escapeHtml(args.filename);
   const safeRemaining = escapeHtml(humanRemaining);
   const safeCanonical = escapeHtml(args.canonicalUrl);
+
+  const probeScript = args.disableProbe
+    ? ''
+    : `<script>
+(function () {
+  // Tight poll against /raw — 404 means still pending, 200 means the asset
+  // landed. On first 200, reload so the dispatch handler serves the real
+  // preview. The meta refresh above is the no-JS fallback.
+  var probeUrl = ${JSON.stringify(args.canonicalUrl + '/raw')};
+  var timer = setInterval(function () {
+    fetch(probeUrl, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+      if (r.status === 200 || r.status === 206) {
+        clearInterval(timer);
+        location.reload();
+      }
+    }).catch(function () { /* ignore — meta refresh covers */ });
+  }, 3000);
+})();
+</script>`;
 
   const body = `<!doctype html>
 <html lang="en">
@@ -674,22 +694,7 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
     <a href="https://fastsha.red">fastsha.red</a> &middot; share a file, watch it expire.
   </footer>
 </main>
-<script>
-(function () {
-  // Tight poll against /raw — 404 means still pending, 200 means the asset
-  // landed. On first 200, reload so the dispatch handler serves the real
-  // preview. The meta refresh above is the no-JS fallback.
-  var probeUrl = ${JSON.stringify(args.canonicalUrl + '/raw')};
-  var timer = setInterval(function () {
-    fetch(probeUrl, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
-      if (r.status === 200 || r.status === 206) {
-        clearInterval(timer);
-        location.reload();
-      }
-    }).catch(function () { /* ignore — meta refresh covers */ });
-  }, 3000);
-})();
-</script>
+${probeScript}
 </body>
 </html>`;
 

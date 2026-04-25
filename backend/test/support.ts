@@ -308,7 +308,15 @@ export function installDrizzleFake(): void {
               if (name === 'upload_job') {
                 return chain<UploadJobRow>(
                   () => store.uploadJobs,
-                  (r, conds) => conds.length === 0 || conds.some((c) => c === r.id),
+                  (r, conds) =>
+                    conds.length === 0 ||
+                    conds.some(
+                      (c) =>
+                        c === r.id ||
+                        c === r.deviceId ||
+                        c === r.clientJobId ||
+                        c === r.pendingShareLinkToken,
+                    ),
                 );
               }
               if (name === 'bundle_asset') {

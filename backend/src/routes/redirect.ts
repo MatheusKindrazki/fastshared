@@ -466,11 +466,11 @@ async function loadActiveBundle(
   c: Context<AppBindings>,
   db: Db,
   token: string,
-): Promise<LoadedBundle | { status: 'not_found' } | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' } | { status: 'pending' }> {
+): Promise<LoadedBundle | { status: 'not_found' } | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' } | { status: 'pending'; link: ShareLink }> {
   const link = await findByToken(db, token);
   if (!link || !link.isBundle) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
-  if (link.linkStatus === 'pending') return { status: 'pending' };
+  if (link.linkStatus === 'pending') return { status: 'pending', link };
   if (link.expiresAt.getTime() <= Date.now()) {
     c.executionCtx.waitUntil(
       markExpiredByToken(db, token).catch((err) => {
@@ -509,7 +509,15 @@ async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> 
   const loaded = await loadActiveBundle(c, db, token);
   if ('status' in loaded) {
     if (loaded.status === 'not_found') return goneOrNotFoundHtml(c, 404, 'not_found', 'unknown bundle');
-    if (loaded.status === 'pending') return goneOrNotFoundHtml(c, 404, 'not_found', 'bundle still uploading');
+    if (loaded.status === 'pending') {
+      return renderPendingPage({
+        filename: 'Bundle upload',
+        sizeBytes: 0,
+        expiresAt: loaded.link.expiresAt,
+        canonicalUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
+        disableProbe: true,
+      });
+    }
     return goneOrNotFoundHtml(c, 410, 'gone', loaded.reason);
   }
 

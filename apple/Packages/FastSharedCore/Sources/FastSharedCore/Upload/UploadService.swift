@@ -23,6 +23,9 @@ public protocol UploadServiceProtocol: Sendable {
                  originalFilename: String?,
                  retentionPolicy: RetentionPolicy) async throws -> UploadJob
     func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy) async throws -> EnqueueResult
+    func enqueueDrop(urls: [URL],
+                     retentionPolicy: RetentionPolicy,
+                     progressClientJobId: UUID?) async throws -> EnqueueResult
 }
 
 public extension UploadServiceProtocol {
@@ -37,6 +40,12 @@ public extension UploadServiceProtocol {
 
     func enqueueDrop(urls: [URL]) async throws -> EnqueueResult {
         try await enqueueDrop(urls: urls, retentionPolicy: RetentionPolicy.defaultFromAppGroup())
+    }
+
+    func enqueueDrop(urls: [URL],
+                     retentionPolicy: RetentionPolicy,
+                     progressClientJobId: UUID?) async throws -> EnqueueResult {
+        try await enqueueDrop(urls: urls, retentionPolicy: retentionPolicy)
     }
 }
 
@@ -123,6 +132,37 @@ actor BundleProgressAggregator {
     }
 }
 
+actor PreparationProgressAggregator {
+    private var perItem: [UUID: Int64] = [:]
+    private let monitorClientJobId: UUID
+    private let totalBytes: Int64
+    private let stage: UploadProgressMonitor.ActiveUpload.Stage
+
+    init(monitorClientJobId: UUID,
+         totalBytes: Int64,
+         stage: UploadProgressMonitor.ActiveUpload.Stage) {
+        self.monitorClientJobId = monitorClientJobId
+        self.totalBytes = max(1, totalBytes)
+        self.stage = stage
+    }
+
+    func update(itemId: UUID, bytes: Int64) {
+        let prior = perItem[itemId] ?? 0
+        perItem[itemId] = max(prior, bytes)
+        let summed = perItem.values.reduce(0, +)
+        let fraction = min(1.0, Double(summed) / Double(totalBytes))
+        Task { @MainActor in
+            UploadProgressMonitor.shared.updateProgress(
+                clientJobId: monitorClientJobId,
+                progress: fraction,
+                bytesSent: summed,
+                bytesTotal: totalBytes,
+                stage: stage
+            )
+        }
+    }
+}
+
 public actor UploadService: UploadServiceProtocol {
     private let apiClient: APIClientProtocol
     private let store: SwiftDataStore
@@ -186,22 +226,40 @@ public actor UploadService: UploadServiceProtocol {
                             stagedRelativePath: relative,
                             retentionPolicy: retentionPolicy)
         try await repository.create(job)
+        let clientJobId = job.clientJobId
+        await MainActor.run {
+            UploadProgressMonitor.shared.start(
+                clientJobId: clientJobId,
+                filename: originalFilename ?? "",
+                contentType: contentType,
+                bytesTotal: size,
+                stage: .hashing
+            )
+        }
 
         do {
-            try await repository.updateStatus(clientJobId: job.clientJobId, status: .presigning)
+            try await repository.updateStatus(clientJobId: clientJobId, status: .presigning)
             // Emit hashing immediately so the UI swaps "Preparing…" → determinate bar.
             prepareObserver?(.hashing(bytesHashed: 0, totalBytes: size))
             // Hash and presign run concurrently; sha256 is sent at /complete.
             // Trade: first upload of a new hash skips server-side dedup fast-path.
             async let hashFuture = SHA256Streamer.hash(fileAt: stagedURL, progress: { bytes in
                 prepareObserver?(.hashing(bytesHashed: bytes, totalBytes: size))
+                Task { @MainActor in
+                    UploadProgressMonitor.shared.updateProgress(
+                        clientJobId: clientJobId,
+                        progress: size > 0 ? Double(bytes) / Double(size) : 1,
+                        bytesSent: bytes,
+                        bytesTotal: size,
+                        stage: .hashing
+                    )
+                }
             })
-            // Presign races alongside hash. Flip to `.presigning` so the UI
-            // swaps to an indeterminate shimmer while the server returns
-            // multipart part URLs (2-3s for 125 MB files).
-            prepareObserver?(.presigning)
+            // Presign races alongside hash. Keep the tray monitor on hashing
+            // progress until the local file pass is done; otherwise large files
+            // look stuck on an indeterminate "creating link" state.
             async let presignFuture = apiClient.requestUpload(PresignRequest(
-                clientJobId: job.clientJobId,
+                clientJobId: clientJobId,
                 contentType: contentType,
                 sizeBytes: size,
                 sha256: nil,
@@ -209,14 +267,25 @@ public actor UploadService: UploadServiceProtocol {
                 retentionPolicy: retentionPolicy.rawValue,
                 customTtlSeconds: nil
             ))
-            let (sha, presign) = try await (hashFuture, presignFuture)
+            let sha = try await hashFuture
+            prepareObserver?(.presigning)
+            await MainActor.run {
+                UploadProgressMonitor.shared.updateStage(
+                    clientJobId: clientJobId,
+                    stage: .presigning,
+                    progress: 1,
+                    bytesSent: size,
+                    bytesTotal: size
+                )
+            }
+            let presign = try await presignFuture
             job.sha256 = sha
-            try await repository.setSha256(clientJobId: job.clientJobId, sha256: sha)
+            try await repository.setSha256(clientJobId: clientJobId, sha256: sha)
 
             // WHY: the dedup response is disjoint from the happy path — it carries no
             // uploadId or upload instruction, so short-circuit before touching those.
             if let dedupe = presign.deduped {
-                try await orchestrator.recordDedupe(clientJobId: job.clientJobId,
+                try await orchestrator.recordDedupe(clientJobId: clientJobId,
                                                     dedupe: dedupe,
                                                     contentType: contentType,
                                                     sizeBytes: size,
@@ -232,42 +301,39 @@ public actor UploadService: UploadServiceProtocol {
             guard let uploadId = presign.uploadId, let instruction = presign.upload else {
                 throw APIError.decoding(underlying: "presign response missing uploadId or upload instruction")
             }
-            try await repository.setPresign(clientJobId: job.clientJobId,
+            try await repository.setPresign(clientJobId: clientJobId,
                                             uploadId: uploadId)
 
             // Tier 1: copy the optimistic shortUrl immediately so clipboard
             // lands before bytes do. Banner/Live Activity markers below.
             if let shortUrl = presign.shortUrl {
-                await orchestrator.recordPendingLink(clientJobId: job.clientJobId,
+                await orchestrator.recordPendingLink(clientJobId: clientJobId,
                                                      token: presign.token ?? "",
                                                      shortUrl: shortUrl)
                 job.shortURL = shortUrl
                 job.linkAlreadyCopied = true
             }
 
-            try await repository.updateStatus(clientJobId: job.clientJobId, status: .uploading)
-
-            // Start progress tracking *before* the actual upload begins so
-            // the UI (tray icon, banner, Live Activity) is live during the
-            // whole transfer — especially for multipart which blocks until
-            // the last part lands.
-            let bannerClientJobId = job.clientJobId
-            let bannerFilename = originalFilename ?? ""
-            let bannerShortUrl = presign.shortUrl?.absoluteString
+            try await repository.updateStatus(clientJobId: clientJobId, status: .uploading)
             await MainActor.run {
-                UploadProgressMonitor.shared.start(
-                    clientJobId: bannerClientJobId,
-                    filename: bannerFilename,
-                    contentType: contentType,
+                UploadProgressMonitor.shared.updateStage(
+                    clientJobId: clientJobId,
+                    stage: .uploading,
+                    progress: 0,
+                    bytesSent: 0,
                     bytesTotal: size
                 )
+            }
+
+            let bannerShortUrl = presign.shortUrl?.absoluteString
+            await MainActor.run {
                 if let url = bannerShortUrl {
-                    UploadProgressMonitor.shared.markLinkReady(clientJobId: bannerClientJobId,
+                    UploadProgressMonitor.shared.markLinkReady(clientJobId: clientJobId,
                                                                 shortUrl: url)
                 }
             }
             await LiveActivityController.shared.startOrDefer(
-                clientJobId: job.clientJobId,
+                clientJobId: clientJobId,
                 filename: originalFilename ?? "",
                 contentType: contentType,
                 retentionPolicy: retentionPolicy.rawValue,
@@ -295,29 +361,71 @@ public actor UploadService: UploadServiceProtocol {
             job.deleteAfter = presign.deleteAfter
             return job
         } catch {
-            try? await repository.markFailed(clientJobId: job.clientJobId, error: error.localizedDescription)
+            try? await repository.markFailed(clientJobId: clientJobId, error: error.localizedDescription)
+            await MainActor.run {
+                UploadProgressMonitor.shared.finishFailure(clientJobId: clientJobId,
+                                                           reason: error.localizedDescription)
+            }
             throw error
         }
     }
 
     public func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy = .default) async throws -> EnqueueResult {
+        try await enqueueDrop(urls: urls, retentionPolicy: retentionPolicy, progressClientJobId: nil)
+    }
+
+    public func enqueueDrop(urls: [URL],
+                            retentionPolicy: RetentionPolicy = .default,
+                            progressClientJobId: UUID?) async throws -> EnqueueResult {
+        let stagingTotalBytes = urls.map(Self.fileSize).reduce(0, +)
+        var stagedBytesBase: Int64 = 0
+
+        func stagingProgress(for url: URL) -> (@Sendable (_ copied: Int64, _ total: Int64) -> Void)? {
+            guard let progressClientJobId else { return nil }
+            let base = stagedBytesBase
+            let fallbackTotal = Self.fileSize(for: url)
+            return { copied, total in
+                let effectiveTotal = max(1, stagingTotalBytes)
+                let reportedCopied = total == 0 && copied == 0 ? fallbackTotal : copied
+                let effectiveCopied = min(effectiveTotal, base + reportedCopied)
+                Task { @MainActor in
+                    UploadProgressMonitor.shared.updateProgress(
+                        clientJobId: progressClientJobId,
+                        progress: Double(effectiveCopied) / Double(effectiveTotal),
+                        bytesSent: effectiveCopied,
+                        bytesTotal: stagingTotalBytes,
+                        stage: .staging
+                    )
+                }
+            }
+        }
+
         if urls.count == 1 {
-            let staged = try stageDroppedURL(urls[0])
+            let source = urls[0]
+            let staged = try stageDroppedURL(source, progress: stagingProgress(for: source))
             let job = try await enqueue(stagedURL: staged.url,
                                         contentType: staged.contentType,
                                         originalFilename: staged.filename,
                                         retentionPolicy: retentionPolicy)
             return .single(job)
         }
-        let staged = try urls.map { try stageDroppedURL($0) }
-        let bundle = try await enqueueBundle(stagedItems: staged, retentionPolicy: retentionPolicy)
+        var staged: [StagedDrop] = []
+        for url in urls {
+            let stagedItem = try stageDroppedURL(url, progress: stagingProgress(for: url))
+            staged.append(stagedItem)
+            stagedBytesBase += Self.fileSize(for: url)
+        }
+        let bundle = try await enqueueBundle(stagedItems: staged,
+                                             retentionPolicy: retentionPolicy,
+                                             progressClientJobId: progressClientJobId)
         return .bundle(bundle)
     }
 
     /// Stages a user-provided URL into the App Group staging dir and resolves
     /// MIME / filename. Extracted so single + bundle drop paths share one
     /// security-scope dance and one MIME inference.
-    private func stageDroppedURL(_ url: URL) throws -> StagedDrop {
+    private func stageDroppedURL(_ url: URL,
+                                 progress: (@Sendable (_ copied: Int64, _ total: Int64) -> Void)? = nil) throws -> StagedDrop {
         // WHY: SwiftUI's `fileImporter` and UIDocumentPicker hand back
         // security-scoped URLs — sandboxed Release builds (TestFlight / App
         // Store) silently refuse reads outside an active scope. Harmless on
@@ -328,9 +436,50 @@ public actor UploadService: UploadServiceProtocol {
         let stagingRoot = try AppGroupPaths.stagingDirectory()
         let filename = url.lastPathComponent
         let destination = stagingRoot.appendingPathComponent(UUID().uuidString).appendingPathExtension(url.pathExtension)
-        try FileManager.default.copyItem(at: url, to: destination)
+        try Self.copyDroppedFile(from: url, to: destination, progress: progress)
         let ct = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
         return StagedDrop(url: destination, filename: filename, contentType: ct)
+    }
+
+    private static func copyDroppedFile(from source: URL,
+                                        to destination: URL,
+                                        progress: (@Sendable (_ copied: Int64, _ total: Int64) -> Void)?) throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+
+        let resourceValues = try source.resourceValues(forKeys: [.isDirectoryKey])
+        guard resourceValues.isDirectory != true else {
+            try fileManager.copyItem(at: source, to: destination)
+            progress?(1, 1)
+            return
+        }
+
+        let total = fileSize(for: source)
+        guard fileManager.createFile(atPath: destination.path, contents: nil) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+
+        let input = try FileHandle(forReadingFrom: source)
+        defer { try? input.close() }
+        let output = try FileHandle(forWritingTo: destination)
+        defer { try? output.close() }
+
+        var copied: Int64 = 0
+        while true {
+            let chunk = try input.read(upToCount: 1 << 20) ?? Data()
+            if chunk.isEmpty { break }
+            try output.write(contentsOf: chunk)
+            copied += Int64(chunk.count)
+            progress?(copied, total)
+        }
+        progress?(copied, total)
+    }
+
+    private static func fileSize(for url: URL) -> Int64 {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attrs?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     private struct StagedDrop {
@@ -346,7 +495,7 @@ public actor UploadService: UploadServiceProtocol {
     /// persistence is delegated to `UploadOrchestrator.recordBundleSuccess`
     /// once the last per-item /complete returns.
     public func enqueueBundle(stagedURLs: [URL], retentionPolicy: RetentionPolicy) async throws -> BundleUploadJob {
-        let staged = try stagedURLs.map { url -> StagedDrop in
+        let staged = stagedURLs.map { url -> StagedDrop in
             // Files at this entry point are already inside the App Group
             // staging dir (caller's responsibility), so we skip the
             // copy-to-staging dance — but still infer mime from the extension.
@@ -358,23 +507,35 @@ public actor UploadService: UploadServiceProtocol {
     }
 
     private func enqueueBundle(stagedItems: [StagedDrop],
-                               retentionPolicy: RetentionPolicy) async throws -> BundleUploadJob {
+                               retentionPolicy: RetentionPolicy,
+                               progressClientJobId: UUID? = nil) async throws -> BundleUploadJob {
         _ = try await ensureDeviceToken()
 
         // 1. Per-file metadata + sha256 in parallel — server batch handler
         // accepts optional sha256 (lets it dedup early on the fast path).
         var metas: [ItemMeta] = []
+        let hashTotalBytes = stagedItems.map { Self.fileSize(for: $0.url) }.reduce(0, +)
+        let prepareAggregator = progressClientJobId.map {
+            PreparationProgressAggregator(monitorClientJobId: $0,
+                                          totalBytes: hashTotalBytes,
+                                          stage: .hashing)
+        }
         try await withThrowingTaskGroup(of: ItemMeta.self) { group in
             for staged in stagedItems {
                 let relative = try self.relativePath(for: staged.url)
                 let attrs = try FileManager.default.attributesOfItem(atPath: staged.url.path)
                 let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+                let clientJobId = UUID()
                 group.addTask {
-                    let sha = try await SHA256Streamer.hash(fileAt: staged.url)
+                    let sha = try await SHA256Streamer.hash(fileAt: staged.url, progress: { bytes in
+                        if let prepareAggregator {
+                            Task { await prepareAggregator.update(itemId: clientJobId, bytes: bytes) }
+                        }
+                    })
                     return ItemMeta(staged: staged,
                                     size: size,
                                     sha256: sha,
-                                    clientJobId: UUID(),
+                                    clientJobId: clientJobId,
                                     stagedRelative: relative)
                 }
             }
@@ -402,6 +563,17 @@ public actor UploadService: UploadServiceProtocol {
         // WHY hardcoded "signed": backend's batch endpoint accepts only
         // public|signed|password (mirrors short-link auth model). Unlisted is
         // a client-side concept; signed is the safest default for new bundles.
+        if let progressClientJobId {
+            await MainActor.run {
+                UploadProgressMonitor.shared.updateStage(
+                    clientJobId: progressClientJobId,
+                    stage: .presigning,
+                    progress: 1,
+                    bytesSent: hashTotalBytes,
+                    bytesTotal: hashTotalBytes
+                )
+            }
+        }
         let response = try await apiClient.requestBatchUpload(BatchPresignRequest(
             retentionPolicy: retentionPolicy.rawValue,
             visibility: "signed",
@@ -418,24 +590,6 @@ public actor UploadService: UploadServiceProtocol {
         guard let continuation = continuationOpt else {
             throw APIError.transport(underlying: "failed to wire bundle progress stream")
         }
-        // Snapshot the bundle token outside the actor closure so the LA tick
-        // doesn't capture `self` (which would force the closure non-Sendable).
-        let bundleTokenForTick = response.bundleToken
-        let totalBytesForTick = totalBytes
-        let aggregator = BundleProgressAggregator(
-            totalBytes: totalBytes,
-            continuation: continuation,
-            onTick: { bytes, fraction in
-                Task {
-                    await LiveActivityController.shared.updateBundleProgress(
-                        bundleToken: bundleTokenForTick,
-                        bytesUploaded: bytes,
-                        totalBytes: totalBytesForTick,
-                        progress: fraction
-                    )
-                }
-            }
-        )
 
         var jobs: [UploadJob] = []
         for item in response.items {
@@ -456,6 +610,36 @@ public actor UploadService: UploadServiceProtocol {
             jobs.append(job)
         }
 
+        let monitorClientJobId = jobs.first?.clientJobId ?? UUID()
+        let monitorFilename = "\(jobs.count) files"
+
+        // Snapshot bundle values outside the actor closure so progress ticks
+        // don't capture `self` (which would force the closure non-Sendable).
+        let bundleTokenForTick = response.bundleToken
+        let totalBytesForTick = totalBytes
+        let aggregator = BundleProgressAggregator(
+            totalBytes: totalBytes,
+            continuation: continuation,
+            onTick: { bytes, fraction in
+                Task {
+                    await LiveActivityController.shared.updateBundleProgress(
+                        bundleToken: bundleTokenForTick,
+                        bytesUploaded: bytes,
+                        totalBytes: totalBytesForTick,
+                        progress: fraction
+                    )
+                }
+                Task { @MainActor in
+                    UploadProgressMonitor.shared.updateProgress(
+                        clientJobId: monitorClientJobId,
+                        progress: fraction,
+                        bytesSent: bytes,
+                        bytesTotal: totalBytesForTick
+                    )
+                }
+            }
+        )
+
         let bundleShortUrl = response.bundleShortUrl
         let bundleToken = response.bundleToken
 
@@ -465,6 +649,16 @@ public actor UploadService: UploadServiceProtocol {
                                         jobs: jobs,
                                         totalBytes: totalBytes,
                                         aggregateProgress: stream)
+
+        await MainActor.run {
+            UploadProgressMonitor.shared.start(
+                clientJobId: monitorClientJobId,
+                filename: monitorFilename,
+                contentType: "application/x-bundle",
+                bytesTotal: totalBytes,
+                stage: .uploading
+            )
+        }
 
         // Single source of truth for bundle Live Activity start. Same
         // `startOrDefer` rationale as single uploads — share ext can't render
@@ -488,6 +682,7 @@ public actor UploadService: UploadServiceProtocol {
                                         metas: metas,
                                         aggregator: aggregator,
                                         bundleJob: bundleJob,
+                                        monitorClientJobId: monitorClientJobId,
                                         api: api,
                                         orchestrator: orch)
         }
@@ -498,6 +693,7 @@ public actor UploadService: UploadServiceProtocol {
                                   metas: [ItemMeta],
                                   aggregator: BundleProgressAggregator,
                                   bundleJob: BundleUploadJob,
+                                  monitorClientJobId: UUID,
                                   api: APIClientProtocol,
                                   orchestrator: UploadOrchestrator) async {
         // WHY: collect successes; on any failure abort multipart + mark job
@@ -575,8 +771,22 @@ public actor UploadService: UploadServiceProtocol {
             }
         }
         await aggregator.finish()
-        if !completed.isEmpty {
+        if completed.count == items.count {
             await orchestrator.recordBundleSuccess(bundle: bundleJob, completedAssets: completed)
+            await MainActor.run {
+                UploadProgressMonitor.shared.finishSuccess(
+                    clientJobId: monitorClientJobId,
+                    shortUrl: bundleJob.bundleShortUrl.absoluteString
+                )
+            }
+        } else {
+            let failedCount = max(1, items.count - completed.count)
+            await MainActor.run {
+                UploadProgressMonitor.shared.finishFailure(
+                    clientJobId: monitorClientJobId,
+                    reason: "\(failedCount) file\(failedCount == 1 ? "" : "s") failed"
+                )
+            }
         }
     }
 
@@ -710,6 +920,15 @@ public actor UploadService: UploadServiceProtocol {
             )
             try await repository.updateStatus(clientJobId: clientJobId, status: .completing)
             prepareObserver?(.finalizing)
+            await MainActor.run {
+                UploadProgressMonitor.shared.updateStage(
+                    clientJobId: clientJobId,
+                    stage: .finalizing,
+                    progress: 1,
+                    bytesSent: bytesTotal,
+                    bytesTotal: bytesTotal
+                )
+            }
             let response = try await apiClient.completeUpload(
                 uploadId: uploadId,
                 request: CompleteRequest(contentType: contentType,
