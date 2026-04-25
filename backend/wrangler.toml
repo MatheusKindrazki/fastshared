@@ -63,10 +63,7 @@ BETA_UNLIMITED_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 # deterministic KV namespace and patch this placeholder in the runner checkout.
 [env.staging]
 name = "fastshared-api-stg"
-
-[[env.staging.routes]]
-pattern = "fastshared-api-stg.kindrazki.workers.dev"
-custom_domain = false
+workers_dev = true
 
 [[env.staging.r2_buckets]]
 binding = "R2"
