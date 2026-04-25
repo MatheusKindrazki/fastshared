@@ -32,6 +32,11 @@ public actor UploadOrchestrator {
         _ = etag // WHY: retained for API parity but the backend no longer consumes the S3 ETag.
         do {
             try await repository.updateStatus(clientJobId: clientJobId, status: .completing)
+            await MainActor.run {
+                UploadProgressMonitor.shared.updateStage(clientJobId: clientJobId,
+                                                         stage: .finalizing,
+                                                         progress: 1)
+            }
             guard let entity = try await repository.findByClientJobId(clientJobId),
                   let remoteUploadId = entity.remoteUploadId else {
                 log.error("No upload id for job \(clientJobId.uuidString, privacy: .public)")

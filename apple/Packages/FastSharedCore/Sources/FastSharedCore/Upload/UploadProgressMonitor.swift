@@ -22,6 +22,7 @@ public final class UploadProgressMonitor {
         public let filename: String
         public let contentType: String
         public var phase: Phase
+        public var stage: Stage
         public var progress: Double    // 0.0…1.0
         public var bytesSent: Int64
         public var bytesTotal: Int64
@@ -35,6 +36,15 @@ public final class UploadProgressMonitor {
         public enum Phase: String, Sendable {
             case uploading, completed, failed
         }
+
+        public enum Stage: String, Sendable {
+            case receiving
+            case staging
+            case hashing
+            case presigning
+            case uploading
+            case finalizing
+        }
     }
 
     public private(set) var current: ActiveUpload?
@@ -46,7 +56,8 @@ public final class UploadProgressMonitor {
     public func start(clientJobId: UUID,
                       filename: String,
                       contentType: String,
-                      bytesTotal: Int64) {
+                      bytesTotal: Int64,
+                      stage: ActiveUpload.Stage = .receiving) {
         cancelPendingDismiss()
         current = ActiveUpload(
             id: clientJobId,
@@ -54,6 +65,7 @@ public final class UploadProgressMonitor {
             filename: filename,
             contentType: contentType,
             phase: .uploading,
+            stage: stage,
             progress: 0,
             bytesSent: 0,
             bytesTotal: bytesTotal,
@@ -70,17 +82,39 @@ public final class UploadProgressMonitor {
         guard var c = current, c.clientJobId == clientJobId else { return }
         c.shortUrl = shortUrl
         c.linkReady = true
+        c.stage = .uploading
         current = c
     }
 
     public func updateProgress(clientJobId: UUID,
                                progress: Double,
                                bytesSent: Int64,
-                               bytesTotal: Int64) {
+                               bytesTotal: Int64,
+                               stage: ActiveUpload.Stage = .uploading) {
         guard var c = current, c.clientJobId == clientJobId else { return }
         c.progress = max(0, min(1, progress))
         c.bytesSent = bytesSent
         c.bytesTotal = bytesTotal
+        c.stage = stage
+        current = c
+    }
+
+    public func updateStage(clientJobId: UUID,
+                            stage: ActiveUpload.Stage,
+                            progress: Double? = nil,
+                            bytesSent: Int64? = nil,
+                            bytesTotal: Int64? = nil) {
+        guard var c = current, c.clientJobId == clientJobId else { return }
+        c.stage = stage
+        if let progress {
+            c.progress = max(0, min(1, progress))
+        }
+        if let bytesSent {
+            c.bytesSent = bytesSent
+        }
+        if let bytesTotal {
+            c.bytesTotal = bytesTotal
+        }
         current = c
     }
 

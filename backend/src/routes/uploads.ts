@@ -1262,24 +1262,28 @@ async function completeBundleAsset(
     .where(and(eq(bundleAsset.shareLinkId, bundle.id), eq(bundleAsset.uploadJobId, uploadJobId)))
     .limit(1);
   if (existing.length === 0) {
-    // displayOrder = current count. Race-tolerant only because the cleanup
-    // cron + the unique index will surface duplicates as a hard failure to
-    // retry rather than silently mis-order. Two concurrent /complete calls
-    // for distinct upload jobs on the same bundle still get distinct orders so
-    // long as the SELECT-then-INSERT happens serially per job.
-    const siblings = await db
-      .select()
-      .from(bundleAsset)
-      .where(eq(bundleAsset.shareLinkId, bundle.id));
+    // Deterministic slot order from the presigned upload_job rows. Counting
+    // existing bundle_asset rows races when several files complete together:
+    // two requests can pick the same displayOrder and one junction row gets
+    // skipped by ON CONFLICT, leaving the bundle permanently pending.
+    const slots = await db
+      .select({ id: uploadJob.id })
+      .from(uploadJob)
+      .where(eq(uploadJob.pendingShareLinkToken, bundle.token))
+      .orderBy(uploadJob.createdAt, uploadJob.id);
+    const displayOrder = slots.findIndex((slot) => slot.id === uploadJobId);
+    if (displayOrder < 0) {
+      throw new Error('bundle upload slot not found');
+    }
     await db
       .insert(bundleAsset)
       .values({
         shareLinkId: bundle.id,
         assetId,
         uploadJobId,
-        displayOrder: siblings.length,
+        displayOrder,
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing({ target: [bundleAsset.shareLinkId, bundleAsset.uploadJobId] });
   }
 
   const all = await db
