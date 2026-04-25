@@ -28,14 +28,22 @@ pnpm preview
 
 ## Deploy (Cloudflare Pages)
 
-First time, in the Pages UI, create a project named `fastshared-web`
-pointing to this directory, build command `pnpm build`, output `dist`.
-After that, you can deploy from the command line:
+The production Pages project is `fastshared-web` in the personal Cloudflare
+account `aad020260082c48f6370fa7954b72f81`. Do not publish FastShared web
+assets to the MokLabs account.
+
+GitHub Actions deploys production automatically from `main` when `web/**` or
+`.github/workflows/web-deploy.yml` changes. Pull requests run the same build
+without deploying.
+
+For a manual deploy, load the repo root `.env` first and pin the personal
+account id:
 
 ```bash
 pnpm install
 pnpm build
-pnpm dlx wrangler pages deploy dist --project-name fastshared-web
+CLOUDFLARE_ACCOUNT_ID=aad020260082c48f6370fa7954b72f81 \
+  pnpm dlx wrangler pages deploy dist --project-name fastshared-web --branch main
 ```
 
 Then attach the custom domain `www.fastsha.red` in the Cloudflare Pages
