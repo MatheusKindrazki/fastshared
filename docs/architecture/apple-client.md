@@ -58,7 +58,7 @@ Handoff:
 1. `NSExtensionPrincipalClass` is `ShareViewController` with `NSExtensionMainStoryboard` disabled.
 2. `viewDidLoad` walks `extensionContext?.inputItems` for `NSItemProvider` instances conforming to concrete UTTypes (`public.image`, `public.movie`, `public.file-url`, `com.adobe.pdf`, etc.).
 3. For each matching provider, we call `loadFileRepresentation(forTypeIdentifier:completionHandler:)` and stream the result to `App Group/Caches/Staging/<uuid>`. During the stream we compute SHA-256 incrementally using `CryptoKit.SHA256`.
-4. **User selects a retention policy** (default `oneDay`, read from Settings). The picker shows the four presets (`oneHour`, `oneDay`, `oneWeek`, `oneMonth`) with sub-second tap targets. The chosen policy is carried into `PresignRequest`.
+4. **User selects a retention policy** (default `oneDay`, read from Settings). The picker shows the five presets (`oneMinute`, `oneHour`, `oneDay`, `oneWeek`, `oneMonth`) with sub-second tap targets. The chosen policy is carried into `PresignRequest`.
 5. Insert an `UploadJobEntity(state: .pending, sha256:, size:, mime:, stagedPath:, clientJobId: UUID(), retentionPolicy:)` into the shared SwiftData store.
 6. Call `POST /v1/uploads` via `APIClient` with the retention policy.
 7. Server response includes `expiresAt` and `deleteAfter`; we persist them on the job row for the completion step.
@@ -81,7 +81,7 @@ public final class UploadJobEntity {
   public var attempts: Int
   public var lastError: String?
   public var serverUploadId: String?
-  public var retentionPolicy: String   // oneHour | oneDay | oneWeek | oneMonth | custom
+  public var retentionPolicy: String   // oneMinute | oneHour | oneDay | oneWeek | oneMonth | custom
   public var customTtlSeconds: Int?    // set only when retentionPolicy == "custom"
   public var expiresAt: Date?          // filled after presign succeeds
   public var deleteAfter: Date?        // filled after presign succeeds
@@ -165,7 +165,7 @@ Injecting the protocol makes unit tests trivial.
 - **Drop target.** Main window hosts a `DropDelegate` accepting `UTType.fileURL` items. Drop handler applies the default retention from Settings and enqueues jobs.
 - **Command menu.** `CommandGroup(after: .newItem)` adds "Upload from Clipboard" (⌘⇧V) and "Open Recent Link" (⌘L).
 - **`.fileImporter`.** Primary button opens `fileImporter(isPresented:allowedContentTypes:allowsMultipleSelection:onCompletion:)`. Multi-select produces one `UploadJobEntity` per URL; each picks up the default retention from Settings.
-- **Settings pane** exposes a **default-retention picker** (same four presets as the Share Extension) so Mac drops inherit the user's preferred window without a modal.
+- **Settings pane** exposes a **default-retention picker** (same five presets as the Share Extension) so Mac drops inherit the user's preferred window without a modal.
 - **Menu bar extra (future).** Tracked as a post-MVP item; not in scope for MVP.
 
 ## Logging

@@ -51,7 +51,7 @@ Not targeted at enterprise compliance buyers. Not targeted at cross-platform pow
 - Shared SwiftData-backed history with tombstones and live countdown.
 - Per-device bearer token auth for the owner API (upload, history, revoke).
 - Temporary links at `https://fastsha.red/s/<token>`.
-- **Default retention = 24 h**, with 1 h / 1 d / 1 w / 1 mo presets and a clamped custom value (300 s … 30 d).
+- **Default retention = 24 h**, with 60 s / 1 h / 1 d / 1 w / 1 mo presets and a clamped custom value (300 s … 30 d).
 - **Link expires automatically** at `expiresAt`; subsequent access returns `410 Gone`.
 - **R2 object is deleted automatically** at `deleteAfter = expiresAt + 24 h` via an app-level deletion cron (R2 lifecycle rule as safety net).
 - **Anonymous resolve** at `/s/:token` — DB-gated Worker stream from private R2. No sign-in required for recipients.

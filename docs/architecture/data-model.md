@@ -162,7 +162,7 @@ create table share_link (
   link_status text not null default 'active'
     check (link_status in ('active','expired','revoked')),
   retention_policy text not null
-    check (retention_policy in ('oneHour','oneDay','oneWeek','oneMonth','custom')),
+    check (retention_policy in ('oneMinute','oneHour','oneDay','oneWeek','oneMonth','custom')),
   expires_at timestamptz not null,
   delete_after timestamptz not null,
   revoked_at timestamptz,
@@ -192,7 +192,7 @@ create table upload_job (
   attempts int not null default 0,
   last_error text,
   retention_policy text not null
-    check (retention_policy in ('oneHour','oneDay','oneWeek','oneMonth','custom')),
+    check (retention_policy in ('oneMinute','oneHour','oneDay','oneWeek','oneMonth','custom')),
   custom_ttl_seconds int,
   asset_id uuid references asset(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -242,7 +242,7 @@ public final class UploadJobEntity {
     public var attempts: Int
     public var lastError: String?
     public var serverUploadId: String?
-    public var retentionPolicy: String  // oneHour | oneDay | oneWeek | oneMonth | custom
+    public var retentionPolicy: String  // oneMinute | oneHour | oneDay | oneWeek | oneMonth | custom
     public var customTtlSeconds: Int?
     public var expiresAt: Date?         // filled after presign
     public var deleteAfter: Date?       // filled after presign
