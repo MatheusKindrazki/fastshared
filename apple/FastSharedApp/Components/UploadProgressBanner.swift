@@ -94,6 +94,20 @@ struct UploadProgressBanner: View {
     private var headline: String {
         switch upload.phase {
         case .uploading:
+            switch upload.stage {
+            case .receiving:
+                return "File received"
+            case .staging:
+                return "Preparing file \(percent(upload.progress))"
+            case .hashing:
+                return "Checking file \(percent(upload.progress))"
+            case .presigning:
+                return "Creating link…"
+            case .finalizing:
+                return "Finishing upload…"
+            case .uploading:
+                break
+            }
             // Tier 1: presign returns an optimistic short URL that gets
             // copied immediately; banner acknowledges the copy while bytes
             // continue to flow.
@@ -111,8 +125,22 @@ struct UploadProgressBanner: View {
     private var subline: String? {
         switch upload.phase {
         case .uploading:
-            if upload.bytesTotal > 0 {
+            if upload.bytesTotal > 0, upload.bytesSent > 0 {
                 return "\(formatted(upload.bytesSent)) / \(formatted(upload.bytesTotal))"
+            }
+            switch upload.stage {
+            case .receiving:
+                return upload.filename.isEmpty ? "Drop accepted" : upload.filename
+            case .staging:
+                return upload.filename.isEmpty ? "Preparing local copy…" : upload.filename
+            case .hashing:
+                return upload.filename.isEmpty ? "Checking file…" : upload.filename
+            case .presigning:
+                return "Creating secure link before upload"
+            case .finalizing:
+                return "Finalizing share link"
+            case .uploading:
+                break
             }
             return "\(Int(upload.progress * 100))%"
         case .completed:
@@ -150,5 +178,9 @@ struct UploadProgressBanner: View {
 
     private func formatted(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private func percent(_ progress: Double) -> String {
+        "\(Int((max(0, min(1, progress)) * 100).rounded()))%"
     }
 }

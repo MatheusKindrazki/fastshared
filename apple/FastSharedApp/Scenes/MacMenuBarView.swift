@@ -28,7 +28,6 @@ struct MacMenuBarView: View {
     private var allShares: [ShareLinkEntity]
 
     @State private var isDragTargeted: Bool = false
-    @State private var isUploading: Bool = false
 
     // MARK: - Adaptive palette — HIG semantic (NSColor bridges).
 
@@ -51,6 +50,25 @@ struct MacMenuBarView: View {
             .map { $0 }
     }
 
+    private var activeUpload: UploadProgressMonitor.ActiveUpload? {
+        UploadProgressMonitor.shared.current
+    }
+
+    private var dropZoneAccent: Color {
+        switch activeUpload?.phase {
+        case .completed:
+            return BrandPalette.successGreen
+        case .failed:
+            return BrandPalette.accentFade
+        case .uploading, nil:
+            return BrandPalette.accentHot
+        }
+    }
+
+    private var dropZoneIsActive: Bool {
+        isDragTargeted || activeUpload != nil
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -64,6 +82,8 @@ struct MacMenuBarView: View {
         }
         .frame(width: 360)
         .background(groundColor)
+        .animation(.easeInOut(duration: 0.18), value: activeUpload?.phase)
+        .animation(.easeInOut(duration: 0.18), value: activeUpload?.progress)
     }
 
     // MARK: - Header
@@ -93,28 +113,31 @@ struct MacMenuBarView: View {
 
     private var dropZoneCard: some View {
         VStack(spacing: 4) {
-            Text("📎")
-                .font(.system(size: 22))
+            dropZoneIcon
                 .padding(.bottom, 4)
 
-            Text(isUploading ? "Uploading…" : "Drop a file to share")
+            Text(dropZoneTitle)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(textColor)
+                .lineLimit(1)
+                .truncationMode(.middle)
 
-            Text("Link copied automatically")
+            Text(dropZoneSubtitle)
                 .font(.system(size: 11))
                 .foregroundStyle(textDimColor)
+                .lineLimit(1)
+                .truncationMode(.middle)
                 .padding(.top, 2)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(BrandPalette.accentHot.opacity(isDragTargeted ? 0.14 : 0.07))
+                .fill(dropZoneAccent.opacity(dropZoneIsActive ? 0.14 : 0.07))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(
-                            BrandPalette.accentHot.opacity(isDragTargeted ? 0.50 : 0.25),
+                            dropZoneAccent.opacity(dropZoneIsActive ? 0.50 : 0.25),
                             style: StrokeStyle(lineWidth: 1.5, dash: [5])
                         )
                 )
@@ -128,6 +151,88 @@ struct MacMenuBarView: View {
             // Visual feedback only — the actual drop is caught by the overlay.
             isDragTargeted = targeted
         }
+    }
+
+    @ViewBuilder
+    private var dropZoneIcon: some View {
+        if let upload = activeUpload {
+            switch upload.phase {
+            case .uploading:
+                Ring(progress: upload.progress, size: 28, stroke: 3, tint: dropZoneAccent)
+            case .completed:
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(dropZoneAccent)
+            case .failed:
+                Image(systemName: "xmark.octagon.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(dropZoneAccent)
+            }
+        } else {
+            Text("📎")
+                .font(.system(size: 22))
+        }
+    }
+
+    private var dropZoneTitle: String {
+        guard let upload = activeUpload else { return "Drop a file to share" }
+        switch upload.phase {
+        case .uploading:
+            switch upload.stage {
+            case .receiving:
+                return "File received"
+            case .staging:
+                return "Preparing file \(percent(upload.progress))"
+            case .hashing:
+                return "Checking file \(percent(upload.progress))"
+            case .presigning:
+                return "Creating link…"
+            case .finalizing:
+                return "Finishing upload…"
+            case .uploading:
+                break
+            }
+            if upload.linkReady {
+                return "Link copied — uploading"
+            }
+            return "Uploading \(Int((upload.progress * 100).rounded()))%"
+        case .completed:
+            return "Link copied"
+        case .failed:
+            return "Upload failed"
+        }
+    }
+
+    private var dropZoneSubtitle: String {
+        guard let upload = activeUpload else { return "Link copied automatically" }
+        switch upload.phase {
+        case .uploading:
+            if upload.bytesTotal > 0, upload.bytesSent > 0 {
+                return "\(formatted(upload.bytesSent)) / \(formatted(upload.bytesTotal))"
+            }
+            switch upload.stage {
+            case .receiving:
+                return upload.filename.isEmpty ? "Drop accepted" : upload.filename
+            case .staging:
+                return upload.filename.isEmpty ? "Preparing local copy…" : upload.filename
+            case .hashing:
+                return upload.filename.isEmpty ? "Checking file…" : upload.filename
+            case .presigning:
+                return "Creating secure link before upload"
+            case .finalizing:
+                return "Finalizing share link"
+            case .uploading:
+                return upload.filename.isEmpty ? "Uploading…" : upload.filename
+            }
+        case .completed:
+            return upload.filename.isEmpty ? "Upload complete" : upload.filename
+        case .failed:
+            return upload.error ?? (upload.filename.isEmpty ? "Try again" : upload.filename)
+        }
+    }
+
+    private func percent(_ progress: Double) -> String {
+        "\(Int((max(0, min(1, progress)) * 100).rounded()))%"
     }
 
     // MARK: - Recent block
@@ -188,6 +293,10 @@ struct MacMenuBarView: View {
         }
     }
 
+    private func formatted(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
     // MARK: - Settings window
 
     /// Opens Settings in a dedicated floating window — sheets inside NSPopover
@@ -201,17 +310,7 @@ struct MacMenuBarView: View {
     /// Called by PopoverDropOverlay when a drop lands inside the popover.
     func handlePopoverDrop(urls: [URL]) {
         NSLog("[MacMenuBarView] handlePopoverDrop — \(urls.count) URL(s)")
-        guard let service = uploadService else { return }
-        isUploading = true
-        Task {
-            defer { isUploading = false }
-            do {
-                let result = try await service.enqueueDrop(urls: urls)
-                NSLog("[MacMenuBarView] enqueueDrop succeeded: \(result)")
-            } catch {
-                NSLog("[MacMenuBarView] enqueueDrop failed: \(error.localizedDescription)")
-            }
-        }
+        TrayManager.shared.handleTrayDrop(urls: urls)
     }
 }
 
@@ -367,25 +466,12 @@ final class TrayManager: NSObject {
         let po = NSPopover()
         po.behavior = .transient
         po.contentSize = NSSize(width: 360, height: 400)
-        let host = NSHostingController(rootView: rootView)
+        let host = NSViewController()
+        let hostView = PopoverDropHostingView(rootView: rootView)
+        hostView.manager = self
+        host.view = hostView
         po.contentViewController = host
         self.popover = po
-
-        // WHY: SwiftUI .onDrop inside an NSPopover is unreliable on macOS
-        // (the drag session that started on the Finder window sometimes
-        // refuses to transfer into the popover's content window). We add a
-        // transparent AppKit overlay that implements NSDraggingDestination.
-        // CRITICAL: add to host.view.superview, NOT host.view itself —
-        // adding subviews to NSHostingController.view is unsupported and
-        // triggers layout recursion (rdar://FB9867432).
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            guard let container = host.view.superview else { return }
-            let dropOverlay = PopoverDropOverlay(frame: container.bounds)
-            dropOverlay.autoresizingMask = [.width, .height]
-            dropOverlay.manager = self
-            container.addSubview(dropOverlay)
-        }
     }
 
     // MARK: - Popover control
@@ -433,9 +519,9 @@ final class TrayManager: NSObject {
         openPopover()
     }
 
-    func endDragSession() {
+    func endDragSession(shouldScheduleClose: Bool = true) {
         dragSessionCount = max(0, dragSessionCount - 1)
-        if dragSessionCount == 0 {
+        if shouldScheduleClose, dragSessionCount == 0 {
             scheduleClose(after: 3.0)
         }
     }
@@ -449,9 +535,24 @@ final class TrayManager: NSObject {
             log.error("UploadService not available")
             return
         }
+        cancelScheduledClose()
+        openPopover()
+
+        let receipt = Self.dropReceipt(for: urls)
+        UploadProgressMonitor.shared.start(
+            clientJobId: receipt.clientJobId,
+            filename: receipt.filename,
+            contentType: receipt.contentType,
+            bytesTotal: receipt.bytesTotal,
+            stage: .receiving
+        )
+        refreshIcon()
+
         Task {
             do {
-                let result = try await service.enqueueDrop(urls: urls)
+                let result = try await service.enqueueDrop(urls: urls,
+                                                           retentionPolicy: RetentionPolicy.defaultFromAppGroup(),
+                                                           progressClientJobId: receipt.clientJobId)
                 switch result {
                 case .single(let job):
                     log.info("Single upload started: \(job.clientJobId.uuidString)")
@@ -459,9 +560,46 @@ final class TrayManager: NSObject {
                     log.info("Bundle upload started: \(bundle.bundleToken)")
                 }
             } catch {
+                await MainActor.run {
+                    if UploadProgressMonitor.shared.current?.clientJobId == receipt.clientJobId {
+                        UploadProgressMonitor.shared.finishFailure(
+                            clientJobId: receipt.clientJobId,
+                            reason: error.localizedDescription
+                        )
+                    }
+                    self.refreshIcon()
+                }
                 log.error("Tray drop upload failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+
+    private struct DropReceipt {
+        let clientJobId: UUID
+        let filename: String
+        let contentType: String
+        let bytesTotal: Int64
+    }
+
+    private static func dropReceipt(for urls: [URL]) -> DropReceipt {
+        let filename = urls.count == 1 ? (urls.first?.lastPathComponent ?? "File") : "\(urls.count) files"
+        let contentType: String
+        if urls.count == 1, let ext = urls.first?.pathExtension, !ext.isEmpty {
+            contentType = UTType(filenameExtension: ext)?.preferredMIMEType ?? "application/octet-stream"
+        } else {
+            contentType = "application/x-bundle"
+        }
+        return DropReceipt(
+            clientJobId: UUID(),
+            filename: filename,
+            contentType: contentType,
+            bytesTotal: urls.map(fileSize).reduce(0, +)
+        )
+    }
+
+    private static func fileSize(for url: URL) -> Int64 {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attrs?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     // MARK: - Progress icon
@@ -517,15 +655,31 @@ final class TrayManager: NSObject {
             let symbolRect = rect.insetBy(dx: 3, dy: 3)
             tinted.draw(in: symbolRect)
 
-            // Progress ring
+            let clamped = fraction.isFinite ? min(1, max(0, fraction)) : 0
+            let visibleFraction = max(0.06, clamped)
+
+            // Progress ring. Always draw a small segment at 0% so a received
+            // drop has immediate visual feedback while staging/presign runs.
+            let ringRect = rect.insetBy(dx: 1.5, dy: 1.5)
+            let trackPath = NSBezierPath(ovalIn: ringRect)
+            trackPath.lineWidth = 2.2
+            NSColor.tertiaryLabelColor.withAlphaComponent(0.28).setStroke()
+            trackPath.stroke()
+
             let ringPath = NSBezierPath()
-            let center = NSPoint(x: rect.midX, y: rect.midY)
-            let radius = rect.width / 2 - 0.5
+            let center = NSPoint(x: ringRect.midX, y: ringRect.midY)
+            let radius = min(ringRect.width, ringRect.height) / 2
             let startAngle: CGFloat = 90
-            let endAngle = startAngle - (fraction * 360)
-            ringPath.appendArc(withCenter: center, radius: radius,
-                               startAngle: startAngle, endAngle: endAngle,
-                               clockwise: true)
+            if visibleFraction >= 0.999 {
+                ringPath.appendOval(in: ringRect)
+            } else {
+                let endAngle = startAngle - CGFloat(visibleFraction * 360)
+                ringPath.appendArc(withCenter: center,
+                                   radius: radius,
+                                   startAngle: startAngle,
+                                   endAngle: endAngle,
+                                   clockwise: true)
+            }
             ringPath.lineWidth = 2.5
             NSColor.controlAccentColor.setStroke()
             ringPath.stroke()
@@ -553,11 +707,7 @@ private final class TrayIconView: NSView {
         super.init(frame: frameRect)
         // Register both modern (public.file-url) and legacy (NSFilenamesPboardType)
         // types so Finder drags are always recognised.
-        registerForDraggedTypes([
-            NSPasteboard.PasteboardType.fileURL,
-            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
-            NSPasteboard.PasteboardType.URL
-        ])
+        registerForDraggedTypes(PasteboardFileURLs.draggedTypes)
     }
 
     required init?(coder: NSCoder) {
@@ -577,19 +727,12 @@ private final class TrayIconView: NSView {
 
     // MARK: NSDraggingDestination
 
-    // MARK: NSDraggingDestination
-
     override func wantsPeriodicDraggingUpdates() -> Bool {
         true
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        let pasteboard = sender.draggingPasteboard
-        let hasFiles = pasteboard.canReadObject(forClasses: [NSURL.self],
-                                                options: [.urlReadingFileURLsOnly: true])
-            || pasteboard.types?.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType")) ?? false
-
-        if hasFiles {
+        if PasteboardFileURLs.canReadFileURLs(from: sender.draggingPasteboard) {
             manager?.beginDragSession()
             return .copy
         }
@@ -605,80 +748,123 @@ private final class TrayIconView: NSView {
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        defer { manager?.endDragSession() }
-
-        guard let mgr = manager else { return false }
-
-        let pasteboard = sender.draggingPasteboard
-        var fileURLs: [URL] = []
-
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self],
-                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] {
-            fileURLs.append(contentsOf: urls)
-        }
-        if fileURLs.isEmpty,
-           let propertyList = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
-            fileURLs = propertyList.map { URL(fileURLWithPath: $0) }
+        guard let mgr = manager else {
+            manager?.endDragSession()
+            return false
         }
 
-        guard !fileURLs.isEmpty else { return false }
+        let fileURLs = PasteboardFileURLs.read(from: sender.draggingPasteboard)
+
+        guard !fileURLs.isEmpty else {
+            mgr.endDragSession()
+            return false
+        }
         mgr.handleTrayDrop(urls: fileURLs)
+        mgr.endDragSession(shouldScheduleClose: false)
         return true
     }
 }
 
-// MARK: - PopoverDropOverlay
+// MARK: - PopoverDropHostingView
 
-/// Transparent overlay added to the NSPopover's content view so drops
-/// that enter the popover window are captured at the AppKit level and
-/// forwarded to the upload pipeline. Works around SwiftUI .onDrop
-/// reliability issues inside NSPopover on macOS.
-private final class PopoverDropOverlay: NSView {
+/// Hosting view registered as the popover's AppKit drag destination.
+/// SwiftUI `.onDrop` inside an `NSPopover` is unreliable for Finder drags, and
+/// installing an overlay before the popover is shown races with view creation.
+private final class PopoverDropHostingView<Root: View>: NSHostingView<Root> {
     weak var manager: TrayManager?
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        registerForDraggedTypes([
-            NSPasteboard.PasteboardType.fileURL,
-            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
-            NSPasteboard.PasteboardType.URL
-        ])
+    required init(rootView: Root) {
+        super.init(rootView: rootView)
+        registerForDraggedTypes(PasteboardFileURLs.draggedTypes)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // Allow mouse clicks to pass through to SwiftUI buttons underneath.
-    // We only need this overlay for drag-and-drop, not for hit-testing.
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        return .copy
+        PasteboardFileURLs.canReadFileURLs(from: sender.draggingPasteboard) ? .copy : []
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        .copy
+        PasteboardFileURLs.canReadFileURLs(from: sender.draggingPasteboard) ? .copy : []
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let pasteboard = sender.draggingPasteboard
-        var fileURLs: [URL] = []
-
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self],
-                                              options: [.urlReadingFileURLsOnly: true]) as? [URL] {
-            fileURLs.append(contentsOf: urls)
-        }
-        if fileURLs.isEmpty,
-           let propertyList = pasteboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
-            fileURLs = propertyList.map { URL(fileURLWithPath: $0) }
-        }
-
+        let fileURLs = PasteboardFileURLs.read(from: sender.draggingPasteboard)
         guard !fileURLs.isEmpty else { return false }
         manager?.handleTrayDrop(urls: fileURLs)
         return true
+    }
+}
+
+// MARK: - PasteboardFileURLs
+
+private enum PasteboardFileURLs {
+    private static let legacyFilenamesType = NSPasteboard.PasteboardType("NSFilenamesPboardType")
+
+    static let draggedTypes: [NSPasteboard.PasteboardType] = [
+        .fileURL,
+        legacyFilenamesType,
+        .URL
+    ]
+
+    static func canReadFileURLs(from pasteboard: NSPasteboard) -> Bool {
+        pasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+            || (pasteboard.types?.contains(legacyFilenamesType) ?? false)
+            || fileURLString(from: pasteboard) != nil
+    }
+
+    static func read(from pasteboard: NSPasteboard) -> [URL] {
+        var urls: [URL] = []
+
+        let objects = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) ?? []
+        for object in objects {
+            if let url = object as? URL, url.isFileURL {
+                urls.append(url)
+            } else if let nsURL = object as? NSURL {
+                let url = nsURL as URL
+                if url.isFileURL {
+                    urls.append(url)
+                }
+            }
+        }
+
+        if urls.isEmpty,
+           let paths = pasteboard.propertyList(forType: legacyFilenamesType) as? [String] {
+            urls = paths.map { URL(fileURLWithPath: $0) }
+        }
+
+        if urls.isEmpty, let url = fileURLString(from: pasteboard) {
+            urls.append(url)
+        }
+
+        return deduplicated(urls)
+    }
+
+    private static func fileURLString(from pasteboard: NSPasteboard) -> URL? {
+        for type in [NSPasteboard.PasteboardType.fileURL, NSPasteboard.PasteboardType.URL] {
+            guard let raw = pasteboard.string(forType: type),
+                  let url = URL(string: raw),
+                  url.isFileURL else { continue }
+            return url
+        }
+        return nil
+    }
+
+    private static func deduplicated(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        var result: [URL] = []
+        for url in urls {
+            let key = url.standardizedFileURL.path
+            if seen.insert(key).inserted {
+                result.append(url)
+            }
+        }
+        return result
     }
 }
 #endif

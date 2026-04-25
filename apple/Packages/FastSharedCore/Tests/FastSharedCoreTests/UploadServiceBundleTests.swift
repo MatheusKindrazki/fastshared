@@ -116,6 +116,40 @@ final class UploadServiceBundleTests: XCTestCase {
         }
     }
 
+    func test_partialBundleFailure_doesNotRecordBundleSuccess() async throws {
+        await MainActor.run { UploadProgressMonitor.shared.dismiss() }
+        let (service, mock, _, clipboard) = try await makeService()
+        let urls = try (0..<3).map { _ in try UploadServiceTests.writeTempFile(bytes: 32) }
+
+        let bundleToken = "bndlPARTIALFAILURE01"
+        let bundleShortUrl = URL(string: "https://fastsha.red/b/\(bundleToken)")!
+        let expires = Date().addingTimeInterval(86_400)
+        mock.batchPresignBuilder = { req in
+            Self.makeBatchEchoing(request: req,
+                                  bundleToken: bundleToken,
+                                  bundleShortUrl: bundleShortUrl,
+                                  expires: expires)
+        }
+
+        StubURLProtocol.respond(scheme: "https", host: "r2.example.com") { request in
+            let status = request.url?.path.contains("/put/1") == true ? 500 : 200
+            return (HTTPURLResponse(url: URL(string: "https://r2.example.com/x")!,
+                                    statusCode: status,
+                                    httpVersion: nil,
+                                    headerFields: nil)!, Data())
+        }
+
+        let result = try await service.enqueueDrop(urls: urls, retentionPolicy: .oneDay)
+        guard case .bundle = result else {
+            XCTFail("expected bundle")
+            return
+        }
+
+        let failed = try await waitForCurrentUploadPhase(.failed)
+        XCTAssertTrue(failed, "partial bundle failure should surface as failed")
+        XCTAssertNil(clipboard.last, "must not copy or persist bundle link unless every item completed")
+    }
+
     // MARK: - helpers
 
     /// Echoes the request items back: copies clientJobId so the service can
@@ -180,6 +214,16 @@ final class UploadServiceBundleTests: XCTestCase {
         guard let d = UserDefaults(suiteName: name) else { return .standard }
         d.removePersistentDomain(forName: name)
         return d
+    }
+
+    private func waitForCurrentUploadPhase(_ phase: UploadProgressMonitor.ActiveUpload.Phase) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            let current = await MainActor.run { UploadProgressMonitor.shared.current }
+            if current?.phase == phase { return true }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return false
     }
 }
 

@@ -216,10 +216,13 @@ describe('bundle redirect (M2)', () => {
     }
   });
 
-  it('GET /b/:token on a pending bundle returns 404', async () => {
+  it('GET /b/:token on a pending bundle returns the uploading page', async () => {
     const seeded = seedBundle({ itemCount: 2, linkStatus: 'pending' });
     const res = await get(`/b/${seeded.token}`, { accept: 'text/html' });
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('Uploading');
+    expect(body).toContain('Bundle upload');
   });
 
   it('GET /b/:token on a revoked bundle returns 404 (or 410 — gone family)', async () => {
