@@ -11,6 +11,7 @@ final class RetentionPolicyTests: XCTestCase {
     }
 
     func test_all_ttls_are_reasonable() {
+        XCTAssertEqual(RetentionPolicy.oneMinute.ttlSeconds, 60)
         XCTAssertEqual(RetentionPolicy.oneHour.ttlSeconds, 3600)
         XCTAssertEqual(RetentionPolicy.oneWeek.ttlSeconds, 604_800)
         XCTAssertEqual(RetentionPolicy.oneMonth.ttlSeconds, 2_592_000)
@@ -18,6 +19,7 @@ final class RetentionPolicyTests: XCTestCase {
     }
 
     func test_display_names_are_human() {
+        XCTAssertEqual(RetentionPolicy.oneMinute.displayName, "60 seconds")
         XCTAssertEqual(RetentionPolicy.oneHour.displayName, "1 hour")
         XCTAssertEqual(RetentionPolicy.oneDay.displayName, "1 day")
         XCTAssertEqual(RetentionPolicy.oneWeek.displayName, "1 week")
@@ -26,7 +28,7 @@ final class RetentionPolicyTests: XCTestCase {
     }
 
     func test_shareable_excludes_custom() {
-        XCTAssertEqual(RetentionPolicy.shareable, [.oneHour, .oneDay, .oneWeek, .oneMonth])
+        XCTAssertEqual(RetentionPolicy.shareable, [.oneMinute, .oneHour, .oneDay, .oneWeek, .oneMonth])
         XCTAssertFalse(RetentionPolicy.shareable.contains(.custom))
     }
 

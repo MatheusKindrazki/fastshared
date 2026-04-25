@@ -391,6 +391,7 @@ struct HistoryView: View {
         case .retentionTooLong(let seconds, _):
             let policy: RetentionPolicy = {
                 switch seconds {
+                case 0...60: return .oneMinute
                 case 0...3600: return .oneHour
                 case 0...86_400: return .oneDay
                 case 0...604_800: return .oneWeek

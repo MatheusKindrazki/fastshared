@@ -1,6 +1,7 @@
 import Foundation
 
 public enum RetentionPolicy: String, CaseIterable, Sendable, Codable {
+    case oneMinute
     case oneHour
     case oneDay
     case oneWeek
@@ -9,6 +10,7 @@ public enum RetentionPolicy: String, CaseIterable, Sendable, Codable {
 
     public var ttlSeconds: TimeInterval {
         switch self {
+        case .oneMinute: return 60
         case .oneHour: return 3600
         case .oneDay: return 86_400
         case .oneWeek: return 604_800
@@ -19,6 +21,7 @@ public enum RetentionPolicy: String, CaseIterable, Sendable, Codable {
 
     public var displayName: String {
         switch self {
+        case .oneMinute: return "60 seconds"
         case .oneHour: return "1 hour"
         case .oneDay: return "1 day"
         case .oneWeek: return "1 week"
@@ -31,7 +34,7 @@ public enum RetentionPolicy: String, CaseIterable, Sendable, Codable {
 
     // WHY: .custom is intentionally excluded from the share extension picker in MVP; power users
     // can come later via a settings-level override.
-    public static let shareable: [RetentionPolicy] = [.oneHour, .oneDay, .oneWeek, .oneMonth]
+    public static let shareable: [RetentionPolicy] = [.oneMinute, .oneHour, .oneDay, .oneWeek, .oneMonth]
 
     /// Reads the user's preferred retention from the shared App Group suite, falling back to `.default`.
     /// Used by surfaces that run outside the SwiftUI environment (App Intents, headless entry points).

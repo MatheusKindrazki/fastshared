@@ -844,6 +844,7 @@ private struct FriendlyToggle: View {
 private extension RetentionPolicy {
     var shortLabel: String {
         switch self {
+        case .oneMinute: return "60s"
         case .oneHour: return "1h"
         case .oneDay: return "24h"
         case .oneWeek: return "1w"
