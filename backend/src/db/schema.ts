@@ -101,7 +101,14 @@ export const asset = pgTable(
 export const LINK_STATUSES = ['pending', 'active', 'expired', 'revoked'] as const;
 export type LinkStatus = (typeof LINK_STATUSES)[number];
 
-export const RETENTION_POLICIES = ['oneHour', 'oneDay', 'oneWeek', 'oneMonth', 'custom'] as const;
+export const RETENTION_POLICIES = [
+  'oneMinute',
+  'oneHour',
+  'oneDay',
+  'oneWeek',
+  'oneMonth',
+  'custom',
+] as const;
 export type RetentionPolicy = (typeof RETENTION_POLICIES)[number];
 
 export const shareLink = pgTable(

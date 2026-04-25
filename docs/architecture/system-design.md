@@ -171,7 +171,7 @@ SwiftData is the local source of truth for UI; a lazy `markExpiredIfNeeded` help
 | Device token leak                         | Attacker can upload on behalf of user   | Server supports token rotation via `POST /v1/devices/:id/rotate` (post-MVP)                              |
 | Deletion job fails 8x                     | Object remains in R2 beyond `deleteAfter` | Terminal `deletion_status='failed'`; pager fires; R2 lifecycle rule (90 d) still eventually reaps it    |
 | R2 object missing while DB still `verified` | `/s/:token` returns 502 on GET         | Hourly reconciler notices `deleteAfter` past or a HEAD miss and marks the asset `deleted`               |
-| Upload completes after link already expired | Late user lands on a just-created expired link | `POST /v1/uploads/:id/complete` rejects with `409` when server sees `expiresAt <= now() + 60s`        |
+| Upload completes after link already expired | Late user lands on a just-created expired link | `POST /v1/uploads/:id/complete` rejects with `409` when server sees `expiresAt <= now()`        |
 | Share token leaks                         | Someone with the token can download while the link is active | Resolve endpoint is rate-limited per-IP and per-token, logs redact token values, and owner revoke returns 410 |
 
 ## Key decisions

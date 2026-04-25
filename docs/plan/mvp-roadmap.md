@@ -47,7 +47,7 @@ Scope, milestones, and release plan. The implementation-level to-do list lives i
 - Rewrite `/s/:token` handler: DB-backed lookup, 302 to 60s signed GET, 410 Gone (`code: "link_gone"`, `reason: expired | revoked | deleted`), 404 for unknown. Always emit `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer`.
 - Add per-IP (60/min) and per-token (300/min) rate limit buckets on the resolve route.
 - Implement `POST /v1/links/:token/revoke` (owner-only): flip `link_status='revoked'`, `revoked_at=now()`, pull the pending `deletion_job.scheduled_for` forward to `now()`.
-- Add retention picker in Share Extension (4 presets, default `oneDay`).
+- Add retention picker in Share Extension (5 presets, default `oneDay`).
 - Add default-retention picker in Settings (Mac + iOS).
 - Update client DTOs: `PresignRequest` carries `retentionPolicy` + optional `customTtlSeconds`; `CompleteResponse` carries `token`, `expiresAt`, `deleteAfter`, `linkStatus`, `retentionPolicy`.
 - Configure R2 lifecycle rule (90 d expire) via `wrangler r2 bucket lifecycle put`.

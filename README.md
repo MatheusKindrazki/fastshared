@@ -17,6 +17,8 @@
   ·
   <a href="./docs/product/overview.md">Product overview</a>
   ·
+  <a href="./docs/product/cli.md">CLI</a>
+  ·
   <a href="./docs/architecture/security.md">Security</a>
   ·
   <a href="./docs/ops/testflight-setup.md">TestFlight runbook</a>
@@ -42,6 +44,7 @@ Every link expires. Every file is deleted. By design.
 | ------- | ---------- |
 | iPhone and iPad | Native Share Extension, background uploads, Live Activity, and Dynamic Island progress. |
 | Mac | Menu bar workflow, drag-and-drop uploads, paste-to-upload command, and structured recent links. |
+| CLI | Scriptable uploads for agents and shell workflows; stdout returns the temporary URL. |
 | Recipient | Opens a short link in any browser. No account, app, or sign-in required. |
 
 ## Product limits
@@ -85,6 +88,7 @@ workflow, with storage lifecycle rules as a safety net.
 | Layer | Stack |
 | ----- | ----- |
 | Apple | SwiftUI, SwiftData, Share Extension, background `URLSession`, Keychain Sharing, CloudKit metadata sync |
+| CLI | Node.js 20+, TypeScript, native `fetch`, local ZIP staging |
 | Backend | Cloudflare Workers, Hono, Drizzle ORM, Neon Postgres, R2, KV |
 | Web | Astro landing/docs surfaces |
 | CI/CD | GitHub Actions, Xcode/TestFlight lanes, Wrangler deploy workflows |
@@ -94,6 +98,7 @@ workflow, with storage lifecycle rules as a safety net.
 | Path | Purpose |
 | ---- | ------- |
 | `apple/` | iOS, iPadOS, macOS app targets, Share Extension, shared Swift package |
+| `cli/` | Node/TypeScript command-line uploader for agents and scripts |
 | `backend/` | Hono Worker API, persistence, billing verification, retention jobs |
 | `web/` | Public site and static marketing surfaces |
 | `docs/` | Product, architecture, security, launch, and ops documentation |
@@ -125,6 +130,15 @@ pnpm install
 pnpm build
 ```
 
+CLI:
+
+```bash
+cd cli
+pnpm install
+pnpm test
+pnpm build
+```
+
 ## Validation
 
 Backend:
@@ -149,9 +163,19 @@ cd web
 pnpm build
 ```
 
+CLI:
+
+```bash
+cd cli
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
 ## Documentation
 
 - [Product overview](./docs/product/overview.md)
+- [CLI](./docs/product/cli.md)
 - [System design](./docs/architecture/system-design.md)
 - [Apple client](./docs/architecture/apple-client.md)
 - [Backend](./docs/architecture/backend.md)

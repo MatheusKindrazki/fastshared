@@ -58,9 +58,10 @@ public struct FastSharedActivityAttributes: ActivityAttributes, Sendable, Hashab
 }
 
 public extension FastSharedActivityAttributes {
-    /// Convenience for the retention badge ("1h" / "24h" / "7d" / "30d").
+    /// Convenience for the retention badge ("60s" / "1h" / "24h" / "7d" / "30d").
     var retentionBadge: String {
         switch retentionPolicy {
+        case RetentionPolicy.oneMinute.rawValue: return "60s"
         case RetentionPolicy.oneHour.rawValue: return "1h"
         case RetentionPolicy.oneDay.rawValue: return "24h"
         case RetentionPolicy.oneWeek.rawValue: return "7d"

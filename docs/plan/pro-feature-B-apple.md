@@ -343,7 +343,7 @@ Focus: inherits `preferredColorScheme(.light)` (doesn't override); `TODO(i18n)` 
 **Files (create):** `apple/FastSharedApp/Components/GatedRetentionPicker.swift`. **Modify:** `apple/FastSharedShareExt/ShareRootView.swift` (`IdleStage.retentionSection`), `apple/FastSharedApp/Scenes/SettingsView.swift` (default retention picker).
 
 **Intent:** Replace both in-place `Picker("Link valid for"/"Default retention", selection:)` call sites with `GatedRetentionPicker(selection:, tier:, onPaywall:)`. Behavior:
-- Shows all `.shareable` options always (`oneHour`/`oneDay`/`oneWeek`/`oneMonth`).
+- Shows all `.shareable` options always (`oneMinute`/`oneHour`/`oneDay`/`oneWeek`/`oneMonth`).
 - For Free, options where `ttlSeconds > 86_400` render a trailing `lock.fill` (`BrandPalette.dust`). On `onChange`, if the new value is gated, revert the binding and call `onPaywall(.longRetentionRequested(policy: newValue))`.
 - For Pro, vanilla behavior.
 - WHY show-with-lock, not hide: one-tap discovery of Pro, aligned with scope.

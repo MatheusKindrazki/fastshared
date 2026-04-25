@@ -1,0 +1,69 @@
+---
+const recipes = [
+  {
+    label: 'Single artifact',
+    command: 'fastshared ./result.json --ttl 1h',
+  },
+  {
+    label: 'Directory handoff',
+    command: 'fastshared ./agent-run --ttl 1h',
+  },
+  {
+    label: 'stdin output',
+    command: 'agent > output.txt && fastshared - --name output.txt',
+  },
+];
+---
+<section id="agents" class="agent-cli section-block" aria-labelledby="agent-cli-heading">
+  <div class="frame agent-cli__layout">
+    <div class="agent-cli__copy reveal">
+      <span class="section-num">Agents + CLI</span>
+      <h2 id="agent-cli-heading" class="agent-cli__title">
+        A file handoff primitive for AI agents.
+      </h2>
+      <p>
+        Install the Node 20+ CLI, upload the artifact an agent produced, and
+        pass one short-lived URL to the next tool, model, or human reviewer.
+        The default retention is one hour.
+      </p>
+
+      <div class="agent-cli__actions">
+        <a href="/install.sh" class="btn-primary">
+          Install script
+          <span aria-hidden="true">↓</span>
+        </a>
+        <a
+          href="https://github.com/MatheusKindrazki/fastshared/blob/main/docs/product/cli.md"
+          class="btn-ghost"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          CLI docs
+          <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="agent-terminal reveal reveal-delay-2">
+      <div class="agent-terminal__bar">
+        <span>agent handoff</span>
+        <strong>stdout contract</strong>
+      </div>
+      <pre><code><span class="agent-terminal__prompt">$</span> curl -fsSL https://fastsha.red/install.sh | bash
+<span class="agent-terminal__prompt">$</span> fastshared ./handoff --ttl 1h --quiet
+<span class="agent-terminal__url">https://fastsha.red/s/A7k2</span>
+
+<span class="agent-terminal__comment"># progress and errors stay on stderr</span>
+<span class="agent-terminal__comment"># folders and multiple files become a local zip</span></code></pre>
+    </div>
+  </div>
+
+  <div class="frame agent-cli__recipes reveal reveal-delay-3">
+    {recipes.map((recipe) => (
+      <article class="agent-recipe">
+        <span>{recipe.label}</span>
+        <code>{recipe.command}</code>
+      </article>
+    ))}
+  </div>
+</section>

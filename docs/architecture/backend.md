@@ -207,7 +207,7 @@ Full schema SQL lives in [Data model](./data-model.md).
 
 - **Writes.** Server presigns PUT with 5-minute TTL, content-length range, and fixed `Content-Type`. Client PUTs directly to R2; the Worker never sees bytes. Object key format: `a/<yyyy>/<mm>/<dd>/<device_id>/<asset_uuid>` (column name `storage_key`).
 - **Reads.** Only via `GET /s/:token`. Handler loads `share_link` + `asset`, checks `link_status`, `expires_at`, and deletion state, then streams the object from private R2 with `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, and `Referrer-Policy: no-referrer`. The browser never receives a raw R2 read URL.
-- **Verification.** `POST /v1/uploads/:id/complete` issues an S3 HEAD against the object, compares `Content-Length` against the registered size, stores the returned `ETag` on the asset row, and rejects with `409` if the target `expires_at <= now() + 60s` (protects against zombie completes).
+- **Verification.** `POST /v1/uploads/:id/complete` issues an S3 HEAD against the object, compares `Content-Length` against the registered size, stores the returned `ETag` on the asset row, and rejects with `409` if the target `expires_at <= now()` (protects against zombie completes).
 - **Deletes.** Deletion worker calls `DELETE object(storage_key)`. 404 is treated as success (already gone).
 - **Bucket-level lifecycle rule.** `fastshared-*` buckets have a 90 d `Expire` lifecycle as a safety net. Configured via `wrangler r2 bucket lifecycle put`. This covers objects whose app-level deletion fails permanently.
 
@@ -252,7 +252,7 @@ RFC 7807, always `application/problem+json`.
 }
 ```
 
-`reason` is one of `expired`, `revoked`, or `deleted` for the `410 Gone` case. Other notable codes: `rate_limited` (429), `upload_not_found` (404), `object_size_mismatch` (422), `link_not_found` (404), `complete_too_late` (409, raised when `expires_at <= now() + 60s`).
+`reason` is one of `expired`, `revoked`, or `deleted` for the `410 Gone` case. Other notable codes: `rate_limited` (429), `upload_not_found` (404), `object_size_mismatch` (422), `link_not_found` (404), `complete_too_late` (409, raised when `expires_at <= now()`).
 
 Known error types are catalogued in the source under `src/errors.ts`. `type` is always a real URL that resolves to a short explainer page served by `/errors/:code`.
 

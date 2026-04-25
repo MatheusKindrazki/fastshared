@@ -1,4 +1,4 @@
-.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy testflight testflight-ios testflight-macos testflight-doctor testflight-bootstrap appstore-doctor appstore-screenshots appstore-privacy appstore-metadata appstore-metadata-ios appstore-metadata-macos appstore-sync appstore-submit
+.PHONY: bootstrap ios backend-dev backend-test db-migrate db-generate lint fmt clean web-dev web-build web-deploy cli-test cli-build testflight testflight-ios testflight-macos testflight-doctor testflight-bootstrap appstore-doctor appstore-screenshots appstore-privacy appstore-metadata appstore-metadata-ios appstore-metadata-macos appstore-sync appstore-submit
 
 BUNDLER_VERSION ?= 2.4.22
 BUNDLE ?= bundle _$(BUNDLER_VERSION)_
@@ -35,6 +35,7 @@ fmt:
 
 clean:
 	rm -rf backend/node_modules backend/dist backend/.wrangler
+	rm -rf cli/node_modules cli/dist cli/dist-release
 	rm -rf apple/FastShared.xcodeproj apple/FastShared.xcworkspace
 	rm -rf apple/build apple/DerivedData
 
@@ -46,6 +47,12 @@ web-build:
 
 web-deploy:
 	cd web && pnpm build && pnpm dlx wrangler pages deploy dist --project-name fastshared-web
+
+cli-test:
+	cd cli && pnpm test
+
+cli-build:
+	cd cli && pnpm typecheck && pnpm test && pnpm build
 
 # --- TestFlight ---------------------------------------------------------------
 # First-time setup: `make testflight-bootstrap` (installs fastlane via bundler).

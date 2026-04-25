@@ -55,7 +55,7 @@ sequenceDiagram
     App->>API: POST /v1/uploads/:id/complete
     API->>R2: HEAD storageKey
     R2-->>API: size, etag
-    alt expires_at <= now() + 60s
+    alt expires_at <= now()
         API-->>App: 409 complete_too_late
     else ok
         API->>DB: BEGIN; upsert asset; insert share_link(token); insert deletion_job(asset_id, scheduled_for=delete_after); COMMIT
@@ -169,7 +169,7 @@ Triggers per transition:
 }
 ```
 
-`retentionPolicy` is one of `oneHour` (3600s), `oneDay` (86400s, **default**), `oneWeek` (604800s), `oneMonth` (2592000s), `custom`. `customTtlSeconds` is required when `retentionPolicy == "custom"` and is clamped server-side to `[300, 2592000]`.
+`retentionPolicy` is one of `oneMinute` (60s), `oneHour` (3600s), `oneDay` (86400s, **default**), `oneWeek` (604800s), `oneMonth` (2592000s), `custom`. `customTtlSeconds` is required when `retentionPolicy == "custom"` and is clamped server-side to `[300, 2592000]`.
 
 Response (fresh):
 
@@ -225,7 +225,7 @@ Response (dedup hit against a live asset):
 - App calls `POST /v1/uploads/:id/complete` with the `uploadId` returned at presign.
 - Server fetches `upload_job`, confirms it belongs to the caller's device, and issues S3 HEAD against `storage_key`.
 - If `Content-Length != upload_job.size`, respond 422 `object_size_mismatch` and mark the job `failed`.
-- If `expires_at <= now() + 60s`, respond 409 `complete_too_late` and mark the job `failed`. (See "Resume + expiration edge cases" below.)
+- If `expires_at <= now()`, respond 409 `complete_too_late` and mark the job `failed`. (See "Resume + expiration edge cases" below.)
 - Else, start a transaction: upsert `asset` on `(owner_device_id, sha256)` filtered to live rows; insert `share_link` with a fresh token, `link_status='active'`, `expires_at`, `delete_after`, `retention_policy`; insert `deletion_job(asset_id, scheduled_for=delete_after, status='pending')`; commit. Return the completion DTO.
 - Dedup path (two fast retries racing) is safe because the `asset` upsert key is `(owner_device_id, sha256)` and the partial unique index on `deletion_job` prevents duplicate scheduling.
 
@@ -293,13 +293,13 @@ The deletion lifecycle is the second half of the ephemeral story. It is delibera
 Three corner cases worth calling out explicitly.
 
 1. **App launches 3 days after a share was enqueued.** If the job is still pending and the target `delete_after` has already elapsed, the job is purged on the resume scan and marked `failed`. Staged file is reaped. The share would have been dead by now anyway.
-2. **Presign arrives after link already expired.** Shouldn't happen for a fresh job (server computes `expiresAt` *at* presign). It can happen if the client times out and retries after a long gap: the retry path sees a stale cached `expiresAt` in the SwiftData row. Server is authoritative and rejects the `/complete` call with `409 complete_too_late` when `expires_at <= now() + 60s`.
+2. **Presign arrives after link already expired.** Shouldn't happen for a fresh job (server computes `expiresAt` *at* presign). It can happen if the client times out and retries after a long gap: the retry path sees a stale cached `expiresAt` in the SwiftData row. Server is authoritative and rejects the `/complete` call with `409 complete_too_late` when `expires_at <= now()`.
 3. **User closes app mid-upload.** The background `URLSession` continues. When the app is relaunched and `/complete` fires, one of three things happens:
-   - `expires_at > now() + 60s` — complete succeeds normally.
-   - `expires_at <= now() + 60s` — server rejects with 409; job marked `failed`.
+   - `expires_at > now()` — complete succeeds normally.
+   - `expires_at <= now()` — server rejects with 409; job marked `failed`.
    - Complete was previously attempted and persisted a token but the client never saw the response — the `upload_job` row already has `state='completed'` and the server returns the same DTO (idempotent).
 
-   **Minor footgun**: a sufficiently long background upload with a short `oneHour` retention can land on an already-past `expires_at` if we did not re-validate. Mitigation: the **server re-validates `expiresAt > now() + 60s` on complete** and rejects; the client surfaces a "this share expired before it could finish uploading" error with a retry affordance that presigns afresh.
+   **Minor footgun**: a sufficiently long background upload with a short `oneMinute` retention can land on an already-past `expires_at` if we did not re-validate. Mitigation: the **server re-validates `expiresAt > now()` on complete** and rejects; the client surfaces a "this share expired before it could finish uploading" error with a retry affordance that presigns afresh.
 
 ## Failure handling
 

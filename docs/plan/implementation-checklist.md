@@ -86,7 +86,7 @@ Concrete developer actions, organized by milestone. Check items off as they land
 - [ ] Add columns to `upload_job`: `retention_policy`, `custom_ttl_seconds`; extend state check with `deduped`; rename `failed_permanent → failed`
 - [ ] Create `deletion_job` table with partial unique `(asset_id) WHERE status IN ('pending','running')` and due-queue `(scheduled_for) WHERE status = 'pending'`
 - [ ] Implement `backend/src/util/token.ts` — 22-char base62 via `crypto.getRandomValues(32)` + base62 encode + truncate; collision-retry via `TOKEN_RESERVATIONS` KV
-- [ ] Implement `backend/src/policy/retention.ts` — map `oneHour|oneDay|oneWeek|oneMonth|custom` to seconds; clamp `customTtlSeconds` to `[300, 2592000]`
+- [ ] Implement `backend/src/policy/retention.ts` — map `oneMinute|oneHour|oneDay|oneWeek|oneMonth|custom` to seconds; clamp `customTtlSeconds` to `[300, 2592000]`
 - [ ] Implement `backend/src/services/deletion.ts` — `FOR UPDATE SKIP LOCKED LIMIT 50`, R2 DELETE, backoff `120 × 2^(attempts-1)s` cap 7200s jitter ±10%, terminal at 8 attempts
 - [ ] Implement `backend/src/services/reconciliation.ts` — expire stale links, enqueue missing deletion jobs, reset stuck running, sampled HEAD probe
 - [ ] Implement `backend/src/services/multipartSweeper.ts` — stub that logs (full impl in M8)
@@ -97,8 +97,8 @@ Concrete developer actions, organized by milestone. Check items off as they land
 - [ ] Add resolve-route rate limit: per-IP 60/min and per-token 300/min (KV buckets with `HMAC-SHA256(pepper, token)` keying)
 - [ ] Implement `POST /v1/links/:token/revoke` — owner-only, flip `link_status='revoked'`, `revoked_at=now()`, pull `deletion_job.scheduled_for` to now
 - [ ] Update `POST /v1/uploads` to accept `retentionPolicy` + optional `customTtlSeconds`; return `expiresAt`, `deleteAfter`, `retentionPolicy`
-- [ ] Update `POST /v1/uploads/:id/complete` to return `token`, `expiresAt`, `deleteAfter`, `linkStatus`, `retentionPolicy`; reject with 409 `complete_too_late` if `expires_at <= now() + 60s`
-- [ ] Add retention picker UI to `FastSharedShareExt` (4 presets, default `oneDay`)
+- [ ] Update `POST /v1/uploads/:id/complete` to return `token`, `expiresAt`, `deleteAfter`, `linkStatus`, `retentionPolicy`; reject with 409 `complete_too_late` if `expires_at <= now()`
+- [ ] Add retention picker UI to `FastSharedShareExt` (5 presets, default `oneDay`)
 - [ ] Add default-retention picker to `SettingsView` on iOS and macOS
 - [ ] Update `FastSharedCore` `APIClient` DTOs to carry retention fields end-to-end
 - [ ] Update `UploadJobEntity` + `ShareLinkEntity` SwiftData shapes to match data-model doc

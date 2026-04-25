@@ -740,10 +740,11 @@ private struct IdleStage: View {
 
     private func chipLabel(for policy: RetentionPolicy) -> String {
         switch policy {
-        case .oneHour: return "1 hour"
-        case .oneDay: return "24 hours"
-        case .oneWeek: return "3 days"
-        case .oneMonth: return "7 days"
+        case .oneMinute: return "60s"
+        case .oneHour: return "1h"
+        case .oneDay: return "24h"
+        case .oneWeek: return "7d"
+        case .oneMonth: return "30d"
         default: return policy.displayName
         }
     }
@@ -937,6 +938,7 @@ private struct SuccessStage: View {
 
     private var retentionBodyText: String {
         switch retention {
+        case .oneMinute: return "60 seconds"
         case .oneHour: return "1 hour"
         case .oneDay: return "24 hours"
         case .oneWeek: return "7 days"
@@ -1137,6 +1139,7 @@ private struct BundleSuccessStage: View {
 
     private var retentionBodyText: String {
         switch retention {
+        case .oneMinute: return "60 seconds"
         case .oneHour: return "1 hour"
         case .oneDay: return "24 hours"
         case .oneWeek: return "7 days"

@@ -69,8 +69,6 @@ async function loadActiveLinkAndAsset(
   const link = await findByToken(db, token);
   if (!link) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
-  // Pending: asset hasn't landed yet. Recipient sees the "Uploading…" page.
-  if (link.linkStatus === 'pending') return { status: 'pending', link };
   const now = Date.now();
   if (link.expiresAt.getTime() <= now) {
     // Lazy flip so the stored state matches reality for observers.
@@ -85,6 +83,8 @@ async function loadActiveLinkAndAsset(
     );
     return { status: 'gone', reason: 'expired' };
   }
+  // Pending: asset hasn't landed yet. Recipient sees the "Uploading…" page.
+  if (link.linkStatus === 'pending') return { status: 'pending', link };
   // assetId is nullable on the schema (pending rows), but any non-pending
   // state must have an asset — if it's missing the link is effectively gone.
   if (!link.assetId) return { status: 'gone', reason: 'deleted' };
@@ -470,7 +470,6 @@ async function loadActiveBundle(
   const link = await findByToken(db, token);
   if (!link || !link.isBundle) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
-  if (link.linkStatus === 'pending') return { status: 'pending', link };
   if (link.expiresAt.getTime() <= Date.now()) {
     c.executionCtx.waitUntil(
       markExpiredByToken(db, token).catch((err) => {
@@ -483,6 +482,7 @@ async function loadActiveBundle(
     );
     return { status: 'gone', reason: 'expired' };
   }
+  if (link.linkStatus === 'pending') return { status: 'pending', link };
   // Two queries (junction + assets) instead of a JOIN — keeps the route
   // simple and lets the test fake stay dumb. Assets in displayOrder.
   const junctions = await db

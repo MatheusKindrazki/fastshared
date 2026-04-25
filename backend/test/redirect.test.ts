@@ -292,7 +292,10 @@ describe('redirect proxy', () => {
 
   // Tier 1 — pending share_link. Seeds a pending row with no asset (null
   // assetId — asset is created only at /complete).
-  function seedPendingLink(token = 'pendingTokenAAAAAAAAAA'): string {
+  function seedPendingLink(
+    token = 'pendingTokenAAAAAAAAAA',
+    expiresAt = new Date(Date.now() + 3_600_000),
+  ): string {
     store.shareLinks.push({
       id: crypto.randomUUID(),
       token,
@@ -300,7 +303,7 @@ describe('redirect proxy', () => {
       // assetId; real schema column is nullable for pending rows.
       assetId: null as unknown as string,
       visibility: 'signed',
-      expiresAt: new Date(Date.now() + 3_600_000),
+      expiresAt,
       hits: 0,
       linkStatus: 'pending',
       retentionPolicy: 'oneDay',
@@ -321,6 +324,16 @@ describe('redirect proxy', () => {
     const body = await res.text();
     expect(body.toLowerCase()).toContain('uploading');
     expect(body).toMatch(/<meta\s+http-equiv="refresh"/i);
+  });
+
+  it('GET /s/:token on expired pending link returns 410 instead of Uploading', async () => {
+    const token = seedPendingLink(
+      'pendingExpiredTokenAAAAA',
+      new Date(Date.now() - 1_000),
+    );
+    const res = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(res.status).toBe(410);
+    expect(store.shareLinks.find((l) => l.token === token)?.linkStatus).toBe('expired');
   });
 
   it('GET /s/:token/raw on pending link returns 404 (file not in R2 yet)', async () => {

@@ -69,6 +69,7 @@ public extension BundleUploadAttributes {
     /// can use the same pill component without branching on attribute type.
     var retentionBadge: String {
         switch retentionPolicy {
+        case RetentionPolicy.oneMinute.rawValue: return "60s"
         case RetentionPolicy.oneHour.rawValue: return "1h"
         case RetentionPolicy.oneDay.rawValue: return "24h"
         case RetentionPolicy.oneWeek.rawValue: return "7d"

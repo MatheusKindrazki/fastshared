@@ -5,7 +5,7 @@ FastShared is a native Apple utility that turns "share a file" into "get a tempo
 WHAT IT DOES
 - Share any file from any app through the iOS share sheet.
 - Drag a file onto the Mac app, or paste anything with Command-V.
-- Pick how long the link lives: 1 hour, 24 hours, 1 week, 1 month, or custom from 5 minutes to 30 days.
+- Pick how long the link lives: 60 seconds, 1 hour, 24 hours, 1 week, 1 month, or custom from 5 minutes to 30 days.
 - The short link lands on your clipboard. Paste it anywhere.
 - Watch upload progress in a Live Activity and Dynamic Island on supported iPhones.
 - Browse recent links with a live countdown. Revoke any link instantly.
