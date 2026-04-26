@@ -163,7 +163,7 @@ def store_common_options(platform:, api_key:)
     automatic_release: false,
     phased_release: false,
     force: true,
-    precheck_include_in_app_purchases: true,
+    precheck_include_in_app_purchases: false,
     submission_information: {
       export_compliance_uses_encryption: false,
       content_rights_contains_third_party_content: false,
@@ -484,6 +484,80 @@ def upload_store_privacy_details!(api_key:)
   UI.success("App Privacy details uploaded and published for #{APP_IDENTIFIER}.")
 end
 
+def ensure_free_app_price_schedule!(api_key:)
+  require "spaceship"
+
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+  UI.user_error!("Could not find App Store Connect app #{APP_IDENTIFIER}") unless app
+
+  client = Spaceship::ConnectAPI.tunes_request_client
+  begin
+    schedule = client.get(
+      "v1/appPriceSchedules/#{app.id}/manualPrices",
+      include: "appPricePoint,territory",
+      limit: 10
+    ).body
+    current_prices = schedule.fetch("data", [])
+    price_points = Array(schedule["included"])
+      .select { |resource| resource["type"] == "appPricePoints" }
+      .to_h { |resource| [resource["id"], resource] }
+
+    free_price = current_prices.find do |price|
+      price_point_id = price.dig("relationships", "appPricePoint", "data", "id")
+      customer_price = price_points.dig(price_point_id, "attributes", "customerPrice")
+      active = price.dig("attributes", "startDate").nil? && price.dig("attributes", "endDate").nil?
+      active && customer_price && customer_price.to_f.zero?
+    end
+    if free_price
+      UI.success("App Store price schedule already configured for #{APP_IDENTIFIER}.")
+      return
+    end
+  rescue => e
+    UI.message("No active App Store price schedule found yet: #{e.message}")
+  end
+
+  price_point = client.get(
+    "v1/apps/#{app.id}/appPricePoints",
+    filter: { territory: "USA" },
+    include: "territory",
+    limit: 1
+  ).body.fetch("data", []).first
+
+  unless price_point && price_point.dig("attributes", "customerPrice").to_f.zero?
+    UI.user_error!("Could not find the free USA App Store price point for #{APP_IDENTIFIER}.")
+  end
+
+  price_id = "${price1}"
+  client.post(
+    "v1/appPriceSchedules",
+    {
+      data: {
+        type: "appPriceSchedules",
+        attributes: {},
+        relationships: {
+          app: { data: { type: "apps", id: app.id } },
+          manualPrices: { data: [{ type: "appPrices", id: price_id }] },
+          baseTerritory: { data: { type: "territories", id: "USA" } }
+        }
+      },
+      included: [
+        {
+          type: "appPrices",
+          id: price_id,
+          attributes: { startDate: nil, endDate: nil },
+          relationships: {
+            appPricePoint: {
+              data: { type: "appPricePoints", id: price_point.fetch("id") }
+            }
+          }
+        }
+      ]
+    }
+  )
+  UI.success("Configured free App Store price schedule for #{APP_IDENTIFIER}.")
+end
+
 private_lane :upload_store_metadata_internal do |options|
   platform = options.fetch(:platform)
   api_key = options[:api_key] || app_store_api_key
@@ -646,6 +720,7 @@ lane :store_submit do |options|
 
   api_key = app_store_api_key
   build_number = options[:build_number] || ENV["FASTSHARED_SUBMIT_BUILD_NUMBER"] || "latest"
+  ensure_free_app_price_schedule!(api_key: api_key)
   review_info = app_review_information_from_env(require_all: true)
 
   ["ios", "osx"].each do |platform|
