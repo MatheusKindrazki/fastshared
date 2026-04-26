@@ -22,6 +22,9 @@ public actor LiveActivityController {
     private var lastUpdateAt: [UUID: Date] = [:]
     private var lastBundleUpdateAt: [String: Date] = [:]
     private let minUpdateInterval: TimeInterval = 0.25
+    // Older pending entries had no timestamp; those decode with nil and are dropped on drain.
+    private static let pendingStartMaxAgeMs: Int64 = 60 * 60 * 1000
+    private static let uploadingStaleInterval: TimeInterval = 10 * 60
 
     public init() {}
 
@@ -44,7 +47,8 @@ public actor LiveActivityController {
                 filename: filename,
                 contentType: contentType,
                 retentionPolicy: retentionPolicy,
-                bytesTotal: bytesTotal
+                bytesTotal: bytesTotal,
+                queuedAtMs: Self.nowMs()
             ))
             log.info("deferred live activity start for \(clientJobId.uuidString, privacy: .public) (extension — main app will create it)")
             return nil
@@ -66,7 +70,8 @@ public actor LiveActivityController {
         let pending = Self.loadPending()
         guard !pending.isEmpty else { return }
         Self.clearPending()
-        for req in pending {
+        let fresh = pending.filter(Self.isFresh)
+        for req in fresh {
             _ = start(
                 clientJobId: req.clientJobId,
                 filename: req.filename,
@@ -76,7 +81,8 @@ public actor LiveActivityController {
                 bytesTotal: req.bytesTotal
             )
         }
-        log.info("drained \(pending.count, privacy: .public) pending live-activity starts")
+        let dropped = pending.count - fresh.count
+        log.info("drained \(fresh.count, privacy: .public) pending live-activity starts; dropped \(dropped, privacy: .public) stale starts")
     }
 
     @discardableResult
@@ -104,7 +110,7 @@ public actor LiveActivityController {
         do {
             let activity: Activity<FastSharedActivityAttributes>
             if #available(iOS 16.2, *) {
-                let content = ActivityContent(state: state, staleDate: nil)
+                let content = ActivityContent(state: state, staleDate: Self.uploadingStaleDate())
                 activity = try Activity.request(attributes: attributes,
                                                 content: content,
                                                 pushType: nil)
@@ -143,7 +149,7 @@ public actor LiveActivityController {
                                                               bytesSent: bytesSent,
                                                               bytesTotal: bytesTotal)
         if #available(iOS 16.2, *) {
-            await activity.update(ActivityContent(state: state, staleDate: nil))
+            await activity.update(ActivityContent(state: state, staleDate: Self.uploadingStaleDate()))
         } else {
             await activity.update(using: state)
         }
@@ -152,6 +158,7 @@ public actor LiveActivityController {
     public func finishSuccess(clientJobId: UUID,
                               shortUrl: String,
                               expiresAt: Date) async {
+        Self.removePending(clientJobId: clientJobId)
         guard let activity = await resolveActivity(clientJobId: clientJobId) else { return }
         let state = FastSharedActivityAttributes.ContentState(phase: .completed,
                                                               progress: 1.0,
@@ -178,6 +185,7 @@ public actor LiveActivityController {
     }
 
     public func finishFailure(clientJobId: UUID, reason: String) async {
+        Self.removePending(clientJobId: clientJobId)
         guard let activity = await resolveActivity(clientJobId: clientJobId) else { return }
         let state = FastSharedActivityAttributes.ContentState(phase: .failed,
                                                               progress: 0,
@@ -204,7 +212,6 @@ public actor LiveActivityController {
     /// upgrade. Idempotent — safe to call repeatedly.
     public func sweepStaleActivities() async {
         let all = Activity<FastSharedActivityAttributes>.activities
-        guard !all.isEmpty else { return }
         let now = Date()
         var swept = 0
         for activity in all {
@@ -214,7 +221,7 @@ public actor LiveActivityController {
             // re-open a fresh Activity).
             let state = activity.content.state
             let isStaleUpload = state.phase == .uploading
-                && activity.content.staleDate.map { $0 < now } != false
+                && Self.isStaleUpload(staleDate: activity.content.staleDate, now: now)
             // Completed/failed pills whose staleDate has passed — finish
             // draining them so the DI slot is free.
             let isFinishedStale = (state.phase == .completed || state.phase == .failed)
@@ -230,6 +237,27 @@ public actor LiveActivityController {
         }
         if swept > 0 {
             log.info("swept \(swept, privacy: .public) stale live activities on boot")
+        }
+
+        let bundles = Activity<BundleUploadAttributes>.activities
+        var sweptBundles = 0
+        for activity in bundles {
+            let state = activity.content.state
+            let isStaleUpload = state.phase == .uploading
+                && Self.isStaleUpload(staleDate: activity.content.staleDate, now: now)
+            let isFinishedStale = (state.phase == .completed || state.phase == .failed)
+                && activity.content.staleDate.map { $0 < now } ?? false
+            if isStaleUpload || isFinishedStale {
+                if #available(iOS 16.2, *) {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                } else {
+                    await activity.end(dismissalPolicy: .immediate)
+                }
+                sweptBundles += 1
+            }
+        }
+        if sweptBundles > 0 {
+            log.info("swept \(sweptBundles, privacy: .public) stale bundle live activities on boot")
         }
     }
 
@@ -250,7 +278,8 @@ public actor LiveActivityController {
                 fileCount: fileCount,
                 totalBytes: totalBytes,
                 filenames: filenames,
-                retentionPolicy: retentionPolicy
+                retentionPolicy: retentionPolicy,
+                queuedAtMs: Self.nowMs()
             ))
             log.info("deferred bundle live activity start for \(bundleToken, privacy: .public) (extension)")
             return nil
@@ -268,7 +297,8 @@ public actor LiveActivityController {
         let pending = Self.loadPendingBundles()
         guard !pending.isEmpty else { return }
         Self.clearPendingBundles()
-        for req in pending {
+        let fresh = pending.filter(Self.isFresh)
+        for req in fresh {
             _ = startBundle(
                 bundleToken: req.bundleToken,
                 fileCount: req.fileCount,
@@ -277,7 +307,8 @@ public actor LiveActivityController {
                 retentionPolicy: req.retentionPolicy
             )
         }
-        log.info("drained \(pending.count, privacy: .public) pending bundle live-activity starts")
+        let dropped = pending.count - fresh.count
+        log.info("drained \(fresh.count, privacy: .public) pending bundle live-activity starts; dropped \(dropped, privacy: .public) stale starts")
     }
 
     @discardableResult
@@ -304,7 +335,7 @@ public actor LiveActivityController {
         do {
             let activity: Activity<BundleUploadAttributes>
             if #available(iOS 16.2, *) {
-                let content = ActivityContent(state: state, staleDate: nil)
+                let content = ActivityContent(state: state, staleDate: Self.uploadingStaleDate())
                 activity = try Activity.request(attributes: attributes,
                                                 content: content,
                                                 pushType: nil)
@@ -339,7 +370,7 @@ public actor LiveActivityController {
                                                         bytesUploaded: bytesUploaded,
                                                         progress: max(0, min(1, progress)))
         if #available(iOS 16.2, *) {
-            await activity.update(ActivityContent(state: state, staleDate: nil))
+            await activity.update(ActivityContent(state: state, staleDate: Self.uploadingStaleDate()))
         } else {
             await activity.update(using: state)
         }
@@ -348,6 +379,7 @@ public actor LiveActivityController {
     public func finishBundleSuccess(bundleToken: String,
                                     bundleShortUrl: String,
                                     expiresAt: Date) async {
+        Self.removePendingBundle(bundleToken: bundleToken)
         guard let activity = await resolveBundleActivity(bundleToken: bundleToken) else { return }
         let state = BundleUploadAttributes.ContentState(phase: .completed,
                                                         bytesUploaded: activity.attributes.totalBytes,
@@ -366,6 +398,7 @@ public actor LiveActivityController {
     }
 
     public func finishBundleFailure(bundleToken: String, reason: String) async {
+        Self.removePendingBundle(bundleToken: bundleToken)
         guard let activity = await resolveBundleActivity(bundleToken: bundleToken) else { return }
         let state = BundleUploadAttributes.ContentState(phase: .failed,
                                                         bytesUploaded: 0,
@@ -412,6 +445,7 @@ public actor LiveActivityController {
         let contentType: String
         let retentionPolicy: String
         let bytesTotal: Int64
+        let queuedAtMs: Int64?
     }
 
     /// Bundle counterpart of `PendingStart` — written from the share ext when a
@@ -423,6 +457,7 @@ public actor LiveActivityController {
         let totalBytes: Int64
         let filenames: [String]
         let retentionPolicy: String
+        let queuedAtMs: Int64?
     }
 
     private static let pendingStartsKey = "liveactivity.pending_starts.v1"
@@ -436,9 +471,7 @@ public actor LiveActivityController {
         guard let defaults = appGroupDefaults() else { return }
         var current = loadPending()
         current.append(req)
-        if let data = try? JSONEncoder().encode(current) {
-            defaults.set(data, forKey: pendingStartsKey)
-        }
+        savePending(current, defaults: defaults)
     }
 
     private static func loadPending() -> [PendingStart] {
@@ -453,13 +486,27 @@ public actor LiveActivityController {
         appGroupDefaults()?.removeObject(forKey: pendingStartsKey)
     }
 
+    private static func savePending(_ pending: [PendingStart], defaults: UserDefaults? = appGroupDefaults()) {
+        guard let defaults else { return }
+        if pending.isEmpty {
+            defaults.removeObject(forKey: pendingStartsKey)
+            return
+        }
+        if let data = try? JSONEncoder().encode(pending) {
+            defaults.set(data, forKey: pendingStartsKey)
+        }
+    }
+
+    private static func removePending(clientJobId: UUID) {
+        let remaining = loadPending().filter { $0.clientJobId != clientJobId }
+        savePending(remaining)
+    }
+
     private static func enqueuePendingBundle(_ req: PendingBundleStart) {
         guard let defaults = appGroupDefaults() else { return }
         var current = loadPendingBundles()
         current.append(req)
-        if let data = try? JSONEncoder().encode(current) {
-            defaults.set(data, forKey: pendingBundleStartsKey)
-        }
+        savePendingBundles(current, defaults: defaults)
     }
 
     private static func loadPendingBundles() -> [PendingBundleStart] {
@@ -472,6 +519,45 @@ public actor LiveActivityController {
 
     private static func clearPendingBundles() {
         appGroupDefaults()?.removeObject(forKey: pendingBundleStartsKey)
+    }
+
+    private static func savePendingBundles(_ pending: [PendingBundleStart], defaults: UserDefaults? = appGroupDefaults()) {
+        guard let defaults else { return }
+        if pending.isEmpty {
+            defaults.removeObject(forKey: pendingBundleStartsKey)
+            return
+        }
+        if let data = try? JSONEncoder().encode(pending) {
+            defaults.set(data, forKey: pendingBundleStartsKey)
+        }
+    }
+
+    private static func removePendingBundle(bundleToken: String) {
+        let remaining = loadPendingBundles().filter { $0.bundleToken != bundleToken }
+        savePendingBundles(remaining)
+    }
+
+    private static func nowMs() -> Int64 {
+        Int64(Date().timeIntervalSince1970 * 1000)
+    }
+
+    private static func isFresh(_ pending: PendingStart) -> Bool {
+        guard let queuedAtMs = pending.queuedAtMs else { return false }
+        return nowMs() - queuedAtMs <= pendingStartMaxAgeMs
+    }
+
+    private static func isFresh(_ pending: PendingBundleStart) -> Bool {
+        guard let queuedAtMs = pending.queuedAtMs else { return false }
+        return nowMs() - queuedAtMs <= pendingStartMaxAgeMs
+    }
+
+    private static func uploadingStaleDate() -> Date {
+        Date().addingTimeInterval(uploadingStaleInterval)
+    }
+
+    private static func isStaleUpload(staleDate: Date?, now: Date) -> Bool {
+        // Old builds created uploading activities with nil staleDate; on boot those are abandoned.
+        staleDate.map { $0 < now } ?? true
     }
 
     // MARK: - Cross-process resolution
