@@ -52,9 +52,8 @@ redirects served by the backend Worker — do NOT point the apex at Pages.
 
 ## Open threads
 
-- `public/og-image.png` — placeholder / TODO. Generate a 1200×630 PNG
-  from `brand/appicon.svg` on a dark canvas (use `rsvg-convert`) before
-  shipping the public beta.
+- Brand assets are generated from `brand/source-mark.png` via
+  `brand/export.sh`; `public/og-image.png` is now the v2 social card.
 - TestFlight URL — currently `#testflight`. Replace when the TestFlight
   build is live on App Store Connect.
 - `/privacy` and `/terms` — placeholder copy. Final versions land before

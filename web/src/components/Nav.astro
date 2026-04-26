@@ -1,4 +1,6 @@
 ---
+import BrandLockup from './BrandLockup.astro';
+
 // Fixed navigation with the shipped app icon as the public brand mark.
 ---
 <nav
@@ -12,17 +14,7 @@
       aria-label="FastShared home"
       class="nav-brand inline-flex items-center gap-3 transition-colors"
     >
-      <img
-        src="/brand/appicon-1024.png"
-        alt=""
-        width="34"
-        height="34"
-        class="nav-brand__icon"
-        decoding="async"
-        loading="eager"
-        aria-hidden="true"
-      />
-      <span class="font-display text-[16px] font-bold leading-none">FastShared</span>
+      <BrandLockup markSize={34} textSize={16} ariaLabel="FastShared home" />
     </a>
 
     <div class="flex items-center gap-5">
@@ -97,14 +89,6 @@
 
   .nav-link:hover,
   .nav-brand:hover { color: var(--violet-hot); }
-
-  .nav-brand__icon {
-    display: block;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    box-shadow: 0 10px 22px -14px rgba(15, 12, 34, 0.55);
-  }
 
   .theme-toggle {
     position: relative;

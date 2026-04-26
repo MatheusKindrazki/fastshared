@@ -202,12 +202,20 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
     margin-bottom: 24px;
   }
   .brand {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42em;
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--charcoal);
     text-decoration: none;
+  }
+  .brand img {
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 22%;
+    flex: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .viewport {
@@ -400,7 +408,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
 <body>
 <main>
   <header>
-    <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
+    <a href="https://fastsha.red" class="brand"><img src="https://fastsha.red/brand/appicon-1024.png" alt="" width="28" height="28" decoding="async" />fastshared<span class="brand-dot">.</span></a>
   </header>
 
   <section class="viewport">${viewport}</section>
@@ -591,12 +599,20 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
   }
   header { margin-bottom: 48px; }
   .brand {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42em;
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--charcoal);
     text-decoration: none;
+  }
+  .brand img {
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 22%;
+    flex: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .stage {
@@ -678,7 +694,7 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
 <body>
 <main>
   <header>
-    <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
+    <a href="https://fastsha.red" class="brand"><img src="https://fastsha.red/brand/appicon-1024.png" alt="" width="28" height="28" decoding="async" />fastshared<span class="brand-dot">.</span></a>
   </header>
   <section class="stage" aria-live="polite">
     <svg class="ring" viewBox="0 0 44 44" role="img" aria-label="Uploading">
@@ -961,12 +977,18 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 0.42em;
     font-size: 16px;
     font-weight: 700;
     letter-spacing: -0.03em;
     color: var(--charcoal);
     text-decoration: none;
+  }
+  .brand img {
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 22%;
+    flex: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .finder-bar {
@@ -1361,7 +1383,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
 <body>
 <main class="shell">
   <div class="topbar">
-    <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
+    <a href="https://fastsha.red" class="brand"><img src="https://fastsha.red/brand/appicon-1024.png" alt="" width="28" height="28" decoding="async" />fastshared<span class="brand-dot">.</span></a>
     <span class="meta-chip" data-expires-at="${expiresIso}" data-expired="false">${safeRemaining}</span>
   </div>
 
@@ -1589,12 +1611,20 @@ export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Respo
   }
   header { margin-bottom: 32px; }
   .brand {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42em;
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--charcoal);
     text-decoration: none;
+  }
+  .brand img {
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 22%;
+    flex: none;
   }
   .brand-dot { color: var(--violet-hot); }
   .card {
@@ -1636,7 +1666,7 @@ export function renderGonePage(reason: 'expired' | 'revoked' | 'deleted'): Respo
 <body>
 <main>
   <header>
-    <a href="https://fastsha.red" class="brand">fastshared<span class="brand-dot">.</span></a>
+    <a href="https://fastsha.red" class="brand"><img src="https://fastsha.red/brand/appicon-1024.png" alt="" width="28" height="28" decoding="async" />fastshared<span class="brand-dot">.</span></a>
   </header>
   <section class="card">
     <h1>${safeTitle}</h1>

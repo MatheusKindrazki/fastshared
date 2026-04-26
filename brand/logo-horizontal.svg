@@ -1,35 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  FastShared · horizontal lockup · mark + wordmark
-  Mark (52 × 52) sits 14pt left of the wordmark "fastshared." set in
-  Bricolage Grotesque bold, tracking -0.035em. Period glyph rendered in
-  violet accent to echo the arc. The brand mark replaces the old timer-dot
-  so the wordmark can stay clean at any size.
--->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="FastShared">
-  <title>FastShared</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 800" role="img" aria-label="fastshared.">
+  <title>fastshared.</title>
   <defs>
-    <linearGradient id="fs-arc" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%"  stop-color="#ff7ad1" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#9d7aff" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#c1a9ff"/>
+    <linearGradient id="fs-flight-arc" x1="11%" y1="86%" x2="75%" y2="28%">
+      <stop offset="0%" stop-color="#3b0f58"/>
+      <stop offset="44%" stop-color="#8f4cff"/>
+      <stop offset="78%" stop-color="#c7b4ff"/>
+      <stop offset="100%" stop-color="#fffdf8"/>
     </linearGradient>
+    <linearGradient id="fs-plane" x1="20%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="72%" stop-color="#fffdf8"/>
+      <stop offset="100%" stop-color="#ddd5ef"/>
+    </linearGradient>
+    <radialGradient id="fs-glow" cx="70%" cy="32%" r="36%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.78"/>
+      <stop offset="45%" stop-color="#cdbdff" stop-opacity="0.36"/>
+      <stop offset="100%" stop-color="#9d7aff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
-  <!-- Mark scaled from 140-unit canvas to 52px: scale factor 52/140 ≈ 0.3714 -->
-  <g transform="translate(0 6) scale(0.3714)">
-    <path d="M 26 110 Q 60 98, 80 72"
-          stroke="url(#fs-arc)" stroke-width="9" stroke-linecap="butt" fill="none"/>
-    <g transform="translate(81 66) scale(1.1)" fill="currentColor">
-      <path d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -8 4 Z"/>
-      <path d="M 4 4 L 14 10" stroke="currentColor" stroke-opacity="0.35" stroke-width="1"/>
+  <g transform="translate(70 75) scale(0.635)">
+    <ellipse cx="710" cy="338" rx="300" ry="250" fill="url(#fs-glow)"/>
+    <path d="M 105 748 C 275 728 442 674 588 577 C 662 528 721 464 760 383 L 833 420 C 772 548 671 644 531 709 C 386 777 234 800 105 792 Z" fill="url(#fs-flight-arc)" opacity="0.94"/>
+    <g fill="url(#fs-plane)" stroke="#d9d3e7" stroke-width="2" stroke-linejoin="round">
+      <path d="M 602 308 L 865 222 L 744 462 L 680 414 L 651 506 L 629 385 Z"/>
+      <path d="M 602 308 L 680 414 L 865 222 Z" fill="#ffffff"/>
+      <path d="M 680 414 L 744 462 L 865 222 Z" fill="#fffaf0"/>
+      <path d="M 629 385 L 651 506 L 680 414 Z" fill="#eee8ff"/>
     </g>
+    <path d="M 680 414 L 865 222" fill="none" stroke="#d9d3e7" stroke-width="2" opacity="0.55"/>
   </g>
 
-  <!-- Wordmark: Bricolage Grotesque 700, tracking -0.035em ≈ -1.12 at 32px -->
-  <text x="66" y="44"
-        font-family="'Bricolage Grotesque', system-ui, sans-serif"
-        font-size="32" font-weight="700"
-        letter-spacing="-1.12"
+  <text x="760" y="505"
+        font-family="SF Pro Rounded, SF Pro Display, Inter, system-ui, sans-serif"
+        font-size="260"
+        font-weight="800"
+        letter-spacing="-6"
         fill="currentColor">fastshared<tspan fill="#9d7aff">.</tspan></text>
 </svg>

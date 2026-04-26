@@ -237,24 +237,15 @@ private struct SheetRing: View {
     }
 }
 
-/// Inline plane-arc brand mark for the share extension.
-///
-/// Mirrors `apple/FastSharedApp/Components/PlaneArcMark.swift` — but this
-/// target can't import Components, so we re-declare the v3 `PlaneArc` render
-/// inline. Same viewBox-140 coordinates, same dart path, same gradient stops.
+/// Inline raster-backed brand mark for the share extension.
 private struct SheetPlaneArc: View {
     var size: CGFloat = 80
     var framed: Bool = false
     var ambient: Bool = false
 
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var planeColor: Color { sysLabel }
-
     var body: some View {
-        let corner = size * (32.0 / 140.0)
-        let arcStrokeWidth = size * (9.0 / 140.0)
         let a = BrandPalette.violetAccent
+        let assetName = framed ? "FastSharedIcon" : "FastSharedMark"
 
         ZStack {
             if ambient {
@@ -273,71 +264,16 @@ private struct SheetPlaneArc: View {
                     .accessibilityHidden(true)
             }
 
-            if framed {
-                let bg = sysTertiaryBackground
-                let borderColor = sysSeparator
-                RoundedRectangle(cornerRadius: corner, style: .continuous)
-                    .fill(bg)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: corner, style: .continuous)
-                            .stroke(borderColor, lineWidth: 1)
-                    )
-                    .frame(width: size, height: size)
-            }
-
-            SheetArcPath()
-                .stroke(
-                    LinearGradient(
-                        stops: [
-                            .init(color: a.fade.opacity(0), location: 0),
-                            .init(color: a.hot.opacity(0.95), location: 0.5),
-                            .init(color: a.soft, location: 1),
-                        ],
-                        startPoint: .bottomLeading,
-                        endPoint: .topTrailing
-                    ),
-                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .butt)
-                )
+            Image(assetName)
+                .resizable()
+                .interpolation(.high)
+                .antialiased(true)
+                .scaledToFit()
                 .frame(width: size, height: size)
-
-            GeometryReader { geo in
-                let s = geo.size.width / 140.0
-                let transform = CGAffineTransform(translationX: 81 * s, y: 66 * s)
-                    .scaledBy(x: 1.1 * s, y: 1.1 * s)
-                ZStack {
-                    Path { p in
-                        p.move(to: CGPoint(x: 0, y: 0).applying(transform))
-                        p.addLine(to: CGPoint(x: 22, y: -26).applying(transform))
-                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
-                        p.addLine(to: CGPoint(x: 4, y: 4).applying(transform))
-                        p.addLine(to: CGPoint(x: 0, y: 18).applying(transform))
-                        p.addLine(to: CGPoint(x: -8, y: 4).applying(transform))
-                        p.closeSubpath()
-                    }
-                    .fill(planeColor)
-                    Path { p in
-                        p.move(to: CGPoint(x: 4, y: 4).applying(transform))
-                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
-                    }
-                    .stroke(planeColor.opacity(0.35), lineWidth: 1)
-                }
-            }
-            .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: framed ? size * 0.22 : 0, style: .continuous))
+                .shadow(color: framed ? Color.black.opacity(0.16) : .clear, radius: framed ? size * 0.12 : 0, y: framed ? size * 0.05 : 0)
         }
         .frame(width: size, height: size)
-    }
-}
-
-private struct SheetArcPath: Shape {
-    func path(in rect: CGRect) -> Path {
-        let s = rect.width / 140.0
-        var p = Path()
-        p.move(to: CGPoint(x: 26 * s, y: 110 * s))
-        p.addQuadCurve(
-            to: CGPoint(x: 80 * s, y: 72 * s),
-            control: CGPoint(x: 60 * s, y: 98 * s)
-        )
-        return p
     }
 }
 
@@ -352,7 +288,7 @@ private struct SheetBrandLockup: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            SheetPlaneArc(size: markSize)
+            SheetPlaneArc(size: markSize, framed: true)
                 .accessibilityHidden(true)
             (
                 Text("fastshared")
@@ -361,7 +297,7 @@ private struct SheetBrandLockup: View {
                     .foregroundStyle(FriendlyPalette.accentHot)
             )
             .font(.system(size: textSize, weight: .bold))
-            .tracking(-textSize * 0.02)
+            .tracking(0)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("fastshared")
@@ -855,7 +791,7 @@ private struct SuccessStage: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
 
-            // Hero — PlaneArc mark with success badge overlay
+            // Hero brand mark with success badge overlay
             SheetPlaneArc(size: 100, framed: false, ambient: true)
                 .overlay(alignment: .bottomTrailing) {
                     ZStack {

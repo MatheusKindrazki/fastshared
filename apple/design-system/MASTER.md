@@ -4,7 +4,7 @@ This file is the single source of truth for design decisions on the FastShared i
 
 **Sister scope (do not cross-apply):** the marketing site at `web/` runs on a different aesthetic locked in `web/.impeccable.md` (dark-only, ephemeral · opinionated · crafted). Friendly applies only to native app surfaces.
 
-Last updated: 2026-04-19
+Last updated: 2026-04-26
 
 ---
 
@@ -13,7 +13,7 @@ Last updated: 2026-04-19
 **Friendly Redesign.** Light-first, warm, human-centered, soft and spacious. Pivots away from the previous warm-amber-on-dark direction. Communicates "ephemeral sharing as everyday kindness" rather than "ephemeral link as technology."
 
 Brand DNA preserved from the previous redesign:
-- Plane + Arc mark (v3) with optional ambient halo
+- Raster paper-plane mark with violet flight arc and optional ambient halo
 - Bricolage Grotesque (display) + JetBrains Mono (mono)
 - Ephemerality as the core gesture (countdown, urgency, decay)
 
