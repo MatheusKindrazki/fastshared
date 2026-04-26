@@ -26,6 +26,7 @@ struct MacCompanionView: View {
     @Environment(\.uploadOrchestrator) private var orchestrator
     @Environment(\.clipboard) private var clipboard
     @Environment(\.subscriptionStore) private var subscriptionStore
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
     @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: [SortDescriptor(\ShareLinkEntity.createdAt, order: .reverse)])
@@ -166,7 +167,8 @@ struct MacCompanionView: View {
                     .frame(height: 1)
 
                 Button {
-                    SettingsWindowHolder.shared.open()
+                    SettingsWindowHolder.shared.open(subscriptionStore: subscriptionStore,
+                                                     paywallCoordinator: paywallCoordinator)
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "gearshape")

@@ -108,9 +108,18 @@ targets:
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Matheus Kindrazki. All rights reserved."
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
+        # WHY: the macOS app target has to copy the built login-item .app
+        # recursively into Contents/Library/LoginItems. Xcode's user script
+        # sandbox does not grant recursive directory reads for a declared .app
+        # input, so keep the exception scoped to this target/script.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
     dependencies:
+      - target: FastSharedLoginItem
+        embed: false
+        link: false
+        destinationFilters: [macOS]
       - target: FastSharedShareExt
         embed: true
         codeSign: true
@@ -120,6 +129,60 @@ targets:
         destinationFilters: [iOS]
       - package: FastSharedCore
         product: FastSharedCore
+    postBuildScripts:
+      - name: Embed Login Item
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+        inputFiles:
+          - $(BUILT_PRODUCTS_DIR)/FastSharedLoginItem.app
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LoginItems/FastSharedLoginItem.app
+        script: |
+          set -euo pipefail
+          if [ "${PLATFORM_NAME:-}" != "macosx" ]; then
+            exit 0
+          fi
+
+          helper_app="${BUILT_PRODUCTS_DIR}/FastSharedLoginItem.app"
+          destination="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Library/LoginItems/FastSharedLoginItem.app"
+
+          if [ ! -d "$helper_app" ]; then
+            echo "error: FastSharedLoginItem.app was not built before embedding"
+            exit 1
+          fi
+
+          rm -rf "$destination"
+          mkdir -p "$(dirname "$destination")"
+          ditto "$helper_app" "$destination"
+
+          if [ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ] && [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then
+            codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" \
+              --preserve-metadata=identifier,entitlements,flags \
+              "$destination"
+          fi
+
+  FastSharedLoginItem:
+    type: application
+    platform: macOS
+    sources:
+      - path: FastSharedLoginItem
+    info:
+      path: FastSharedLoginItem/Info.plist
+      properties:
+        CFBundleDisplayName: FastShared Login Item
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+    settings:
+      base:
+        PRODUCT_NAME: FastSharedLoginItem
+        PRODUCT_BUNDLE_IDENTIFIER: dev.kindrazki.fastshared.LoginItem
+        CODE_SIGN_ENTITLEMENTS: FastSharedLoginItem/FastSharedLoginItem.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
 
   FastSharedShareExt:
     type: app-extension

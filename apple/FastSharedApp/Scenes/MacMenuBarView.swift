@@ -22,6 +22,8 @@ struct MacMenuBarView: View {
     @Environment(\.apiClient) private var apiClient
     @Environment(\.uploadService) private var uploadService
     @Environment(\.clipboard) private var clipboard
+    @Environment(\.subscriptionStore) private var subscriptionStore
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
     @Environment(\.colorScheme) private var colorScheme
 
     @Query(sort: [SortDescriptor(\ShareLinkEntity.createdAt, order: .reverse)])
@@ -276,8 +278,21 @@ struct MacMenuBarView: View {
                 Spacer()
                 Button {
                     TrayManager.shared.closePopover()
-                    NSApp.activate(ignoringOtherApps: true)
-                    NotificationCenter.default.post(name: .openSettings, object: nil)
+                    MacLaunchAtLoginController.showMainWindow()
+                } label: {
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(textDimColor)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open Library")
+
+                Button {
+                    TrayManager.shared.closePopover()
+                    SettingsWindowHolder.shared.open(subscriptionStore: subscriptionStore,
+                                                     paywallCoordinator: paywallCoordinator)
                 } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 13, weight: .medium))
@@ -368,12 +383,14 @@ final class SettingsWindowHolder {
     private init() {}
 
     /// Opens (or re-opens) a dedicated Settings window.
-    func open() {
+    func open(subscriptionStore: SubscriptionStoreProtocol = NoopSubscriptionStore(),
+              paywallCoordinator: PaywallCoordinator = PaywallCoordinator()) {
         NSLog("[SettingsWindowHolder] open() called")
         // If a window already exists, just bring it to front
         if let existing = window {
             NSLog("[SettingsWindowHolder] existing window found, isVisible=\(existing.isVisible)")
             if existing.isVisible {
+                NSApp.activate(ignoringOtherApps: true)
                 existing.makeKeyAndOrderFront(nil)
                 return
             }
@@ -385,10 +402,16 @@ final class SettingsWindowHolder {
             defer: false
         )
         newWindow.title = "Settings"
+        newWindow.identifier = .fastSharedSettingsWindow
         newWindow.isReleasedWhenClosed = false
         newWindow.level = .floating
-        newWindow.contentViewController = NSHostingController(rootView: SettingsView())
+        newWindow.contentViewController = NSHostingController(
+            rootView: SettingsView()
+                .environment(\.subscriptionStore, subscriptionStore)
+                .environment(\.paywallCoordinator, paywallCoordinator)
+        )
         newWindow.center()
+        NSApp.activate(ignoringOtherApps: true)
         newWindow.makeKeyAndOrderFront(nil)
         NSLog("[SettingsWindowHolder] new window created and shown")
         window = newWindow

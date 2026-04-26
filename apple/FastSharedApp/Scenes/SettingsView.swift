@@ -27,6 +27,11 @@ struct SettingsView: View {
     @State private var usageCount: Int = 0
     @State private var copyLinkAuto: Bool = true
     @State private var notifyOnOpen: Bool = false
+    #if os(macOS)
+    @State private var openAtLoginOn: Bool = false
+    @State private var openAtLoginStatus: String = "Off"
+    @State private var openAtLoginError: String?
+    #endif
     private let appGroupDefaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
     private let retentionKey = "default_retention_policy"
     private let cloudSyncKey = "cloud_sync_enabled_v1"
@@ -176,6 +181,10 @@ struct SettingsView: View {
                             )
                         }
 
+                        #if os(macOS)
+                        macStartupSection
+                        #endif
+
                         // 3. This device
                         SettingsSection(
                             header: "This device",
@@ -274,6 +283,9 @@ struct SettingsView: View {
             await loadDeviceId()
             loadDefaultRetention()
             loadCloudSync()
+            #if os(macOS)
+            refreshOpenAtLogin()
+            #endif
             snapshot = await subscriptionStore.currentSnapshot()
             for await next in subscriptionStore.snapshotStream {
                 snapshot = next
@@ -486,6 +498,51 @@ struct SettingsView: View {
         }
     }
 
+    #if os(macOS)
+    // MARK: - Mac startup section
+
+    private var macStartupSection: some View {
+        SettingsSection(
+            header: "Mac",
+            textDim: textDim,
+            paper: paper,
+            line: line
+        ) {
+            HStack(spacing: 12) {
+                Text("Open at login")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(textPrimary)
+                Spacer(minLength: 12)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(openAtLoginError ?? openAtLoginStatus)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(openAtLoginError == nil ? textDim : BrandPalette.urgencyCritical)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if openAtLoginStatus == "Needs approval" {
+                        Button {
+                            MacLaunchAtLoginController.openLoginItemsSettings()
+                        } label: {
+                            Text("Open System Settings")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(BrandPalette.accentHot)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                FriendlyToggle(isOn: Binding(
+                    get: { openAtLoginOn },
+                    set: { newValue in
+                        setOpenAtLogin(newValue)
+                    }
+                ))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+    }
+    #endif
+
     // MARK: - Pro sync section (preserved)
 
     private var proSyncSection: some View {
@@ -643,6 +700,27 @@ struct SettingsView: View {
             cloudSyncOn = true
         }
     }
+
+    #if os(macOS)
+    private func refreshOpenAtLogin() {
+        openAtLoginOn = MacLaunchAtLoginController.isEnabledOrNeedsApproval
+        openAtLoginStatus = MacLaunchAtLoginController.statusLabel
+        if openAtLoginStatus != "Needs approval" {
+            openAtLoginError = nil
+        }
+    }
+
+    private func setOpenAtLogin(_ enabled: Bool) {
+        do {
+            try MacLaunchAtLoginController.setEnabled(enabled)
+            refreshOpenAtLogin()
+        } catch {
+            openAtLoginOn = MacLaunchAtLoginController.isEnabledOrNeedsApproval
+            openAtLoginStatus = MacLaunchAtLoginController.statusLabel
+            openAtLoginError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+    #endif
 
     private func signOut() async {
         let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)

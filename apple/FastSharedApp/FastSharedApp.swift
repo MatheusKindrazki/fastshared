@@ -177,6 +177,7 @@ struct FastSharedApp: App {
                 .environment(\.subscriptionStore, subscriptionStore)
                 .environment(\.paywallCoordinator, paywallCoordinator)
                 .modelContainer(store.modelContainer)
+                .background(MacMainWindowBinder())
                 .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
                     if let window = notification.object as? NSWindow {
                         window.titleVisibility = .hidden
@@ -240,8 +241,23 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
 #endif
 
 #if canImport(AppKit)
+@MainActor
 final class MacAppDelegate: NSObject, NSApplicationDelegate {
     private let log = Logger(subsystem: Log.subsystem, category: "app")
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        MacLaunchAtLoginController.prepareForApplicationLaunch(NSApp)
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        MacLaunchAtLoginController.finishApplicationLaunch(NSApp)
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !flag else { return true }
+        MacLaunchAtLoginController.showMainWindow()
+        return false
+    }
 
     func application(_ application: NSApplication,
                      handleEventsForBackgroundURLSession identifier: String,

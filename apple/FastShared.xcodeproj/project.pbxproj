@@ -34,11 +34,14 @@
 		7516EA58E7A67C3469513F4D /* PlaneArcMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08EA6ACFFF34EBB3051CEA7A /* PlaneArcMark.swift */; };
 		761F9E35C73774C1AEBE12FB /* BrandPalette+Redesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E51E9CDA15F39DD65F1B780 /* BrandPalette+Redesign.swift */; };
 		793E126371555702F56E9427 /* ExpiryTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A784E8C45E6D1B42C8023031 /* ExpiryTier.swift */; };
+		7FDF48801867D9B46902C92A /* MacLaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 595ED49A0E51AEE1315C5739 /* MacLaunchAtLogin.swift */; };
 		84FF9E49748CEA8AAA0FEA99 /* FastSharedCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2CBC13B53DE31A50DB265C2 /* FastSharedCore */; };
 		896D8B129024E22D14EF11D0 /* BrandAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */; };
+		8E9CCDC9E9F052C1970F5493 /* LoginItemApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49ABFDE0C0B987BC771E9F7C /* LoginItemApp.swift */; };
 		8EE5F08B37A75483180A48EC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5C97B518FAD14B7B537E32ED /* PrivacyInfo.xcprivacy */; };
 		9100732A0A506E8744505E7B /* FastSharedLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 988DD6EAF3C4A04479959EE7 /* FastSharedLiveActivity.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		96154FACD6E84B2142CC1241 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3145FBF97AEBC20F81E2B6 /* SignInView.swift */; };
+		976C66D5E1834F40ABBA2258 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3B5BB5216A73990122DE10E2 /* PrivacyInfo.xcprivacy */; };
 		9F260C2A13F366979FE996F2 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00E8DDE7A71E1DB0DD93ABA /* HistoryViewModel.swift */; };
 		A996594F880A34A6BDF92DBA /* SubscriptionStoreEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79895413B24C726EF3064EDE /* SubscriptionStoreEnvironment.swift */; };
 		AB5322BAB726C6ADAAB007AE /* ShareRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2382274A1EDEC1633088B309 /* ShareRootView.swift */; };
@@ -65,6 +68,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		07CE14DEAFE4BF2649420CFB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2FE7EC2D61A2AAE99E73EEA8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AC05F94533A3A24025814F82;
+			remoteInfo = FastSharedLoginItem;
+		};
 		735F1A4227C24071A7889E7D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2FE7EC2D61A2AAE99E73EEA8 /* Project object */;
@@ -118,13 +128,16 @@
 		33787BF324E43873016CE8EE /* FastSharedShareExt.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FastSharedShareExt.entitlements; sourceTree = "<group>"; };
 		36556BBD8D23476FEC5103D0 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		369456C3993F826C3DE11C18 /* FastSharedBundleUploadLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastSharedBundleUploadLiveActivity.swift; sourceTree = "<group>"; };
+		3B5BB5216A73990122DE10E2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3BF7A9F6FA6381D882CC3443 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		4534C9E4E0F75DB7F373EBDB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		48E66E57D299F69FE9B5430D /* ScreenshotDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDetector.swift; sourceTree = "<group>"; };
+		49ABFDE0C0B987BC771E9F7C /* LoginItemApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemApp.swift; sourceTree = "<group>"; };
 		4BEC7A567804182C96A9315A /* FastSharedApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FastSharedApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EC203896546B3EFAB76E7A4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5469E3BDF783E396C930702D /* IOSShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSShortcuts.swift; sourceTree = "<group>"; };
 		57CB3F32E435BBED1A811DC0 /* AppStoreScreenshotsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotsUITests.swift; sourceTree = "<group>"; };
+		595ED49A0E51AEE1315C5739 /* MacLaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacLaunchAtLogin.swift; sourceTree = "<group>"; };
 		5BC678E7280D9B2285C3FDA5 /* FastSharedLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastSharedLiveActivityBundle.swift; sourceTree = "<group>"; };
 		5C7F97DC9B7CF98310330E77 /* FastSharedCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FastSharedCore; path = Packages/FastSharedCore; sourceTree = SOURCE_ROOT; };
 		5C97B518FAD14B7B537E32ED /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -142,6 +155,7 @@
 		79895413B24C726EF3064EDE /* SubscriptionStoreEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStoreEnvironment.swift; sourceTree = "<group>"; };
 		7F3145FBF97AEBC20F81E2B6 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		86E8F3C9466C78558F4B50BA /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		87449B10FCBAB33AD3CE5074 /* FastSharedLoginItem.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FastSharedLoginItem.entitlements; sourceTree = "<group>"; };
 		87ADBA22C6F3BF8B95DBC806 /* FastSharedAppUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FastSharedAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8C1A374FB5491CB5F03DF1C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9134F6593A21FC649024BD85 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
@@ -153,7 +167,9 @@
 		B053BEF38363D40385EBB074 /* MacMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacMenuBarView.swift; sourceTree = "<group>"; };
 		B11B370818419C58E3A881BB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		B9294615409F135199972467 /* UrgencyRingShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UrgencyRingShape.swift; sourceTree = "<group>"; };
+		BDE0A297A5A44CED68B53CC7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C028C74633A53A360A1538FE /* FastSharedShareExt.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FastSharedShareExt.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C3B57235CCFDD1CF1255874D /* FastSharedLoginItem.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastSharedLoginItem.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7622975EF5567723FD15992 /* AppStoreScreenshotHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotHostView.swift; sourceTree = "<group>"; };
 		D00E8DDE7A71E1DB0DD93ABA /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
 		D97221F517EC0AC485772D24 /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
@@ -202,6 +218,7 @@
 				603A0AB5E9C210DC5F7C716B /* FastSharedApp */,
 				61CD8BEC18DEDB376D32086E /* FastSharedAppUITests */,
 				1E4906F8F703B17F99EB4108 /* FastSharedLiveActivity */,
+				42A6E772EFF61EE0D593BD1B /* FastSharedLoginItem */,
 				D05F942AF656E5F9F23D6124 /* FastSharedShareExt */,
 				E4E058FC2C390CBC0EBAB91D /* Packages */,
 				A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */,
@@ -228,9 +245,21 @@
 				4BEC7A567804182C96A9315A /* FastSharedApp.app */,
 				87ADBA22C6F3BF8B95DBC806 /* FastSharedAppUITests.xctest */,
 				988DD6EAF3C4A04479959EE7 /* FastSharedLiveActivity.appex */,
+				C3B57235CCFDD1CF1255874D /* FastSharedLoginItem.app */,
 				C028C74633A53A360A1538FE /* FastSharedShareExt.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		42A6E772EFF61EE0D593BD1B /* FastSharedLoginItem */ = {
+			isa = PBXGroup;
+			children = (
+				87449B10FCBAB33AD3CE5074 /* FastSharedLoginItem.entitlements */,
+				BDE0A297A5A44CED68B53CC7 /* Info.plist */,
+				49ABFDE0C0B987BC771E9F7C /* LoginItemApp.swift */,
+				3B5BB5216A73990122DE10E2 /* PrivacyInfo.xcprivacy */,
+			);
+			path = FastSharedLoginItem;
 			sourceTree = "<group>";
 		};
 		58AFF0B1A1CB3A430E1F1B4F /* Platform */ = {
@@ -238,6 +267,7 @@
 			children = (
 				5469E3BDF783E396C930702D /* IOSShortcuts.swift */,
 				97AD5286ABB21E895C3AE32E /* MacDropHandler.swift */,
+				595ED49A0E51AEE1315C5739 /* MacLaunchAtLogin.swift */,
 				79895413B24C726EF3064EDE /* SubscriptionStoreEnvironment.swift */,
 			);
 			path = Platform;
@@ -377,10 +407,12 @@
 				96D17D92EF25801F44DF76A3 /* Resources */,
 				E55E7FC16CD43B8C3099C76C /* Frameworks */,
 				5B3397226A1A0847F89A4DD4 /* Embed Foundation Extensions */,
+				BC986C5C6CFC08E25A3AD7F8 /* Embed Login Item */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				029284B94B162CFF9A4E9D96 /* PBXTargetDependency */,
 				2F0081470BDA76F7472053FB /* PBXTargetDependency */,
 				8DA79DF101ED9E4D1C89A62B /* PBXTargetDependency */,
 			);
@@ -450,6 +482,24 @@
 			productReference = 988DD6EAF3C4A04479959EE7 /* FastSharedLiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AC05F94533A3A24025814F82 /* FastSharedLoginItem */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6373461911D005834B82083E /* Build configuration list for PBXNativeTarget "FastSharedLoginItem" */;
+			buildPhases = (
+				9F157A8B979909C06368E24B /* Sources */,
+				468D78A99FCADF946DF8CA43 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FastSharedLoginItem;
+			packageProductDependencies = (
+			);
+			productName = FastSharedLoginItem;
+			productReference = C3B57235CCFDD1CF1255874D /* FastSharedLoginItem.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -476,6 +526,10 @@
 						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
 						ProvisioningStyle = Automatic;
 					};
+					AC05F94533A3A24025814F82 = {
+						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 142BFCF33BDD38B506FF34F7 /* Build configuration list for PBXProject "FastShared" */;
@@ -498,6 +552,7 @@
 				0AD0DFFD72C43552480B2356 /* FastSharedApp */,
 				49AB239D72A43760B1730E3C /* FastSharedAppUITests */,
 				72FAE479E4BAB77FAD598234 /* FastSharedLiveActivity */,
+				AC05F94533A3A24025814F82 /* FastSharedLoginItem */,
 				222ED4F423445BE6FCDC1356 /* FastSharedShareExt */,
 			);
 		};
@@ -510,6 +565,14 @@
 			files = (
 				3B9A13A56DD62A1B43DCA79E /* BrandAssets.xcassets in Resources */,
 				B344D60EC4D57DB7A482CD56 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		468D78A99FCADF946DF8CA43 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				976C66D5E1834F40ABBA2258 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -535,6 +598,31 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		BC986C5C6CFC08E25A3AD7F8 /* Embed Login Item */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/FastSharedLoginItem.app",
+			);
+			name = "Embed Login Item";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LoginItems/FastSharedLoginItem.app",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nif [ \"${PLATFORM_NAME:-}\" != \"macosx\" ]; then\n  exit 0\nfi\n\nhelper_app=\"${BUILT_PRODUCTS_DIR}/FastSharedLoginItem.app\"\ndestination=\"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Library/LoginItems/FastSharedLoginItem.app\"\n\nif [ ! -d \"$helper_app\" ]; then\n  echo \"error: FastSharedLoginItem.app was not built before embedding\"\n  exit 1\nfi\n\nrm -rf \"$destination\"\nmkdir -p \"$(dirname \"$destination\")\"\nditto \"$helper_app\" \"$destination\"\n\nif [ \"${CODE_SIGNING_ALLOWED:-YES}\" != \"NO\" ] && [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ]; then\n  codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" \\\n    --preserve-metadata=identifier,entitlements,flags \\\n    \"$destination\"\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		07E02BCDCF3E5EC4C6ED4726 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -556,6 +644,7 @@
 				B507DC7676BADCEA4146D08A /* LibraryView.swift in Sources */,
 				4FFB06EB8F0F71250BDE2EFE /* MacCompanionView.swift in Sources */,
 				F5FAC1BF2F52E3EABECC9874 /* MacDropHandler.swift in Sources */,
+				7FDF48801867D9B46902C92A /* MacLaunchAtLogin.swift in Sources */,
 				3C769382012F6EAE207DA9E8 /* MacMenuBarView.swift in Sources */,
 				CD62562DFE5ED8305DBCFEE7 /* Mono.swift in Sources */,
 				36AD6810F21FDF82745E3372 /* OnboardingView.swift in Sources */,
@@ -596,6 +685,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9F157A8B979909C06368E24B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E9CCDC9E9F052C1970F5493 /* LoginItemApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CEBA2696972A493A9487C41F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -609,6 +706,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		029284B94B162CFF9A4E9D96 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				macos,
+			);
+			target = AC05F94533A3A24025814F82 /* FastSharedLoginItem */;
+			targetProxy = 07CE14DEAFE4BF2649420CFB /* PBXContainerItemProxy */;
+		};
 		2F0081470BDA76F7472053FB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 222ED4F423445BE6FCDC1356 /* FastSharedShareExt */;
@@ -704,9 +809,28 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 5.1;
+			};
+			name = Debug;
+		};
+		23282F7E023C214C6AAA8F03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FastSharedLoginItem/FastSharedLoginItem.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FastSharedLoginItem/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.kindrazki.fastshared.LoginItem;
+				PRODUCT_NAME = FastSharedLoginItem;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
@@ -743,6 +867,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FastSharedApp/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Matheus Kindrazki. All rights reserved.";
@@ -847,6 +972,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = FastSharedApp/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Matheus Kindrazki. All rights reserved.";
@@ -919,9 +1045,28 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 5.1;
+			};
+			name = Release;
+		};
+		AF122CB2E4B4DA2FD249E030 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FastSharedLoginItem/FastSharedLoginItem.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FastSharedLoginItem/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.kindrazki.fastshared.LoginItem;
+				PRODUCT_NAME = FastSharedLoginItem;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
@@ -984,6 +1129,15 @@
 			buildConfigurations = (
 				5C2AE520951C997F8F51F7A4 /* Debug */,
 				3510F225C89A6F5D82665610 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6373461911D005834B82083E /* Build configuration list for PBXNativeTarget "FastSharedLoginItem" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				23282F7E023C214C6AAA8F03 /* Debug */,
+				AF122CB2E4B4DA2FD249E030 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
