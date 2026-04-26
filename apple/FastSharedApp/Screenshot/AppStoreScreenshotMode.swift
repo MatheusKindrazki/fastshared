@@ -28,7 +28,7 @@ enum AppStoreScreenshotScene: String, CaseIterable {
         case .history:
             return "Keep control after you send."
         case .pro:
-            return "Go Pro when you need more room."
+            return "Go Pro when you want sync."
         }
     }
 
@@ -37,13 +37,13 @@ enum AppStoreScreenshotScene: String, CaseIterable {
         case .shareFlow:
             return "FastShared turns a file into a temporary short link and copies it automatically."
         case .retention:
-            return "Default 24-hour links keep cleanup automatic. Pro unlocks up to 30 days."
+            return "Default 24-hour links keep cleanup automatic. Launch access supports up to 30 days."
         case .progress:
             return "Large files continue cleanly with visible progress and a ready-to-paste link."
         case .history:
             return "Find recent links, copy again, share, or revoke before expiration."
         case .pro:
-            return "Unlimited daily uploads, 2 GB files, longer retention, and iCloud sync."
+            return "Sync link history across devices, get priority support, and keep Lifetime in the family."
         }
     }
 }

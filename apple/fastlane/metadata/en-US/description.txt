@@ -26,10 +26,12 @@ YOUR FILES, YOUR RULES
 - Bearer links with high-entropy tokens. The link is the credential. Revoke any time.
 - noindex, no-referrer, no-store on every resolve so tokens stay out of search engines, referrer chains, and caches.
 
-FASTSHARED PRO
+LAUNCH ACCESS
 - Unlimited uploads per day.
 - Files up to 2 GB.
 - Link retention up to 30 days.
+
+FASTSHARED PRO
 - iCloud history sync across iPhone, iPad, and Mac.
 - Family Sharing on Lifetime.
 - Priority support.

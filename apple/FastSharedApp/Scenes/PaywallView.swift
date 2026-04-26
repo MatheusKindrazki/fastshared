@@ -215,7 +215,7 @@ struct PaywallView: View {
         case .cloudSyncRequested:
             return "Pro mirrors your link history to your private iCloud — no extra setup."
         case .longRetentionRequested:
-            return "Pro supports up to 30-day retention. Free tops out at 24 hours."
+            return "Launch access supports up to 30-day retention. Pro adds sync, support, and Lifetime Family Sharing."
         case .largeFileRequested:
             return "Pro raises the cap to 2 GB per file and keeps the same one-gesture flow."
         case .serverForced:
