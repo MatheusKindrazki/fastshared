@@ -1,732 +1,114 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>fastshared · brand</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-:root{
-  --ink:#070318;
-  --ink-1:#0f0630;
-  --ink-2:#1d0d4b;
-  --violet:#3b1f86;
-  --text:#fafaff;
-  --text-dim:rgba(250,250,255,0.56);
-  --text-faint:rgba(250,250,255,0.32);
-  --rule:rgba(255,255,255,0.08);
-  --rule-soft:rgba(255,255,255,0.04);
-  --amber:#ff9f47;
-  --amber-1:#ffc487;
-  --coral:#ff4e7c;
-  --cream:#ffe0b8;
-  --display:'Bricolage Grotesque','Söhne','Inter Tight',system-ui,sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{
-  font-family:var(--display);
-  background:radial-gradient(1200px 800px at 20% -10%, #2a1458 0%, transparent 55%),
-             radial-gradient(900px 700px at 90% 20%, #1a0a4a 0%, transparent 50%),
-             var(--ink);
-  color:var(--text);
-  font-feature-settings:"ss02","cv11","ss01";
-  -webkit-font-smoothing:antialiased;
-  min-height:100vh;
-  overflow-x:hidden;
-}
-body::before{
-  content:"";
-  position:fixed;inset:0;pointer-events:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  opacity:0.6;z-index:1;mix-blend-mode:overlay;
-}
-body::after{
-  content:"";
-  position:fixed;inset:0;pointer-events:none;z-index:2;
-  background:
-    linear-gradient(to right, var(--rule-soft) 1px, transparent 1px) 0 0/ 100px 100px,
-    linear-gradient(to bottom, var(--rule-soft) 1px, transparent 1px) 0 0/ 100px 100px;
-  opacity:0.5;
-}
-main{position:relative;z-index:3}
-
-/* Frame */
-.frame{
-  max-width:1440px;
-  margin:0 auto;
-  padding:56px clamp(24px,5vw,88px) 120px;
-}
-
-/* Header */
-header{
-  display:flex;justify-content:space-between;align-items:center;
-  padding-bottom:56px;
-  border-bottom:1px solid var(--rule);
-}
-.bug{
-  display:flex;align-items:center;gap:14px;
-  font:500 14px/1 var(--mono);
-  letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);
-}
-.bug .dot{width:10px;height:10px;border-radius:50%;background:var(--amber);box-shadow:0 0 16px var(--amber)}
-.meta{display:flex;gap:32px;font:400 13px/1 var(--mono);color:var(--text-dim);letter-spacing:0.04em}
-.meta b{color:var(--text);font-weight:500}
-
-/* Section heading pattern */
-.section-head{
-  display:flex;align-items:baseline;gap:28px;
-  padding:120px 0 48px;
-  border-bottom:1px solid var(--rule);
-  margin-bottom:48px;
-}
-.section-head .num{
-  font:500 14px/1 var(--mono);color:var(--amber);
-  letter-spacing:0.12em;
-}
-.section-head h2{
-  font-family:var(--display);
-  font-size:clamp(40px, 5.5vw, 88px);
-  font-weight:600;
-  letter-spacing:-0.035em;
-  line-height:0.95;
-  font-variation-settings:"opsz" 96;
-}
-.section-head .tagline{
-  margin-left:auto;max-width:360px;
-  font:400 14px/1.5 var(--mono);color:var(--text-dim);text-align:right;
-}
-
-/* Hero */
-.hero{
-  display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:40px;align-items:center;
-  padding:80px 0 40px;min-height:min(780px, 80vh);
-  position:relative;
-}
-.hero-left, .hero-right{display:flex;flex-direction:column;gap:14px;font:400 13px/1.6 var(--mono);color:var(--text-dim);letter-spacing:0.03em}
-.hero-left .kv, .hero-right .kv{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--rule)}
-.hero-left .kv b, .hero-right .kv b{color:var(--text);font-weight:500}
-.hero-right{text-align:right}
-.hero-right .kv{flex-direction:row-reverse}
-.hero-icon{
-  aspect-ratio:1;width:100%;max-width:520px;margin:0 auto;
-  position:relative;border-radius:22%;
-  box-shadow:
-    0 80px 120px -40px rgba(90,30,160,0.8),
-    0 40px 80px -20px rgba(255,100,80,0.35),
-    inset 0 2px 0 0 rgba(255,255,255,0.12);
-  overflow:hidden;
-  transform:translateZ(0);
-}
-.hero-icon svg{display:block;width:100%;height:100%}
-.hero-icon::after{
-  content:"";position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.18), transparent 50%);
-}
-.hero-title{
-  grid-column:1/-1;text-align:center;padding:60px 0 0;
-  font-variation-settings:"opsz" 96;
-}
-.hero-title h1{
-  font-size:clamp(56px, 11vw, 180px);
-  font-weight:600;
-  letter-spacing:-0.05em;line-height:0.9;
-}
-.hero-title h1 .dot{color:var(--amber);display:inline-block;transform:translate(-14px, -12px)}
-.hero-title p{
-  margin-top:28px;color:var(--text-dim);
-  font:400 18px/1.5 var(--mono);letter-spacing:0.04em;
-  max-width:640px;margin-left:auto;margin-right:auto;
-}
-
-/* Animations */
-@keyframes drawArc{from{stroke-dashoffset:920}to{stroke-dashoffset:0}}
-@keyframes twinkle{
-  0%,100%{opacity:var(--a,0.6);transform:translate(0,0) scale(1)}
-  50%{opacity:calc(var(--a,0.6) * 1.4);transform:translate(1px,-2px) scale(1.08)}
-}
-@keyframes pulseSphere{
-  0%,100%{filter:drop-shadow(0 0 0 rgba(255,159,71,0))}
-  50%{filter:drop-shadow(0 0 24px rgba(255,159,71,0.45))}
-}
-.hero-icon svg .anim-arc{
-  stroke-dasharray:920;stroke-dashoffset:0;
-  animation:drawArc 2.2s cubic-bezier(0.16,1,0.3,1) 0.2s both;
-}
-.hero-icon svg .anim-particle{animation:twinkle 3s ease-in-out infinite}
-.hero-icon svg .anim-sphere{animation:pulseSphere 3.4s ease-in-out infinite}
-
-/* Mark grid */
-.mark-grid{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;
-  background:var(--rule);
-  border:1px solid var(--rule);
-}
-.swatch{
-  aspect-ratio:1;background:var(--ink-1);padding:28px;display:flex;flex-direction:column;justify-content:space-between;
-  position:relative;transition:background 0.25s;
-}
-.swatch.alt{background:var(--ink-2)}
-.swatch.light{background:#f5f2ea}
-.swatch.light svg{color:#070318}
-.swatch.amber{background:linear-gradient(135deg,#ff9f47,#ff4e7c)}
-.swatch:hover{background:#190a42}
-.swatch.light:hover{background:#e9e4d5}
-.swatch svg{flex:1;width:100%;height:auto;color:#fff}
-.swatch .caption{font:500 11px/1 var(--mono);letter-spacing:0.1em;text-transform:uppercase;color:var(--text-dim);display:flex;justify-content:space-between}
-.swatch.light .caption{color:rgba(7,3,24,0.55)}
-
-/* Sizes */
-.sizes{display:flex;align-items:flex-end;gap:40px;flex-wrap:wrap;padding:20px 0 40px}
-.size{display:flex;flex-direction:column;align-items:center;gap:10px}
-.size .box{
-  background:linear-gradient(135deg,#1d0d4b,#070318);
-  border-radius:22%;overflow:hidden;
-  box-shadow:0 10px 30px -10px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-.size svg{display:block;width:100%;height:100%}
-.size label{font:500 11px/1 var(--mono);color:var(--text-faint);letter-spacing:0.1em}
-.size[data-s="16"] .box{width:16px;height:16px}
-.size[data-s="32"] .box{width:32px;height:32px}
-.size[data-s="64"] .box{width:64px;height:64px}
-.size[data-s="128"] .box{width:128px;height:128px}
-.size[data-s="180"] .box{width:180px;height:180px}
-.size[data-s="256"] .box{width:256px;height:256px}
-
-/* Wordmark showcase */
-.word-card{
-  padding:80px clamp(24px,4vw,64px);
-  background:linear-gradient(135deg,var(--ink-1),var(--ink));
-  border:1px solid var(--rule);
-  position:relative;overflow:hidden;
-}
-.word-card.light{background:#f5f2ea;color:#070318;border-color:rgba(0,0,0,0.08)}
-.word-card svg{width:100%;max-width:1100px;height:auto;display:block;margin:0 auto;color:currentColor}
-.word-card .note{
-  position:absolute;bottom:24px;right:32px;
-  font:400 12px/1 var(--mono);color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;
-}
-.word-card.light .note{color:rgba(7,3,24,0.4)}
-
-/* Palette */
-.palette{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}
-.color{
-  padding:28px;display:flex;flex-direction:column;justify-content:space-between;min-height:220px;
-}
-.color h4{font:600 22px/1.1 var(--display);letter-spacing:-0.02em;margin-bottom:4px}
-.color .role{font:400 12px/1 var(--mono);color:currentColor;opacity:0.65;letter-spacing:0.06em;text-transform:uppercase}
-.color .hex{font:500 14px/1 var(--mono);letter-spacing:0.04em;opacity:0.9}
-.color.c-ink{background:var(--ink);color:var(--text)}
-.color.c-v1{background:var(--ink-2);color:var(--text)}
-.color.c-violet{background:var(--violet);color:var(--text)}
-.color.c-amber{background:var(--amber);color:#2a0e05}
-.color.c-amber-1{background:var(--amber-1);color:#2a0e05}
-.color.c-coral{background:var(--coral);color:#2a0810}
-.color.c-cream{background:var(--cream);color:#2a0e05}
-.color.c-text{background:var(--text);color:var(--ink)}
-
-/* Typography specimen */
-.type-spec{display:grid;grid-template-columns:1fr;gap:24px}
-.display-line{
-  font-family:var(--display);font-size:clamp(56px,10vw,168px);
-  font-weight:600;letter-spacing:-0.04em;line-height:0.9;
-  font-variation-settings:"opsz" 96;
-}
-.display-line .thin{font-weight:300;color:var(--text-dim)}
-.display-line .italic{font-style:italic;color:var(--amber)}
-.type-rows{display:grid;grid-template-columns:auto 1fr;gap:16px 48px;align-items:baseline;padding-top:24px;border-top:1px solid var(--rule)}
-.type-rows .label{font:500 12px/1 var(--mono);color:var(--text-faint);letter-spacing:0.1em;text-transform:uppercase}
-.type-rows .sample{font-family:var(--display);letter-spacing:-0.02em}
-.type-rows .sample.f80{font-size:72px;font-weight:600;line-height:1}
-.type-rows .sample.f48{font-size:44px;font-weight:500;line-height:1.05}
-.type-rows .sample.f24{font-size:22px;font-weight:400;line-height:1.4;color:var(--text-dim);max-width:720px}
-.type-rows .sample.mono{font-family:var(--mono);font-size:14px;letter-spacing:0.06em;color:var(--amber)}
-
-/* Rules card (do & don't) */
-.rules{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.rule-card{
-  border:1px solid var(--rule);padding:28px;background:rgba(255,255,255,0.02);
-}
-.rule-card h3{font:600 14px/1 var(--mono);letter-spacing:0.1em;text-transform:uppercase;color:var(--amber);margin-bottom:16px}
-.rule-card.no h3{color:var(--coral)}
-.rule-card ul{list-style:none}
-.rule-card li{padding:12px 0;border-bottom:1px dashed var(--rule);color:var(--text-dim);font:400 15px/1.4 var(--display);letter-spacing:-0.005em}
-.rule-card li::before{content:"→ ";color:var(--amber)}
-.rule-card.no li::before{content:"× ";color:var(--coral)}
-.rule-card li:last-child{border-bottom:0}
-
-/* Export */
-.export{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.code{
-  background:#070318;border:1px solid var(--rule);padding:24px;
-  font:500 13px/1.7 var(--mono);color:var(--text);overflow:auto;letter-spacing:0.02em;
-  position:relative;
-}
-.code .cmt{color:var(--text-faint)}
-.code .hl{color:var(--amber)}
-.code button{
-  position:absolute;top:16px;right:16px;
-  background:transparent;border:1px solid var(--rule);color:var(--text-dim);
-  font:500 10px/1 var(--mono);letter-spacing:0.1em;text-transform:uppercase;
-  padding:6px 10px;cursor:pointer;border-radius:2px;transition:all 0.2s;
-}
-.code button:hover{border-color:var(--amber);color:var(--amber)}
-.code button.ok{color:var(--amber);border-color:var(--amber)}
-
-footer{
-  margin-top:160px;padding-top:40px;border-top:1px solid var(--rule);
-  display:flex;justify-content:space-between;align-items:center;
-  font:400 12px/1 var(--mono);color:var(--text-faint);letter-spacing:0.08em;text-transform:uppercase;
-  flex-wrap:wrap;gap:16px;
-}
-footer a{color:var(--text-dim);text-decoration:none;transition:color 0.2s}
-footer a:hover{color:var(--amber)}
-
-/* Responsive */
-@media(max-width:860px){
-  .hero{grid-template-columns:1fr;gap:24px}
-  .hero-left, .hero-right{order:2;text-align:left;display:grid;grid-template-columns:1fr 1fr;gap:0 32px}
-  .hero-right .kv{flex-direction:row}
-  .rules, .export{grid-template-columns:1fr}
-  .section-head{flex-wrap:wrap;gap:12px}
-  .section-head .tagline{margin-left:0;text-align:left;max-width:100%}
-}
-
-/* Reveal-on-scroll */
-.reveal{opacity:0;transform:translateY(24px);transition:opacity 0.9s cubic-bezier(0.16,1,0.3,1), transform 0.9s cubic-bezier(0.16,1,0.3,1)}
-.reveal.in{opacity:1;transform:translateY(0)}
-</style>
-</head>
-<body>
-<main>
-  <div class="frame">
-
-    <header>
-      <div class="bug"><span class="dot"></span>fastshared / identity v1.0</div>
-      <div class="meta">
-        <span><b>ephemeral</b> bearer links</span>
-        <span><b>ios</b> · ipados · macos</span>
-        <span><b>2026</b> — 04 — 19</span>
-      </div>
-    </header>
-
-    <!-- HERO -->
-    <section class="hero">
-      <div class="hero-left">
-        <div class="kv"><span>mark</span><b>temporal link</b></div>
-        <div class="kv"><span>origin</span><b>x:300 y:580 r:124</b></div>
-        <div class="kv"><span>arc</span><b>C 420,300 · 620,620</b></div>
-        <div class="kv"><span>ghost</span><b>x:760 y:420 r:52</b></div>
-        <div class="kv"><span>particles</span><b>5 · decay 0.7</b></div>
-        <div class="kv"><span>safe area</span><b>128 px</b></div>
-      </div>
-
-      <div class="hero-icon" id="heroIcon">
-        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="hbg" cx="32%" cy="22%" r="125%">
-              <stop offset="0%"  stop-color="#3b1f86"/>
-              <stop offset="28%" stop-color="#1d0d4b"/>
-              <stop offset="68%" stop-color="#0f0630"/>
-              <stop offset="100%" stop-color="#070318"/>
-            </radialGradient>
-            <linearGradient id="harc" x1="0%" y1="60%" x2="100%" y2="30%">
-              <stop offset="0%"   stop-color="#ffc487"/>
-              <stop offset="18%"  stop-color="#ff9f47"/>
-              <stop offset="55%"  stop-color="#ff6a4a" stop-opacity="0.92"/>
-              <stop offset="82%"  stop-color="#ff4e7c" stop-opacity="0.45"/>
-              <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
-            </linearGradient>
-            <linearGradient id="harcCore" x1="0%" y1="50%" x2="100%" y2="50%">
-              <stop offset="0%"   stop-color="#fff3dc" stop-opacity="0.9"/>
-              <stop offset="45%"  stop-color="#ffe0b8" stop-opacity="0.55"/>
-              <stop offset="80%"  stop-color="#ffffff" stop-opacity="0"/>
-            </linearGradient>
-            <radialGradient id="hsphere" cx="38%" cy="34%" r="72%">
-              <stop offset="0%"  stop-color="#fff6e0"/>
-              <stop offset="22%" stop-color="#ffd28b"/>
-              <stop offset="58%" stop-color="#ff8838"/>
-              <stop offset="100%" stop-color="#a73b14"/>
-            </radialGradient>
-            <radialGradient id="hsphereGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%"  stop-color="#ff9f47" stop-opacity="0.55"/>
-              <stop offset="65%" stop-color="#ff6a4a" stop-opacity="0.12"/>
-              <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
-            </radialGradient>
-            <filter id="hGlow" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="14" result="b"/>
-              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <rect width="1024" height="1024" fill="url(#hbg)"/>
-          <g stroke="#ffffff" stroke-width="1" opacity="0.035">
-            <path d="M0 256 H1024 M0 512 H1024 M0 768 H1024 M256 0 V1024 M512 0 V1024 M768 0 V1024"/>
-          </g>
-          <g opacity="0.05" fill="none" stroke="#ffffff" stroke-width="1">
-            <circle cx="512" cy="512" r="360"/><circle cx="512" cy="512" r="260"/>
-          </g>
-          <circle cx="300" cy="580" r="240" fill="url(#hsphereGlow)"/>
-          <circle cx="760" cy="420" r="52" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.26"/>
-          <circle cx="760" cy="420" r="14" fill="#ffffff" opacity="0.18"/>
-          <path class="anim-arc" d="M 300 580 C 420 300, 620 620, 760 420"
-                stroke="url(#harc)" stroke-width="92" stroke-linecap="round" fill="none" filter="url(#hGlow)"/>
-          <path class="anim-arc" d="M 300 580 C 420 300, 620 620, 760 420"
-                stroke="url(#harcCore)" stroke-width="22" stroke-linecap="round" fill="none"/>
-          <g fill="#ffe0b8">
-            <circle class="anim-particle" style="--a:0.92" cx="794" cy="416" r="11"/>
-            <circle class="anim-particle" style="--a:0.68;animation-delay:0.2s" cx="828" cy="408" r="7"/>
-            <circle class="anim-particle" style="--a:0.48;animation-delay:0.4s" cx="858" cy="428" r="5"/>
-            <circle class="anim-particle" style="--a:0.32;animation-delay:0.6s" cx="892" cy="414" r="3.5"/>
-            <circle class="anim-particle" style="--a:0.2;animation-delay:0.8s" cx="922" cy="434" r="2.2"/>
-          </g>
-          <g class="anim-sphere">
-            <circle cx="300" cy="580" r="124" fill="url(#hsphere)" filter="url(#hGlow)"/>
-            <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
-            <ellipse cx="262" cy="532" rx="14" ry="8" fill="#ffffff" opacity="0.85"/>
-          </g>
-        </svg>
-      </div>
-
-      <div class="hero-right">
-        <div class="kv"><span>icon</span><b>1024 × 1024</b></div>
-        <div class="kv"><span>format</span><b>svg / png</b></div>
-        <div class="kv"><span>space</span><b>display-p3</b></div>
-        <div class="kv"><span>corner</span><b>os rounded</b></div>
-        <div class="kv"><span>type</span><b>bricolage 600</b></div>
-        <div class="kv"><span>mark ratio</span><b>0.618</b></div>
-      </div>
-
-      <div class="hero-title">
-        <h1>fastshared<span class="dot">.</span></h1>
-        <p>A temporal link mark — an origin that sends, and a trail that fades. Built for the App Store, engineered for speed, deliberately brief.</p>
-      </div>
-    </section>
-
-    <!-- MARK -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">01 / mark</span>
-        <h2>The mark<br/>is a ritual,<br/>not a logo.</h2>
-        <p class="tagline">A single arc between two nodes — the second dissolving into particles. Every upload is a countdown.</p>
-      </div>
-      <div class="mark-grid">
-        <div class="swatch">
-          <div class="caption"><span>dark / primary</span><span>#070318</span></div>
-          <svg viewBox="0 0 1024 1024"><use href="#mark"/></svg>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>fastshared brand v2</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #070318;
+        --violet: #9d7aff;
+        --milk: #fffdf8;
+        --line: rgba(255, 255, 255, 0.14);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "SF Pro Rounded", "SF Pro Display", Inter, system-ui, sans-serif;
+        background: radial-gradient(circle at 52% 28%, rgba(157, 122, 255, 0.34), transparent 42%), var(--ink);
+        color: var(--milk);
+      }
+      main {
+        width: min(1120px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 56px;
+        line-height: 0.92;
+        letter-spacing: 0;
+      }
+      @media (min-width: 720px) {
+        h1 { font-size: 92px; }
+      }
+      p {
+        max-width: 680px;
+        margin: 0 0 34px;
+        color: rgba(255, 253, 248, 0.68);
+        font-size: 18px;
+        line-height: 1.55;
+      }
+      .hero {
+        display: grid;
+        gap: 34px;
+      }
+      .hero img {
+        width: min(880px, 100%);
+        height: auto;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-top: 42px;
+      }
+      .tile {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.045);
+        padding: 18px;
+      }
+      .tile img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .tile.light {
+        background: #fbf8f1;
+      }
+      .label {
+        margin-top: 14px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--violet);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div>
+          <h1>fastshared<span style="color: var(--violet)">.</span></h1>
+          <p>
+            Brand v2 uses the approved luminous paper-plane mark and violet
+            flight arc. PNG assets are canonical; SVGs are fallbacks.
+          </p>
         </div>
-        <div class="swatch alt">
-          <div class="caption"><span>violet / deep</span><span>#1d0d4b</span></div>
-          <svg viewBox="0 0 1024 1024"><use href="#mark"/></svg>
-        </div>
-        <div class="swatch amber">
-          <div class="caption" style="color:rgba(42,14,5,0.75)"><span>amber / accent</span><span>#ff9f47</span></div>
-          <svg viewBox="0 0 1024 1024" style="color:#070318"><use href="#markFlat"/></svg>
-        </div>
-        <div class="swatch light">
-          <div class="caption"><span>cream / light</span><span>#f5f2ea</span></div>
-          <svg viewBox="0 0 1024 1024"><use href="#markFlat"/></svg>
-        </div>
-      </div>
-    </section>
+        <img src="./wordmark-horizontal-dark.png" alt="fastshared. lockup on dark background" />
+      </section>
 
-    <!-- SIZES -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">02 / sizing</span>
-        <h2>Legible at<br/>every scale.</h2>
-        <p class="tagline">The composition collapses gracefully: at 16 px only the origin sphere remains — a confident hot point.</p>
-      </div>
-      <div class="sizes">
-        <div class="size" data-s="16"><div class="box"><svg viewBox="0 0 1024 1024"><use href="#appicon"/></svg></div><label>16</label></div>
-        <div class="size" data-s="32"><div class="box"><svg viewBox="0 0 1024 1024"><use href="#appicon"/></svg></div><label>32</label></div>
-        <div class="size" data-s="64"><div class="box"><svg viewBox="0 0 1024 1024"><use href="#appicon"/></svg></div><label>64</label></div>
-        <div class="size" data-s="128"><div class="box"><svg viewBox="0 0 1024 1024"><use href="#appicon"/></svg></div><label>128</label></div>
-        <div class="size" data-s="180"><div class="box"><svg viewBox="0 0 1024 1024"><use href="#appicon"/></svg></div><label>180 · iphone</label></div>
-        <div class="size" data-s="256"><div class="box"><svg viewBox="0 0 1024 1024"><use href="#appicon"/></svg></div><label>256</label></div>
-      </div>
-    </section>
-
-    <!-- WORDMARK -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">03 / wordmark</span>
-        <h2>Lowercase, never shouting.</h2>
-        <p class="tagline">Bricolage Grotesque at 600, optical size 96. Tight tracking (-0.045em). The accent dot is the only emphasis needed.</p>
-      </div>
-      <div class="word-card">
-        <svg viewBox="0 0 2400 600"><use href="#logoH"/></svg>
-        <span class="note">on ink / primary</span>
-      </div>
-      <div style="height:1px"></div>
-      <div class="word-card light">
-        <svg viewBox="0 0 2400 600"><use href="#logoH"/></svg>
-        <span class="note">on cream / print</span>
-      </div>
-    </section>
-
-    <!-- PALETTE -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">04 / palette</span>
-        <h2>Ink, amber,<br/>and a coral<br/>farewell.</h2>
-        <p class="tagline">Deep nocturnal ink carries the stage; amber is the pulse; coral is the fade. No other colors ship.</p>
-      </div>
-      <div class="palette">
-        <div class="color c-ink">
-          <div><h4>ink</h4><div class="role">ground · 0</div></div>
-          <div class="hex">#070318</div>
-        </div>
-        <div class="color c-v1">
-          <div><h4>nightshade</h4><div class="role">surface · 1</div></div>
-          <div class="hex">#1d0d4b</div>
-        </div>
-        <div class="color c-violet">
-          <div><h4>violet</h4><div class="role">surface · 2</div></div>
-          <div class="hex">#3b1f86</div>
-        </div>
-        <div class="color c-amber">
-          <div><h4>amber</h4><div class="role">accent · primary</div></div>
-          <div class="hex">#ff9f47</div>
-        </div>
-        <div class="color c-amber-1">
-          <div><h4>ember</h4><div class="role">accent · soft</div></div>
-          <div class="hex">#ffc487</div>
-        </div>
-        <div class="color c-coral">
-          <div><h4>farewell</h4><div class="role">accent · fade</div></div>
-          <div class="hex">#ff4e7c</div>
-        </div>
-        <div class="color c-cream">
-          <div><h4>dust</h4><div class="role">particle</div></div>
-          <div class="hex">#ffe0b8</div>
-        </div>
-        <div class="color c-text">
-          <div><h4>milk</h4><div class="role">typography</div></div>
-          <div class="hex">#fafaff</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TYPOGRAPHY -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">05 / typography</span>
-        <h2>Bricolage<br/>+ JetBrains.</h2>
-        <p class="tagline">Two typefaces, one voice. Bricolage handles everything expressive. JetBrains Mono handles everything factual.</p>
-      </div>
-
-      <div class="type-spec">
-        <div class="display-line">share <span class="italic">anything.</span></div>
-        <div class="display-line">get a <span class="thin">link.</span></div>
-        <div class="display-line">watch it <span class="italic">vanish.</span></div>
-      </div>
-
-      <div class="type-rows">
-        <span class="label">display / 600</span>
-        <span class="sample f80">Every link expires.</span>
-        <span class="label">headline / 500</span>
-        <span class="sample f48">24 hours, then gone — no residue, no trace.</span>
-        <span class="label">body / 400</span>
-        <span class="sample f24">Uploads land in private R2, resolve through a bearer-token redirect, and are hard-deleted on schedule. The infrastructure forgets on purpose — and so does the interface, which pushes the next share before the last one finishes its farewell.</span>
-        <span class="label">mono / 500</span>
-        <span class="sample mono">expires_at = now + 86400s · retention=oneDay</span>
-      </div>
-    </section>
-
-    <!-- RULES -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">06 / usage</span>
-        <h2>Do &amp; don't.</h2>
-        <p class="tagline">The mark does the talking. Keep the clear-space and keep the silence around it.</p>
-      </div>
-      <div class="rules">
-        <div class="rule-card">
-          <h3>do</h3>
-          <ul>
-            <li>Let the origin sphere sit warm and luminous — it is the subject.</li>
-            <li>Respect a clear-space equal to one sphere-diameter on every side.</li>
-            <li>Export the app icon full-bleed. The OS is responsible for the corners.</li>
-            <li>Use amber as a hot point only — sparingly, confidently, never as fill.</li>
-            <li>Pair the wordmark on ink first. Light backgrounds are for print only.</li>
-          </ul>
-        </div>
-        <div class="rule-card no">
-          <h3>don't</h3>
-          <ul>
-            <li>Do not place the mark on busy imagery or photographic backgrounds.</li>
-            <li>Do not recolor the arc. The amber→coral fade carries the concept.</li>
-            <li>Do not rotate, skew, or outline the wordmark.</li>
-            <li>Do not lowercase it further — "fastshared" is already the final form.</li>
-            <li>Do not enclose the icon in a second ring, badge, or chrome.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- EXPORT -->
-    <section class="reveal">
-      <div class="section-head">
-        <span class="num">07 / export</span>
-        <h2>Ship it.</h2>
-        <p class="tagline">One master SVG generates every Apple icon size. Run the script and drop the output into Assets.xcassets.</p>
-      </div>
-      <div class="export">
-        <pre class="code">
-<button data-copy="cd brand &amp;&amp; ./export.sh">copy</button>
-<span class="cmt"># from the repo root</span>
-cd brand
-<span class="hl">./export.sh</span>
-<span class="cmt"># writes png sizes 16 → 1024</span>
-<span class="cmt"># to ./out/ (copy to Assets.xcassets)</span></pre>
-
-        <pre class="code">
-<button data-copy="rsvg-convert -w 1024 appicon.svg > appicon-1024.png">copy</button>
-<span class="cmt"># one-off at 1024 (App Store marketing)</span>
-<span class="hl">rsvg-convert</span> -w 1024 appicon.svg \
-  &gt; appicon-1024.png
-<span class="cmt"># requires: brew install librsvg</span></pre>
-      </div>
-    </section>
-
-    <footer>
-      <span>fastshared · brand v1.0 · 2026</span>
-      <span><a href="https://github.com/MatheusKindrazki/fastshared">github ↗</a> &nbsp;·&nbsp; <a href="https://shared.kindrazki.dev">shared.kindrazki.dev</a></span>
-    </footer>
-
-  </div>
-</main>
-
-<!-- SVG symbol library (hidden, re-used above via <use>) -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <!-- shared gradients for symbols -->
-    <linearGradient id="sArc" x1="0%" y1="60%" x2="100%" y2="30%">
-      <stop offset="0%"   stop-color="#ffc487"/>
-      <stop offset="18%"  stop-color="#ff9f47"/>
-      <stop offset="55%"  stop-color="#ff6a4a" stop-opacity="0.92"/>
-      <stop offset="82%"  stop-color="#ff4e7c" stop-opacity="0.45"/>
-      <stop offset="100%" stop-color="#ff4e7c" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="sArcCore" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%"   stop-color="#fff3dc" stop-opacity="0.9"/>
-      <stop offset="45%"  stop-color="#ffe0b8" stop-opacity="0.55"/>
-      <stop offset="80%"  stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <radialGradient id="sSphere" cx="38%" cy="34%" r="72%">
-      <stop offset="0%"  stop-color="#fff6e0"/>
-      <stop offset="22%" stop-color="#ffd28b"/>
-      <stop offset="58%" stop-color="#ff8838"/>
-      <stop offset="100%" stop-color="#a73b14"/>
-    </radialGradient>
-    <radialGradient id="sBg" cx="32%" cy="22%" r="125%">
-      <stop offset="0%"  stop-color="#3b1f86"/>
-      <stop offset="28%" stop-color="#1d0d4b"/>
-      <stop offset="68%" stop-color="#0f0630"/>
-      <stop offset="100%" stop-color="#070318"/>
-    </radialGradient>
-
-    <!-- Full app icon, used in size grid -->
-    <symbol id="appicon" viewBox="0 0 1024 1024">
-      <rect width="1024" height="1024" fill="url(#sBg)"/>
-      <circle cx="760" cy="420" r="52" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.26"/>
-      <circle cx="760" cy="420" r="14" fill="#ffffff" opacity="0.18"/>
-      <path d="M 300 580 C 420 300, 620 620, 760 420" stroke="url(#sArc)" stroke-width="92" stroke-linecap="round" fill="none"/>
-      <path d="M 300 580 C 420 300, 620 620, 760 420" stroke="url(#sArcCore)" stroke-width="22" stroke-linecap="round" fill="none"/>
-      <g fill="#ffe0b8">
-        <circle cx="794" cy="416" r="11" opacity="0.92"/>
-        <circle cx="828" cy="408" r="7" opacity="0.68"/>
-        <circle cx="858" cy="428" r="5" opacity="0.48"/>
-        <circle cx="892" cy="414" r="3.5" opacity="0.32"/>
-      </g>
-      <circle cx="300" cy="580" r="124" fill="url(#sSphere)"/>
-      <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
-      <ellipse cx="262" cy="532" rx="14" ry="8" fill="#ffffff" opacity="0.85"/>
-    </symbol>
-
-    <!-- Mark without background -->
-    <symbol id="mark" viewBox="0 0 1024 1024">
-      <circle cx="760" cy="420" r="52" fill="none" stroke="currentColor" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.32"/>
-      <circle cx="760" cy="420" r="14" fill="currentColor" opacity="0.22"/>
-      <path d="M 300 580 C 420 300, 620 620, 760 420" stroke="url(#sArc)" stroke-width="92" stroke-linecap="round" fill="none"/>
-      <path d="M 300 580 C 420 300, 620 620, 760 420" stroke="url(#sArcCore)" stroke-width="22" stroke-linecap="round" fill="none"/>
-      <g fill="#ffe0b8">
-        <circle cx="794" cy="416" r="11" opacity="0.92"/>
-        <circle cx="828" cy="408" r="7" opacity="0.68"/>
-        <circle cx="858" cy="428" r="5" opacity="0.48"/>
-        <circle cx="892" cy="414" r="3.5" opacity="0.32"/>
-      </g>
-      <circle cx="300" cy="580" r="124" fill="url(#sSphere)"/>
-      <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
-    </symbol>
-
-    <!-- Flat one-color mark (inherits currentColor) -->
-    <symbol id="markFlat" viewBox="0 0 1024 1024">
-      <circle cx="760" cy="420" r="52" fill="none" stroke="currentColor" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.4"/>
-      <circle cx="760" cy="420" r="14" fill="currentColor" opacity="0.4"/>
-      <path d="M 300 580 C 420 300, 620 620, 760 420" stroke="currentColor" stroke-width="92" stroke-linecap="round" fill="none" opacity="0.85"/>
-      <g fill="currentColor">
-        <circle cx="794" cy="416" r="11" opacity="0.7"/>
-        <circle cx="828" cy="408" r="7" opacity="0.5"/>
-        <circle cx="858" cy="428" r="5" opacity="0.35"/>
-        <circle cx="892" cy="414" r="3.5" opacity="0.22"/>
-      </g>
-      <circle cx="300" cy="580" r="124" fill="currentColor"/>
-    </symbol>
-
-    <!-- Horizontal logo -->
-    <symbol id="logoH" viewBox="0 0 2400 600">
-      <g transform="translate(40,40) scale(0.508)">
-        <circle cx="760" cy="420" r="52" fill="none" stroke="currentColor" stroke-width="3.5" stroke-dasharray="5 9" opacity="0.32"/>
-        <circle cx="760" cy="420" r="14" fill="currentColor" opacity="0.22"/>
-        <path d="M 300 580 C 420 300, 620 620, 760 420" stroke="url(#sArc)" stroke-width="92" stroke-linecap="round" fill="none"/>
-        <g fill="#ffe0b8">
-          <circle cx="794" cy="416" r="11" opacity="0.92"/>
-          <circle cx="828" cy="408" r="7" opacity="0.68"/>
-          <circle cx="858" cy="428" r="5" opacity="0.48"/>
-          <circle cx="892" cy="414" r="3.5" opacity="0.32"/>
-        </g>
-        <circle cx="300" cy="580" r="124" fill="url(#sSphere)"/>
-        <ellipse cx="272" cy="542" rx="36" ry="22" fill="#ffffff" opacity="0.6"/>
-      </g>
-      <text x="600" y="400"
-            font-family="'Bricolage Grotesque', system-ui, sans-serif"
-            font-weight="700" font-size="320" letter-spacing="-14"
-            fill="currentColor">fastshared</text>
-      <circle cx="2280" cy="390" r="22" fill="#ff9f47"/>
-    </symbol>
-  </defs>
-</svg>
-
-<script>
-  // Reveal-on-scroll
-  const io = new IntersectionObserver((es) => {
-    for (const e of es) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
-
-  // Copy-to-clipboard on code blocks
-  document.querySelectorAll('.code button').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.copy || '');
-        const prev = btn.textContent;
-        btn.textContent = 'copied';
-        btn.classList.add('ok');
-        setTimeout(() => { btn.textContent = prev; btn.classList.remove('ok'); }, 1200);
-      } catch (_) {}
-    });
-  });
-
-  // Re-trigger hero arc animation on click
-  document.getElementById('heroIcon').addEventListener('click', () => {
-    document.querySelectorAll('#heroIcon .anim-arc').forEach(p => {
-      p.style.animation = 'none'; void p.offsetWidth; p.style.animation = '';
-    });
-  });
-</script>
-</body>
+      <section class="grid" aria-label="Brand assets">
+        <article class="tile">
+          <img src="./appicon-1024.png" alt="App icon" />
+          <div class="label">app icon</div>
+        </article>
+        <article class="tile">
+          <img src="./logo-mark.png" alt="Transparent mark" />
+          <div class="label">transparent mark</div>
+        </article>
+        <article class="tile">
+          <img src="./logo-horizontal.png" alt="Transparent horizontal lockup" />
+          <div class="label">horizontal</div>
+        </article>
+        <article class="tile light">
+          <img src="./wordmark-horizontal-light.png" alt="Light background lockup" />
+          <div class="label">light use</div>
+        </article>
+      </section>
+    </main>
+  </body>
 </html>

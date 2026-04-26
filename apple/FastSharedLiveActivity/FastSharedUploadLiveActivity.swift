@@ -339,9 +339,7 @@ private struct CompactTrailingView: View {
                 .font(.system(size: 14))
 
         case .completed:
-            Image(systemName: "paperplane.fill")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(FriendlyPalette.successGreen)
+            LAPlaneArc(size: 16)
 
         case .failed:
             Text("!")
@@ -357,13 +355,9 @@ private struct MinimalView: View {
     var body: some View {
         switch state.phase {
         case .uploading:
-            Image(systemName: "paperplane.fill")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(FriendlyPalette.accentHot)
+            LAPlaneArc(size: 18)
         case .completed:
-            Image(systemName: "paperplane.fill")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(FriendlyPalette.successGreen)
+            LAPlaneArc(size: 18)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 13, weight: .medium))
@@ -422,69 +416,20 @@ private struct LockFileChip: View {
     }
 }
 
-/// Plane+Arc mark — inline re-declaration for the Live Activity target
-/// (widget extensions can't link the app-target `PlaneArcMark`).
+/// Raster-backed brand mark for Live Activity surfaces.
 private struct LAPlaneArc: View {
     var size: CGFloat = 44
+    var framed: Bool = false
 
     var body: some View {
-        let a = BrandPalette.violetAccent
-        let arcStrokeWidth = size * (9.0 / 140.0)
-
-        ZStack {
-            LAArcPath()
-                .stroke(
-                    LinearGradient(
-                        stops: [
-                            .init(color: a.fade.opacity(0), location: 0),
-                            .init(color: a.hot.opacity(0.95), location: 0.5),
-                            .init(color: a.soft, location: 1),
-                        ],
-                        startPoint: .bottomLeading,
-                        endPoint: .topTrailing
-                    ),
-                    style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .butt)
-                )
-                .frame(width: size, height: size)
-
-            GeometryReader { geo in
-                let s = geo.size.width / 140.0
-                let transform = CGAffineTransform(translationX: 81 * s, y: 66 * s)
-                    .scaledBy(x: 1.1 * s, y: 1.1 * s)
-                ZStack {
-                    Path { p in
-                        p.move(to: CGPoint(x: 0, y: 0).applying(transform))
-                        p.addLine(to: CGPoint(x: 22, y: -26).applying(transform))
-                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
-                        p.addLine(to: CGPoint(x: 4, y: 4).applying(transform))
-                        p.addLine(to: CGPoint(x: 0, y: 18).applying(transform))
-                        p.addLine(to: CGPoint(x: -8, y: 4).applying(transform))
-                        p.closeSubpath()
-                    }
-                    .fill(BrandPalette.text)
-                    Path { p in
-                        p.move(to: CGPoint(x: 4, y: 4).applying(transform))
-                        p.addLine(to: CGPoint(x: 14, y: 10).applying(transform))
-                    }
-                    .stroke(BrandPalette.text.opacity(0.35), lineWidth: 1)
-                }
-            }
+        Image(framed ? "FastSharedIcon" : "FastSharedMark")
+            .resizable()
+            .interpolation(.high)
+            .antialiased(true)
+            .scaledToFit()
             .frame(width: size, height: size)
-        }
+            .clipShape(RoundedRectangle(cornerRadius: framed ? size * 0.22 : 0, style: .continuous))
         .frame(width: size, height: size)
-    }
-}
-
-private struct LAArcPath: Shape {
-    func path(in rect: CGRect) -> Path {
-        let s = rect.width / 140.0
-        var p = Path()
-        p.move(to: CGPoint(x: 26 * s, y: 110 * s))
-        p.addQuadCurve(
-            to: CGPoint(x: 80 * s, y: 72 * s),
-            control: CGPoint(x: 60 * s, y: 98 * s)
-        )
-        return p
     }
 }
 

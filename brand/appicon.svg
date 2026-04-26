@@ -1,34 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  FastShared · App Store icon · Plane + Arc (Refined) · 1024 × 1024
-  Identical geometry to logo-mark, painted onto a dark surface tile so the
-  mark reads on any home-screen wallpaper. Scaled from the 140-unit design
-  canvas by 7.3143× so every hair-line matches the reference file.
--->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="FastShared app icon">
-  <title>FastShared — Plane + Arc</title>
+  <title>FastShared app icon</title>
   <defs>
-    <linearGradient id="fs-arc" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%"  stop-color="#ff7ad1" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#9d7aff" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#c1a9ff"/>
-    </linearGradient>
     <linearGradient id="fs-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#140a33"/>
+      <stop offset="0%" stop-color="#17102f"/>
+      <stop offset="48%" stop-color="#0f0828"/>
       <stop offset="100%" stop-color="#070318"/>
     </linearGradient>
+    <radialGradient id="fs-canvas-glow" cx="58%" cy="45%" r="64%">
+      <stop offset="0%" stop-color="#9d7aff" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#9d7aff" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-
-  <!-- Surface tile (iOS rounds the corners further; radius matches 32/140 · 1024 ≈ 234) -->
-  <rect x="0" y="0" width="1024" height="1024" rx="234" ry="234" fill="url(#fs-canvas)"/>
-
-  <!-- Arc — 9 · 7.3143 ≈ 66px stroke; butt cap prevents a violet halo behind the dart -->
-  <path d="M 190.17 804.57 Q 438.86 716.80, 585.14 526.63"
-        stroke="url(#fs-arc)" stroke-width="65.83" stroke-linecap="butt" fill="none"/>
-
-  <!-- Plane — translate(81,66)·7.3143 ≈ (592.46, 482.74); scale 1.1 · 7.3143 ≈ 8.0457 -->
-  <g transform="translate(592.46 482.74) scale(8.0457)" fill="#fafaff">
-    <path d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -8 4 Z"/>
-    <path d="M 4 4 L 14 10" stroke="#fafaff" stroke-opacity="0.35" stroke-width="0.14"/>
+  <rect width="1024" height="1024" fill="url(#fs-canvas)"/>
+  <rect width="1024" height="1024" fill="url(#fs-canvas-glow)"/>
+  <g>
+    <defs>
+      <linearGradient id="fs-flight-arc" x1="11%" y1="86%" x2="75%" y2="28%">
+        <stop offset="0%" stop-color="#3b0f58"/>
+        <stop offset="44%" stop-color="#8f4cff"/>
+        <stop offset="78%" stop-color="#c7b4ff"/>
+        <stop offset="100%" stop-color="#fffdf8"/>
+      </linearGradient>
+      <linearGradient id="fs-plane" x1="20%" y1="0%" x2="90%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff"/>
+        <stop offset="72%" stop-color="#fffdf8"/>
+        <stop offset="100%" stop-color="#ddd5ef"/>
+      </linearGradient>
+      <radialGradient id="fs-glow" cx="70%" cy="32%" r="36%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.78"/>
+        <stop offset="45%" stop-color="#cdbdff" stop-opacity="0.36"/>
+        <stop offset="100%" stop-color="#9d7aff" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <ellipse cx="710" cy="338" rx="300" ry="250" fill="url(#fs-glow)"/>
+    <path d="M 105 748 C 275 728 442 674 588 577 C 662 528 721 464 760 383 L 833 420 C 772 548 671 644 531 709 C 386 777 234 800 105 792 Z" fill="url(#fs-flight-arc)" opacity="0.94"/>
+    <g fill="url(#fs-plane)" stroke="#d9d3e7" stroke-width="2" stroke-linejoin="round">
+      <path d="M 602 308 L 865 222 L 744 462 L 680 414 L 651 506 L 629 385 Z"/>
+      <path d="M 602 308 L 680 414 L 865 222 Z" fill="#ffffff"/>
+      <path d="M 680 414 L 744 462 L 865 222 Z" fill="#fffaf0"/>
+      <path d="M 629 385 L 651 506 L 680 414 Z" fill="#eee8ff"/>
+    </g>
+    <path d="M 680 414 L 865 222" fill="none" stroke="#d9d3e7" stroke-width="2" opacity="0.55"/>
   </g>
 </svg>

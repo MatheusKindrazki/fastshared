@@ -86,7 +86,7 @@ public enum BrandPalette {
     // `BrandPalette.accent` (or the app-target shim `BrandPalette.accentHot`)
     // rather than reaching into a named accent palette directly. The
     // `amberAccent` palette is retained only for the urgency-warning gradient
-    // (`BrandPalette.arc`) and the `PlaneArcMark.brandArcAmber` preset.
+    // (`BrandPalette.arc`) and legacy compatibility presets.
     public static let accent: Accent = violetAccent
 
     // MARK: - Gradients
