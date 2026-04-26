@@ -103,7 +103,7 @@ Anything else is rejected with `415 unsupported-media-type` at `POST /v1/uploads
 | --- | --- | --- | --- |
 | Free | 100 MB/file | 24 h | 3 uploads/day, Cloud Sync disabled |
 | Pro | 2 GB/file | 30 days | Unlimited uploads, Cloud Sync enabled |
-| Beta allowlist | Server configured | Server configured | Only for explicit Apple user IDs in secure env allowlists |
+| Beta/global override | Pro caps | Pro retention | Either explicit Apple user IDs or temporary `PRO_FOR_ALL_USERS=true` |
 
 The backend is the source of truth for caps. The Apple client mirrors the defaults for local UX, but presign and batch presign enforce the server caps. Multipart is used for larger uploads; single PUT is limited to the server's multipart threshold.
 

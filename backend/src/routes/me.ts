@@ -5,7 +5,11 @@ import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { FREE_CAPS, PRO_CAPS, toWireCaps, type TierCapsWire } from '~/lib/tierCaps';
-import { findActiveProForDevice, parseAppleUserAllowList } from '~/services/subscriptions';
+import {
+  findActiveProForDevice,
+  isProForAllUsersEnabled,
+  parseAppleUserAllowList,
+} from '~/services/subscriptions';
 import type { SubscriptionStatus, SubscriptionVerificationStatus } from '~/db/schema';
 
 export const meRoutes = new Hono<AppBindings>();
@@ -42,6 +46,7 @@ meRoutes.get('/', async (c) => {
     db,
     deviceId,
     parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
+    { proForAllUsers: isProForAllUsersEnabled(c.env.PRO_FOR_ALL_USERS) },
   );
 
   // No active row at all → pure Free.

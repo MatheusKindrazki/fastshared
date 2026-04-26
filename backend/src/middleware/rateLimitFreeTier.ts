@@ -5,6 +5,7 @@ import { problem } from '~/lib/problem';
 import { FREE_CAPS } from '~/lib/tierCaps';
 import {
   findActiveProForDevice,
+  isProForAllUsersEnabled,
   isSubscriptionEntitled,
   parseAppleUserAllowList,
 } from '~/services/subscriptions';
@@ -39,6 +40,7 @@ export function rateLimitFreeTier(): MiddlewareHandler<AppBindings> {
       db,
       deviceId,
       parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
+      { proForAllUsers: isProForAllUsersEnabled(c.env.PRO_FOR_ALL_USERS) },
     ).catch((err) => {
       log.warn({
         msg: 'free_tier_sub_lookup_failed',

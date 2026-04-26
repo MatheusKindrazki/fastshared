@@ -22,10 +22,7 @@ async function get(path: string, headers: Record<string, string> = {}) {
   );
 }
 
-function seedSub(
-  deviceId: string,
-  overrides: Partial<(typeof store.subscriptions)[number]> = {},
-) {
+function seedSub(deviceId: string, overrides: Partial<(typeof store.subscriptions)[number]> = {}) {
   store.subscriptions.push({
     id: crypto.randomUUID(),
     deviceId,
@@ -48,6 +45,7 @@ describe('GET /v1/me', () => {
   beforeEach(() => {
     resetStore();
     resetKv();
+    delete TEST_ENV.PRO_FOR_ALL_USERS;
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -71,6 +69,28 @@ describe('GET /v1/me', () => {
     expect(body.expiresAt).toBeNull();
     expect(body.caps).toEqual(toWireCaps(FREE_CAPS));
     expect(body.subscription).toBeNull();
+  });
+
+  it('PRO_FOR_ALL_USERS=true → Pro lifetime caps without subscription rows', async () => {
+    TEST_ENV.PRO_FOR_ALL_USERS = 'true';
+    const { token } = await seedDevice();
+
+    const res = await get('/v1/me', { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as {
+      isPro: boolean;
+      tier: string;
+      expiresAt: string | null;
+      caps: TierCapsWire;
+      subscription: { status: string; verificationStatus: string } | null;
+    };
+    expect(body.isPro).toBe(true);
+    expect(body.tier).toBe('lifetime');
+    expect(body.expiresAt).toBeNull();
+    expect(body.caps).toEqual(toWireCaps(PRO_CAPS));
+    expect(body.subscription?.status).toBe('active');
+    expect(body.subscription?.verificationStatus).toBe('verified');
   });
 
   it('active monthly → Pro caps + tier=monthly + subscription.status=active', async () => {

@@ -28,6 +28,7 @@ import { problem } from '~/lib/problem';
 import { FREE_CAPS } from '~/lib/tierCaps';
 import {
   findActiveProForDevice,
+  isProForAllUsersEnabled,
   isSubscriptionEntitled,
   parseAppleUserAllowList,
 } from '~/services/subscriptions';
@@ -904,6 +905,7 @@ async function enforceBatchFreeTierLimits(
     db,
     deviceId,
     parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
+    { proForAllUsers: isProForAllUsersEnabled(c.env.PRO_FOR_ALL_USERS) },
   ).catch((err) => {
     log.warn({
       msg: 'batch_free_tier_sub_lookup_failed',
@@ -1175,10 +1177,7 @@ async function rollbackBatchPresign(
 // Idempotency lookup for /complete: a job that's already verified resolves
 // back to its owning link. Single uses share_link.assetId; bundle uses the
 // pendingShareLinkToken because share_link.assetId stays null.
-async function loadIdempotentLink(
-  db: Db,
-  job: LoadedUploadJob,
-): Promise<CompleteableLink | null> {
+async function loadIdempotentLink(db: Db, job: LoadedUploadJob): Promise<CompleteableLink | null> {
   if (job.pendingShareLinkToken) {
     const [byToken] = await db
       .select()
@@ -1286,10 +1285,7 @@ async function completeBundleAsset(
       .onConflictDoNothing({ target: [bundleAsset.shareLinkId, bundleAsset.uploadJobId] });
   }
 
-  const all = await db
-    .select()
-    .from(bundleAsset)
-    .where(eq(bundleAsset.shareLinkId, bundle.id));
+  const all = await db.select().from(bundleAsset).where(eq(bundleAsset.shareLinkId, bundle.id));
   const expected = bundle.bundleAssetCount ?? 0;
   let linkStatus = bundle.linkStatus;
   if (bundle.linkStatus === 'pending' && all.length >= expected && expected > 0) {

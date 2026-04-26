@@ -101,6 +101,7 @@ describe('rateLimitFreeTier', () => {
   beforeEach(() => {
     resetStore();
     resetKv();
+    delete TEST_ENV.PRO_FOR_ALL_USERS;
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -235,6 +236,32 @@ describe('rateLimitFreeTier', () => {
     }
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
     expect(kvMap.get(await freeTierKvKey(deviceId))).toBeUndefined();
+  });
+
+  it('PRO_FOR_ALL_USERS bypasses Free caps without a subscription row', async () => {
+    TEST_ENV.PRO_FOR_ALL_USERS = 'true';
+    const { deviceId, token } = await seedDevice();
+    const kvKey = await freeTierKvKey(deviceId);
+    await TEST_ENV.RATE_LIMIT.put(kvKey, '3');
+
+    const res = await post(
+      '/v1/uploads',
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'video/mp4',
+        sizeBytes: 1 * 1024 * 1024 * 1024,
+        retentionPolicy: 'oneMonth',
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { retentionPolicy: string; retentionClamped?: boolean };
+    expect(body.retentionPolicy).toBe('oneMonth');
+    expect(body.retentionClamped).toBeUndefined();
+
+    const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
+    expect(kvMap.get(kvKey)).toBe('3');
   });
 
   it('Pro retentionPolicy=oneMonth is NOT clamped', async () => {

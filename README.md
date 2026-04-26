@@ -51,11 +51,12 @@ Every link expires. Every file is deleted. By design.
 
 | Tier | File size | Retention | Uploads | Sync |
 | ---- | --------- | --------- | ------- | ---- |
-| Free launch access | 2 GB per file | Up to 30 days | Unlimited | Local history |
+| Launch beta | 2 GB per file | Up to 30 days | Unlimited | iCloud metadata sync |
 | Pro | 2 GB per file | Up to 30 days | Unlimited | iCloud metadata sync |
 
-The backend is the source of truth for caps and retention. For launch, Free
-uses Pro upload ceilings while keeping account-level sync features paid.
+The backend is the source of truth for caps and retention. For the current
+closed beta, production sets `PRO_FOR_ALL_USERS=true`, so every registered
+device temporarily receives Pro caps until that flag is removed.
 
 ## How it works
 

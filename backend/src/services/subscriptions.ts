@@ -17,10 +17,7 @@ export const PRODUCT_ID_ANNUAL = 'red.fastsha.pro.annual';
 export const PRODUCT_ID_LIFETIME = 'red.fastsha.pro.lifetime';
 
 export async function findActiveByDeviceId(db: Db, deviceId: string): Promise<Subscription | null> {
-  const rows = await db
-    .select()
-    .from(subscription)
-    .where(eq(subscription.deviceId, deviceId));
+  const rows = await db.select().from(subscription).where(eq(subscription.deviceId, deviceId));
   const now = new Date();
   return rows.find((row) => isSubscriptionEntitled(row, now)) ?? null;
 }
@@ -47,24 +44,7 @@ export async function findDevProOverride(
     .limit(1);
   const sub = rows[0]?.appleUserId;
   if (!sub || !allowedAppleUserIds.includes(sub)) return null;
-  // Synthetic row — not persisted. IDs/timestamps are placeholders the
-  // response layer stringifies but no other code branches on.
-  const now = new Date();
-  return {
-    id: '00000000-0000-0000-0000-000000000000',
-    deviceId,
-    appleOriginalTransactionId: `dev-pro:${sub}`,
-    tier: 'lifetime' as SubscriptionTier,
-    status: 'active' as SubscriptionStatus,
-    expiresAt: null,
-    autoRenewStatus: false,
-    latestTransactionId: `dev-pro:${sub}`,
-    verificationStatus: 'verified',
-    verificationGraceUntil: null,
-    rawNotificationPayload: null,
-    createdAt: now,
-    updatedAt: now,
-  } satisfies Subscription;
+  return syntheticLifetimeSubscription(deviceId, `dev-pro:${sub}`);
 }
 
 // Resolve the caller's effective Pro-bearing subscription. Checks the env
@@ -75,7 +55,9 @@ export async function findActiveProForDevice(
   db: Db,
   deviceId: string,
   devProAppleUserIds: string[] = [],
+  options: { proForAllUsers?: boolean } = {},
 ): Promise<Subscription | null> {
+  if (options.proForAllUsers) return syntheticLifetimeSubscription(deviceId, 'pro-for-all');
   const override = await findDevProOverride(db, deviceId, devProAppleUserIds);
   if (override) return override;
   return findActiveByDeviceId(db, deviceId);
@@ -97,6 +79,32 @@ export function parseAppleUserAllowList(...rawValues: Array<string | undefined>)
 }
 
 export const parseDevProAllowList = parseAppleUserAllowList;
+
+export function isProForAllUsersEnabled(raw: string | undefined): boolean {
+  if (!raw) return false;
+  return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
+}
+
+function syntheticLifetimeSubscription(deviceId: string, source: string): Subscription {
+  // Synthetic row — not persisted. IDs/timestamps are placeholders the
+  // response layer stringifies but no other code branches on.
+  const now = new Date();
+  return {
+    id: '00000000-0000-0000-0000-000000000000',
+    deviceId,
+    appleOriginalTransactionId: source,
+    tier: 'lifetime' as SubscriptionTier,
+    status: 'active' as SubscriptionStatus,
+    expiresAt: null,
+    autoRenewStatus: false,
+    latestTransactionId: source,
+    verificationStatus: 'verified',
+    verificationGraceUntil: null,
+    rawNotificationPayload: null,
+    createdAt: now,
+    updatedAt: now,
+  } satisfies Subscription;
+}
 
 export async function findByOriginalTransactionId(
   db: Db,
@@ -196,8 +204,7 @@ export function isSubscriptionEntitled(sub: Subscription, now: Date = new Date()
   if (verification === 'verified') return true;
   if (verification !== 'grace') return false;
   return (
-    sub.verificationGraceUntil !== null &&
-    sub.verificationGraceUntil.getTime() > now.getTime()
+    sub.verificationGraceUntil !== null && sub.verificationGraceUntil.getTime() > now.getTime()
   );
 }
 

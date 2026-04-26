@@ -39,9 +39,10 @@ async function freeTierKvKey(deviceId: string): Promise<string> {
 // hoisted via vi.hoisted so the factory closure can capture it.
 const r2Mocks = vi.hoisted(() => ({
   headObject: vi.fn(
-    async (
-      _args: { env: unknown; key: string },
-    ): Promise<{ sizeBytes: number; contentType?: string; etag?: string } | null> => null,
+    async (_args: {
+      env: unknown;
+      key: string;
+    }): Promise<{ sizeBytes: number; contentType?: string; etag?: string } | null> => null,
   ),
 }));
 vi.mock('~/services/r2', async () => {
@@ -87,13 +88,15 @@ async function post(path: string, body: unknown, headers: Record<string, string>
   );
 }
 
-function makeItem(overrides: Partial<{
-  clientJobId: string;
-  contentType: string;
-  sizeBytes: number;
-  sha256: string;
-  originalFilename: string;
-}> = {}) {
+function makeItem(
+  overrides: Partial<{
+    clientJobId: string;
+    contentType: string;
+    sizeBytes: number;
+    sha256: string;
+    originalFilename: string;
+  }> = {},
+) {
   return {
     clientJobId: overrides.clientJobId ?? crypto.randomUUID(),
     contentType: overrides.contentType ?? 'image/jpeg',
@@ -125,6 +128,7 @@ describe('POST /uploads/batch', () => {
   beforeEach(() => {
     resetStore();
     resetKv();
+    delete TEST_ENV.PRO_FOR_ALL_USERS;
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -215,6 +219,32 @@ describe('POST /uploads/batch', () => {
     // Rollback: nothing was written, and the KV counter was NOT incremented.
     expect(store.shareLinks).toHaveLength(0);
     expect(store.uploadJobs).toHaveLength(0);
+    const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
+    expect(kvMap.get(kvKey)).toBe('2');
+  });
+
+  it('PRO_FOR_ALL_USERS=true bypasses batch Free daily cap', async () => {
+    TEST_ENV.PRO_FOR_ALL_USERS = 'true';
+    const { deviceId, token } = await seedDevice();
+    const kvKey = await freeTierKvKey(deviceId);
+    await TEST_ENV.RATE_LIMIT.put(kvKey, '2');
+
+    const items = [makeItem(), makeItem()];
+    const res = await post(
+      '/v1/uploads/batch',
+      {
+        retentionPolicy: 'oneMonth',
+        visibility: 'signed',
+        items,
+      },
+      { authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { retentionPolicy: string; items: unknown[] };
+    expect(body.retentionPolicy).toBe('oneMonth');
+    expect(body.items).toHaveLength(2);
+
     const kvMap = (TEST_ENV.RATE_LIMIT as unknown as { __map: Map<string, string> }).__map;
     expect(kvMap.get(kvKey)).toBe('2');
   });
@@ -474,17 +504,13 @@ describe('POST /uploads/:uploadId/complete (bundle path, M2)', () => {
       sha256: 'c'.repeat(64),
       originalFilename: 'idem.jpg',
     };
-    const first = await post(
-      `/v1/uploads/${seeded.jobIds[0]}/complete`,
-      body,
-      { authorization: `Bearer ${token}` },
-    );
+    const first = await post(`/v1/uploads/${seeded.jobIds[0]}/complete`, body, {
+      authorization: `Bearer ${token}`,
+    });
     expect(first.status).toBe(200);
-    const second = await post(
-      `/v1/uploads/${seeded.jobIds[0]}/complete`,
-      body,
-      { authorization: `Bearer ${token}` },
-    );
+    const second = await post(`/v1/uploads/${seeded.jobIds[0]}/complete`, body, {
+      authorization: `Bearer ${token}`,
+    });
     expect(second.status).toBe(200);
 
     // Still exactly one junction row — second call short-circuits.
@@ -536,17 +562,13 @@ describe('POST /uploads/:uploadId/complete (bundle path, M2)', () => {
       originalFilename: 'dup.jpg',
     };
 
-    const r1 = await post(
-      `/v1/uploads/${seeded.jobIds[0]}/complete`,
-      completeBody,
-      { authorization: `Bearer ${token}` },
-    );
+    const r1 = await post(`/v1/uploads/${seeded.jobIds[0]}/complete`, completeBody, {
+      authorization: `Bearer ${token}`,
+    });
     expect(r1.status).toBe(200);
-    const r2 = await post(
-      `/v1/uploads/${seeded.jobIds[1]}/complete`,
-      completeBody,
-      { authorization: `Bearer ${token}` },
-    );
+    const r2 = await post(`/v1/uploads/${seeded.jobIds[1]}/complete`, completeBody, {
+      authorization: `Bearer ${token}`,
+    });
     expect(r2.status).toBe(200);
 
     // Dedup: still only one asset row in the store.

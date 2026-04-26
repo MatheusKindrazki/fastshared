@@ -54,6 +54,8 @@ APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
 # opaque Apple identifier — but keep the list short.
 DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 BETA_UNLIMITED_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
+# Temporary closed-beta override: every registered device resolves as Pro.
+PRO_FOR_ALL_USERS = "true"
 
 # --- Staging environment ------------------------------------------------------
 # Deploy with: wrangler deploy --env staging
@@ -86,3 +88,4 @@ R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
 APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
 DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
 BETA_UNLIMITED_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"
+PRO_FOR_ALL_USERS = "true"

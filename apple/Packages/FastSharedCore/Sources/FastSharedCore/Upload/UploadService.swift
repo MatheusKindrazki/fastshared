@@ -212,6 +212,7 @@ public actor UploadService: UploadServiceProtocol {
                         retentionPolicy: RetentionPolicy = .default,
                         prepareObserver: (@Sendable (UploadPreparePhase) -> Void)?) async throws -> UploadJob {
         _ = try await ensureDeviceToken()
+        await refreshSubscriptionSnapshotIfNeeded()
         let attrs = try FileManager.default.attributesOfItem(atPath: stagedURL.path)
         let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
         let relative = try relativePath(for: stagedURL)
@@ -510,6 +511,7 @@ public actor UploadService: UploadServiceProtocol {
                                retentionPolicy: RetentionPolicy,
                                progressClientJobId: UUID? = nil) async throws -> BundleUploadJob {
         _ = try await ensureDeviceToken()
+        await refreshSubscriptionSnapshotIfNeeded()
 
         // 1. Per-file metadata + sha256 in parallel — server batch handler
         // accepts optional sha256 (lets it dedup early on the fast path).
@@ -966,6 +968,14 @@ public actor UploadService: UploadServiceProtocol {
         let token = try await apiClient.registerDevice(platform: platform, appVersion: version)
         try await tokenStore.save(token)
         return token
+    }
+
+    private func refreshSubscriptionSnapshotIfNeeded() async {
+        guard let subscriptionStore else { return }
+        let snapshot = await subscriptionStore.currentSnapshot()
+        if !snapshot.isPro {
+            await subscriptionStore.refreshMe()
+        }
     }
 
     private func relativePath(for url: URL) throws -> String {

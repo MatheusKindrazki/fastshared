@@ -27,6 +27,9 @@ export interface Env {
   // Same wire format as DEV_PRO_APPLE_USER_IDS, reserved for TestFlight/beta
   // unlimited access so Free is not globally mirrored to Pro in production.
   BETA_UNLIMITED_APPLE_USER_IDS?: string;
+  // Temporary beta/launch override. When enabled, every registered device
+  // resolves as Pro/lifetime without requiring StoreKit or Sign in with Apple.
+  PRO_FOR_ALL_USERS?: string;
 }
 
 export interface AppVars {
