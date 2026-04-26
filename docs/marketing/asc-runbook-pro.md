@@ -287,15 +287,15 @@ of the IAP list.
 
 1. Tax Category: **Software Utility** (confirm with accountant; this
    affects how Apple withholds tax). Save.
-2. Publish App Privacy from the repo:
+2. Fill App Privacy manually in App Store Connect:
 
    ```bash
-   cd /Users/matheuskindrazki/development/crazy-ideas/fastshared
-   make appstore-privacy
+   open https://appstoreconnect.apple.com/apps
    ```
 
    The source of truth is `apple/fastlane/app_privacy_details.json`, aligned
-   with `docs/ops/appstore-launch-setup.md`.
+   with `docs/ops/appstore-launch-setup.md`. Apple's App Privacy questionnaire
+   is not supported by the App Store Connect API key flow used by this repo.
 
 **Acceptance:** App Privacy product-page preview matches
 `docs/ops/appstore-launch-setup.md`. ATT confirmation remains "Not
@@ -343,6 +343,8 @@ Required".
 - [ ] IAP screenshots uploaded.
 - [ ] Tax category set. App Privacy matches `docs/ops/appstore-launch-setup.md`.
 - [ ] Sandbox tester created.
+- [ ] First-time IAPs selected in the app version's In-App Purchases and
+      Subscriptions section before submitting the app version.
 
 **Acceptance:** Every row ticked. Proceed to launch sequencing in
 `docs/marketing/launch-sequence-pro.md`.

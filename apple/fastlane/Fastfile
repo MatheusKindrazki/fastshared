@@ -76,7 +76,7 @@ def marketing_version
     match = line.match(/\AMARKETING_VERSION\s*=\s*(.+)\z/)
     return match[1].strip if match
   end
-  "1.0.0"
+  "1.0.1"
 end
 
 def store_screenshots_path(platform)
@@ -158,12 +158,14 @@ def store_common_options(platform:, api_key:)
     screenshots_path: store_screenshots_path(platform),
     app_icon: STORE_APP_ICON_PATH,
     app_rating_config_path: STORE_RATING_CONFIG_PATH,
-    primary_category: "Productivity",
-    secondary_category: "Utilities",
+    primary_category: "PRODUCTIVITY",
+    secondary_category: "UTILITIES",
     automatic_release: false,
     phased_release: false,
     force: true,
-    precheck_include_in_app_purchases: true,
+    # App Store Connect API keys cannot inspect IAP metadata in precheck.
+    # Keep IAP validation in the ASC manual checklist.
+    precheck_include_in_app_purchases: false,
     submission_information: {
       export_compliance_uses_encryption: false,
       content_rights_contains_third_party_content: false,
@@ -451,37 +453,13 @@ def generate_store_screenshots!
 end
 
 def upload_store_privacy_details!(api_key:)
-  require "spaceship"
-
-  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**api_key)
-  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
-  UI.user_error!("Could not find App Store Connect app #{APP_IDENTIFIER}") unless app
-
-  usages = JSON.parse(File.read(STORE_PRIVACY_CONFIG_PATH))
-  all_usages = Spaceship::ConnectAPI::AppDataUsage.all(app_id: app.id, includes: "category,grouping,purpose,dataProtection", limit: 500)
-  all_usages.each(&:delete!)
-
-  usages.each do |usage|
-    category = usage["category"]
-    purposes = usage["purposes"] || []
-    protections = usage["data_protections"] || []
-    purposes = [nil] if purposes.empty?
-
-    purposes.each do |purpose|
-      protections.each do |protection|
-        Spaceship::ConnectAPI::AppDataUsage.create(
-          app_id: app.id,
-          app_data_usage_category_id: category,
-          app_data_usage_protection_id: protection,
-          app_data_usage_purpose_id: purpose
-        )
-      end
-    end
-  end
-
-  publish_state = Spaceship::ConnectAPI::AppDataUsagesPublishState.get(app_id: app.id)
-  publish_state.publish! unless publish_state.published
-  UI.success("App Privacy details uploaded and published for #{APP_IDENTIFIER}.")
+  JSON.parse(File.read(STORE_PRIVACY_CONFIG_PATH))
+  UI.important(
+    "App Privacy cannot be uploaded with the App Store Connect API key. " \
+    "Use App Store Connect UI with apple/fastlane/app_privacy_details.json " \
+    "and docs/ops/appstore-launch-setup.md as the source of truth."
+  )
+  UI.success("Validated local App Privacy source file: #{STORE_PRIVACY_CONFIG_PATH}")
 end
 
 private_lane :upload_store_metadata_internal do |options|
@@ -616,7 +594,7 @@ lane :store_screenshots do
   generate_store_screenshots!
 end
 
-desc "Upload and publish App Privacy details from fastlane/app_privacy_details.json."
+desc "Explain the manual App Privacy step; API-key upload is not supported."
 lane :store_privacy do
   ensure_store_files!
   api_key = app_store_api_key
@@ -630,12 +608,12 @@ lane :store_metadata do
   upload_store_metadata_internal(platform: "osx", api_key: api_key)
 end
 
-desc "Generate screenshots, publish privacy details, and upload App Store metadata for iOS + macOS."
+desc "Generate screenshots and upload App Store metadata for iOS + macOS. App Privacy remains manual."
 lane :store_sync do
   api_key = app_store_api_key
   regen
   generate_store_screenshots!
-  upload_store_privacy_details!(api_key: api_key)
+  UI.important("Skipping App Privacy upload: Apple requires UI/Apple ID flow for this account surface.")
   upload_store_metadata_internal(platform: "ios", api_key: api_key)
   upload_store_metadata_internal(platform: "osx", api_key: api_key)
 end

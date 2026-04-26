@@ -258,9 +258,10 @@ make appstore-sync
 ```
 
 `make appstore-screenshots` generates and validates iPhone, iPad, macOS, and
-IAP review screenshots. `make appstore-sync` regenerates screenshots, publishes
-App Privacy details from `apple/fastlane/app_privacy_details.json`, and uploads
-metadata, icon, age rating, and screenshots for iOS/iPadOS + macOS.
+IAP review screenshots. `make appstore-sync` regenerates screenshots and uploads
+metadata, icon, age rating, and screenshots for iOS/iPadOS + macOS. App Privacy
+must be completed manually in App Store Connect from
+`apple/fastlane/app_privacy_details.json`.
 
 Apple-account-gated items still need to exist before the automation can finish:
 
@@ -268,8 +269,8 @@ Apple-account-gated items still need to exist before the automation can finish:
   `dev.kindrazki.fastshared` covering iOS/iPadOS and macOS. Do not create
   separate App Store app records for the share extension or Live Activity;
   those are Developer Portal identifiers embedded in the main app.
-- Keep the Privacy Policy URL as `https://www.fastsha.red/privacy` and Support
-  URL as `https://www.fastsha.red/support`.
+- Keep the Privacy Policy URL as `https://fastsha.red/privacy` and Support
+  URL as `https://fastsha.red/support`.
 - Configure the three Pro IAPs with product IDs
   `red.fastsha.pro.monthly`, `red.fastsha.pro.annual`, and
   `red.fastsha.pro.lifetime`.

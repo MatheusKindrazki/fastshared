@@ -27,7 +27,7 @@ https://appstoreconnect.apple.com/apps → **+** → **New App**
 |---|---|
 | Platforms | iOS e macOS |
 | Name | **FastShared** (pode mudar a qualquer momento antes de submit pra App Store) |
-| Primary language | Portuguese (Brazil) |
+| Primary language | English (U.S.) |
 | Bundle ID | `dev.kindrazki.fastshared` |
 | SKU | `fastshared-ios-001` (qualquer string única para a sua conta) |
 | User Access | Full Access |

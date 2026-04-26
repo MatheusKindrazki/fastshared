@@ -78,7 +78,9 @@ testflight-macos:
 # --- App Store metadata / submission ----------------------------------------
 # `apple/.env.testflight` provides the App Store Connect API key. Optional
 # App Review contact/submission fields live in `apple/.env.appstore.local`
-# (copy from `apple/.env.appstore.example`).
+# (copy from `apple/.env.appstore.example`). App Privacy must be completed
+# manually in App Store Connect; Apple's privacy questionnaire is not covered by
+# the App Store Connect API key flow.
 
 appstore-doctor:
 	cd apple && $(APPLE_ENV) && $(BUNDLE) exec fastlane store_doctor

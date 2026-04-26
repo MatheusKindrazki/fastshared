@@ -38,10 +38,10 @@ FASTSHARED PRO
 NOT INCLUDED - ON PURPOSE
 - No permanent hosting. Every file has a deletion deadline.
 - No folders, tags, public profiles, comments, or reactions.
-- No Android or Windows app. FastShared is Apple-native.
+- No public discovery surface. FastShared is built for private handoffs.
 
 The recipient never signs in. They open the link in any browser or messaging preview, and the file downloads through FastShared after the link state is checked. When the window ends, the link stops working for everyone at once.
 
-Support - https://www.fastsha.red/support
-Privacy - https://www.fastsha.red/privacy
-Terms - https://www.fastsha.red/terms
+Support - https://fastsha.red/support
+Privacy - https://fastsha.red/privacy
+Terms - https://fastsha.red/terms

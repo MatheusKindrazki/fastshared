@@ -159,13 +159,13 @@ NOT INCLUDED — ON PURPOSE
 • No permanent hosting. Every file has a deletion deadline. There is no "keep forever".
 • No accounts, no folders, no tags, no libraries.
 • No social graph, no comments, no reactions.
-• No Android or Windows app. FastShared is Apple-native.
+• No public discovery surface. FastShared is built for private handoffs.
 
 The recipient never signs in. They open the link in any browser or messaging preview, and the file downloads through a short-lived signed redirect. When the window ends, the link stops working for everyone at once.
 
-Support — https://www.fastsha.red/support
-Privacy — https://www.fastsha.red/privacy
-Terms — https://www.fastsha.red/terms
+Support — https://fastsha.red/support
+Privacy — https://fastsha.red/privacy
+Terms — https://fastsha.red/terms
 ```
 
 (3816 / 4000)
@@ -223,7 +223,7 @@ Notes:
 
 ---
 
-## What's New in Version 1.0.0
+## What's New in Version 1.0.1
 
 ```
 First public release. Share anything from any app, pick how long the link lives, and the short URL is already on your clipboard before the upload even finishes. Every file is temporary on purpose — links expire on schedule and the media is deleted automatically. Built for iOS 17, iPadOS 17, and macOS 14 and later, with a Live Activity and Dynamic Island moment on iPhone 14 Pro and newer.
