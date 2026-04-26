@@ -79,19 +79,34 @@ def marketing_version
   "1.0.0"
 end
 
-def store_screenshots_path(platform)
+def normalize_store_platform(platform)
   case platform
   when "ios"
-    File.join(STORE_SCREENSHOTS_ROOT, "ios")
+    "ios"
   when "osx", "mac", "macos"
-    File.join(STORE_SCREENSHOTS_ROOT, "macos")
+    "osx"
   else
     UI.user_error!("Unsupported App Store platform: #{platform}")
   end
 end
 
+def store_screenshots_path(platform)
+  case normalize_store_platform(platform)
+  when "ios"
+    File.join(STORE_SCREENSHOTS_ROOT, "ios")
+  when "osx"
+    File.join(STORE_SCREENSHOTS_ROOT, "macos")
+  end
+end
+
 def store_screenshot_locale_dir(platform)
   File.join(store_screenshots_path(platform), "en-US")
+end
+
+def store_submit_platforms
+  raw = ENV["FASTSHARED_SUBMIT_PLATFORMS"].to_s.strip
+  platforms = raw.empty? ? ["ios", "osx"] : raw.split(",").map(&:strip).reject(&:empty?)
+  platforms.map { |platform| normalize_store_platform(platform) }
 end
 
 def store_iap_screenshot_locale_dir
@@ -568,6 +583,7 @@ private_lane :upload_store_metadata_internal do |options|
     store_common_options(platform: platform, api_key: api_key).merge(
       skip_binary_upload: true,
       submit_for_review: false,
+      reject_if_possible: ENV["FASTSHARED_STORE_METADATA_REJECT_IF_POSSIBLE"] == "YES",
       skip_screenshots: skip_screenshots,
       overwrite_screenshots: !skip_screenshots
     )
@@ -725,7 +741,7 @@ lane :store_submit do |options|
   ensure_free_app_price_schedule!(api_key: api_key)
   review_info = app_review_information_from_env(require_all: true)
 
-  ["ios", "osx"].each do |platform|
+  store_submit_platforms.each do |platform|
     deliver(
       store_common_options(platform: platform, api_key: api_key).merge(
         skip_binary_upload: true,

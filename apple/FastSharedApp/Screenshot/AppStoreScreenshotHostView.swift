@@ -3,6 +3,12 @@ import FastSharedCore
 
 struct AppStoreScreenshotHostView: View {
     let scene: AppStoreScreenshotScene
+    let useScrollView: Bool
+
+    init(scene: AppStoreScreenshotScene, useScrollView: Bool = true) {
+        self.scene = scene
+        self.useScrollView = useScrollView
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -13,36 +19,59 @@ struct AppStoreScreenshotHostView: View {
             ZStack {
                 AppStoreScreenshotBackground()
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: compact ? 24 : 32) {
-                        AppStoreScreenshotHeader(compact: compact)
-
-                        if compact {
-                            VStack(alignment: .leading, spacing: 24) {
-                                heroCopy(compact: compact)
-                                scenePanel(compact: compact)
-                            }
-                        } else {
-                            HStack(alignment: .center, spacing: 44) {
-                                heroCopy(compact: compact)
-                                    .frame(maxWidth: 430, alignment: .leading)
-                                scenePanel(compact: compact)
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
-
-                        FooterProofRow(compact: compact)
+                if useScrollView {
+                    ScrollView(.vertical, showsIndicators: false) {
+                        screenshotContent(
+                            compact: compact,
+                            horizontalPadding: horizontalPadding,
+                            verticalPadding: verticalPadding,
+                            viewportHeight: proxy.size.height
+                        )
                     }
-                    .frame(maxWidth: compact ? 620 : 1180, alignment: .leading)
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, verticalPadding)
-                    .padding(.bottom, max(verticalPadding, 42))
-                    .frame(minHeight: proxy.size.height, alignment: .center)
+                } else {
+                    screenshotContent(
+                        compact: compact,
+                        horizontalPadding: horizontalPadding,
+                        verticalPadding: verticalPadding,
+                        viewportHeight: proxy.size.height
+                    )
                 }
             }
         }
         .preferredColorScheme(.light)
         .accessibilityIdentifier("appstore-screenshot-root-\(scene.rawValue)")
+    }
+
+    private func screenshotContent(
+        compact: Bool,
+        horizontalPadding: CGFloat,
+        verticalPadding: CGFloat,
+        viewportHeight: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: compact ? 24 : 32) {
+            AppStoreScreenshotHeader(compact: compact)
+
+            if compact {
+                VStack(alignment: .leading, spacing: 24) {
+                    heroCopy(compact: compact)
+                    scenePanel(compact: compact)
+                }
+            } else {
+                HStack(alignment: .center, spacing: 44) {
+                    heroCopy(compact: compact)
+                        .frame(maxWidth: 430, alignment: .leading)
+                    scenePanel(compact: compact)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            FooterProofRow(compact: compact)
+        }
+        .frame(maxWidth: compact ? 620 : 1180, alignment: .leading)
+        .padding(.horizontal, horizontalPadding)
+        .padding(.top, verticalPadding)
+        .padding(.bottom, max(verticalPadding, 42))
+        .frame(minHeight: viewportHeight, alignment: .center)
     }
 
     private func heroCopy(compact: Bool) -> some View {

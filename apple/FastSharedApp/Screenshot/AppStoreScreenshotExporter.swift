@@ -37,7 +37,7 @@ enum AppStoreScreenshotExporter {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
         for (index, scene) in AppStoreScreenshotScene.allCases.enumerated() {
-            let view = AppStoreScreenshotHostView(scene: scene)
+            let view = AppStoreScreenshotHostView(scene: scene, useScrollView: false)
                 .frame(width: width, height: height)
 
             let renderer = ImageRenderer(content: view)
