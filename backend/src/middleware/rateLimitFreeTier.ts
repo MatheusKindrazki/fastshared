@@ -17,10 +17,11 @@ const UTC_DAY_SECONDS = 86_400;
 
 // Free-tier enforcement. Runs AFTER auth() — requires `deviceId` in context.
 // On Pro: returns immediately; caps live on the DB row, not KV.
-// On Free: enforces size cap (100 MB), daily-count cap (3/day), and silently
-// clamps retention policies that exceed 24h down to `oneDay`. Silent clamp
-// means the response includes `retentionClamped: true` but the request does
-// NOT 4xx — Free users get a reduced feature, not a rejection.
+// On Free: enforces the current Free caps from FREE_CAPS. During launch those
+// caps are intentionally generous (unlimited daily uploads, 2 GB files,
+// 30-day retention) while Cloud Sync remains Pro-only. If the caps are later
+// tightened, retention policies above the cap are silently clamped instead of
+// 4xxing the request.
 //
 // Body consumption is the big foot-gun here: Hono's `c.req.json()` consumes
 // the underlying ReadableStream, so downstream Zod parsing would see an empty

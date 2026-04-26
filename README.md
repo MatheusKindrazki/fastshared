@@ -51,11 +51,11 @@ Every link expires. Every file is deleted. By design.
 
 | Tier | File size | Retention | Uploads | Sync |
 | ---- | --------- | --------- | ------- | ---- |
-| Free | 100 MB per file | Up to 24 hours | 3 per day | Local history |
+| Free launch access | 2 GB per file | Up to 30 days | Unlimited | Local history |
 | Pro | 2 GB per file | Up to 30 days | Unlimited | iCloud metadata sync |
 
-The backend is the source of truth for caps and retention. Beta allowances are
-controlled by a secure allowlist, never by a global "free equals pro" default.
+The backend is the source of truth for caps and retention. For launch, Free
+uses Pro upload ceilings while keeping account-level sync features paid.
 
 ## How it works
 

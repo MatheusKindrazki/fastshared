@@ -19,10 +19,12 @@ public struct TierCaps: Sendable, Codable, Equatable {
         self.allowsCloudSync = allowsCloudSync
     }
 
+    /// Launch Free defaults — unlimited uploads, 2 GB per file, 30 days retention.
+    /// iCloud sync stays Pro-only so paid entitlements still map to account-level features.
     public static let free = TierCaps(
-        dailyUploadLimit: 3,
-        maxFileSizeBytes: 100 * 1024 * 1024,
-        maxRetentionSeconds: 86_400,
+        dailyUploadLimit: nil,
+        maxFileSizeBytes: 2 * 1024 * 1024 * 1024,
+        maxRetentionSeconds: 2_592_000,
         allowsCloudSync: false
     )
 

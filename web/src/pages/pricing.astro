@@ -6,7 +6,7 @@ import PlaneArc from '../components/PlaneArc.astro';
 ---
 <Base
   title="Pricing — FastShared"
-  description="FastShared Pro unlocks unlimited uploads, 30-day link retention, and iCloud history sync. Free stays free. Pro from $2.99/mo."
+  description="FastShared launch access includes unlimited uploads, 2 GB files, and 30-day link retention. Pro adds iCloud history sync and priority support."
 >
   <Nav />
   <main class="frame pt-16 pb-24 max-w-[1080px] mx-auto">
@@ -14,7 +14,7 @@ import PlaneArc from '../components/PlaneArc.astro';
       '@context': 'https://schema.org',
       '@type': 'Product',
       name: 'FastShared Pro',
-      description: 'Pro tier of FastShared — unlimited uploads, 30-day retention, iCloud sync, priority support. Available as Monthly, Annual, or one-time Lifetime.',
+      description: 'Pro tier of FastShared — iCloud sync, priority support, and Family Sharing on Lifetime. Available as Monthly, Annual, or one-time Lifetime.',
       brand: { '@type': 'Brand', name: 'FastShared' },
       offers: [
         { '@type': 'Offer', name: 'Pro Monthly',  price: '2.99',  priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
@@ -39,7 +39,7 @@ import PlaneArc from '../components/PlaneArc.astro';
         <span class="block italic text-coral">Your call on the rest.</span>
       </h1>
       <p class="mt-8 font-mono text-[14px] leading-[1.6] tracking-[0.03em] text-milk/55 max-w-[640px]">
-        Free is honest. Pro is generous. No dark patterns, no feature-gated anti-virus, no "unlock export" nonsense — just higher ceilings, longer retention, and iCloud sync for the people who share every day.
+        Launch access keeps the sharing flow generous for everyone: unlimited uploads, 2 GB files, and links up to 30 days. Pro adds iCloud sync, priority support, and Lifetime Family Sharing for people who live in the app every day.
       </p>
     </section>
 
@@ -52,13 +52,13 @@ import PlaneArc from '../components/PlaneArc.astro';
           <header class="tier-head">
             <p class="tier-name">Free</p>
             <p class="tier-price"><span class="amount">$0</span><span class="period">forever</span></p>
-            <p class="tier-blurb">For occasional shares. No account, no card.</p>
+            <p class="tier-blurb">Launch access. No account, no card.</p>
           </header>
           <a href="#app-store" class="btn-ghost tier-cta" data-testid="cta-free">Start free →</a>
           <ul class="tier-features" aria-label="Free tier features">
-            <li><span class="ft-k">Uploads / day</span><span class="ft-v">3</span></li>
-            <li><span class="ft-k">Max file size</span><span class="ft-v">100 MB</span></li>
-            <li><span class="ft-k">Link retention</span><span class="ft-v">up to 24 h</span></li>
+            <li><span class="ft-k">Uploads / day</span><span class="ft-v ft-on">unlimited</span></li>
+            <li><span class="ft-k">Max file size</span><span class="ft-v">2 GB</span></li>
+            <li><span class="ft-k">Link retention</span><span class="ft-v">up to 30 days</span></li>
             <li><span class="ft-k">iCloud sync</span><span class="ft-v ft-off">—</span></li>
             <li><span class="ft-k">Revoke & history</span><span class="ft-v">on this device</span></li>
             <li><span class="ft-k">Priority support</span><span class="ft-v ft-off">—</span></li>
@@ -161,7 +161,7 @@ import PlaneArc from '../components/PlaneArc.astro';
         </details>
         <details class="faq-item">
           <summary>What happens when I downgrade to Free?</summary>
-          <div class="faq-body">Existing links keep their original expiry (up to 30 days) — we don't retroactively shorten them. After the subscription lapses, new uploads revert to Free limits: 3/day, 100 MB max, 24 h retention ceiling. iCloud sync stops; records already in your private iCloud stay for 30 days, then iCloud prunes them naturally.</div>
+          <div class="faq-body">Existing links keep their original expiry (up to 30 days) — we don't retroactively shorten them. During launch, new Free uploads keep the same upload ceilings as Pro. iCloud sync stops; records already in your private iCloud stay for 30 days, then iCloud prunes them naturally.</div>
         </details>
         <details class="faq-item">
           <summary>Why $49.99 for Lifetime?</summary>
@@ -169,7 +169,7 @@ import PlaneArc from '../components/PlaneArc.astro';
         </details>
         <details class="faq-item">
           <summary>Is there a free trial?</summary>
-          <div class="faq-body">No trial in v1 — the Free tier is the trial. It's enough (3 uploads/day, 100 MB, 24 h) to let you decide if the Pro limits actually matter to you before paying. TestFlight and internal beta users may receive temporary unlimited access by allowlist while App Store rollout is active.</div>
+          <div class="faq-body">No trial in v1 — launch access is already generous for core sharing: unlimited uploads, 2 GB files, and up to 30-day links. Pro is for iCloud sync, priority support, and Lifetime Family Sharing.</div>
         </details>
       </div>
     </section>

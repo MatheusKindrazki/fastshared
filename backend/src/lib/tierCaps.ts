@@ -1,9 +1,10 @@
 // Single source of truth for per-tier quota limits. Both the free-tier
 // enforcement middleware and `GET /v1/me` read these — no drift allowed.
 //
-// Values are aligned with the public beta hotfix plan:
-//   Free:  3 uploads/day, max 100 MB, TTL fixed at 24h, no Cloud Sync
-//   Pro:   unlimited (-1 sentinel) uploads, max 2 GB, TTL up to 30 days
+// Values are aligned with the launch plan:
+//   Free:  launch-unlimited uploads (-1 sentinel), max 2 GB, TTL up to 30 days,
+//          no Cloud Sync
+//   Pro:   same upload caps, plus Cloud Sync
 
 export interface TierCaps {
   uploadsPerDay: number; // -1 means unlimited
@@ -32,9 +33,9 @@ export function toWireCaps(caps: TierCaps): TierCapsWire {
 }
 
 export const FREE_CAPS: TierCaps = {
-  uploadsPerDay: 3,
-  maxFileSizeMB: 100,
-  maxRetentionHours: 24,
+  uploadsPerDay: -1,
+  maxFileSizeMB: 2048,
+  maxRetentionHours: 720,
   allowsCloudSync: false,
 };
 
