@@ -1,8 +1,7 @@
 ---
 /**
- * BrandLockup — app icon + product name.
- * The landing rebrand uses the shipped app icon as the primary mark so the
- * website, README, and TestFlight builds all point at the same identity.
+ * BrandLockup - app icon tile + visual wordmark.
+ * Textual metadata still uses "FastShared"; the lockup is the brand glyph.
  */
 
 interface Props {
@@ -39,7 +38,7 @@ const {
     class="font-display font-bold"
     style={`font-size:${textSize}px;letter-spacing:0;line-height:1;`}
   >
-    FastShared
+    fastshared<span class="brand-lockup__dot">.</span>
   </span>
 </span>
 
@@ -48,5 +47,9 @@ const {
     display: block;
     border-radius: 22%;
     box-shadow: 0 8px 18px -12px rgba(15, 12, 34, 0.45);
+  }
+
+  .brand-lockup__dot {
+    color: #9d7aff;
   }
 </style>

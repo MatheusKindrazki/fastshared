@@ -1,16 +1,14 @@
 import SwiftUI
 import FastSharedCore
 
-/// BrandLockup — horizontal mark + wordmark, per `design/screens.jsx` → `BrandLockup`.
+/// BrandLockup - app icon tile + visual wordmark.
 ///
-/// The canonical in-app brand signature: a bare `PlaneArcMark` followed by the
-/// wordmark `fastshared` with a single amber period as the only ornament.
+/// Textual metadata uses "FastShared"; this component renders the lowercase
+/// brand glyph used in app chrome.
 ///
 ///     BrandLockup(markSize: 26, textSize: 15)    // Hub header
 ///     BrandLockup(markSize: 20, textSize: 13)    // Share-ext sheet header
 ///
-/// The mark stays unframed (`framed: false`) so the lockup reads as a single
-/// wordmark glyph — frames are reserved for hero moments (onboarding, success).
 struct BrandLockup: View {
     /// Edge length of the leading `PlaneArcMark` in points.
     var markSize: CGFloat = 22
@@ -28,10 +26,8 @@ struct BrandLockup: View {
     }
 
     var body: some View {
-        // Brand accent unified on violet. PlaneArcMark default is violet
-        // (BrandPalette.accent.hot); the wordmark period matches.
         HStack(spacing: 8) {
-            PlaneArcMark(size: markSize)
+            PlaneArcMark(size: markSize, framed: true)
                 .accessibilityHidden(true)
 
             (
@@ -41,9 +37,7 @@ struct BrandLockup: View {
                     .foregroundStyle(BrandPalette.accentHot)
             )
             .font(.system(size: textSize, weight: .bold))
-            // -0.02em tracking at this size rounds to a fraction of a point —
-            // we approximate with a small negative tracking value.
-            .tracking(-textSize * 0.02)
+            .tracking(0)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("fastshared")

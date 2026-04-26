@@ -1,12 +1,8 @@
 ---
 /**
- * PlaneArc — Plane + Arc (Refined) brand mark.
- * Single brush-stroke arc ending in a sharp dart plane.
- * Gradient: fade@0 → hot@0.5 → soft@1.0.
- *
- * When `animate` is true the markup includes a particle circle at the
- * arc origin, and class hooks that drive the four-step hero sequence
- * defined in global.css.
+ * PlaneArc keeps the old component API, but now renders the v2 raster mark.
+ * PNG is canonical for this logo because the approved mark depends on glow
+ * and soft shading that should stay consistent across platforms.
  */
 
 interface Props {
@@ -31,88 +27,42 @@ const {
   decorative = false,
 } = Astro.props;
 
-const gid = `fspa-${Math.random().toString(36).slice(2, 10)}`;
-
+const src = framed ? '/brand/appicon-1024.png' : '/brand/logo-mark.png';
 const ambientStyle = ambient
-  ? `position:absolute;inset:-${Math.round(size * 0.35)}px;border-radius:50%;background:radial-gradient(circle, rgba(157,122,255,0.45) 0%, rgba(255,122,209,0.12) 45%, rgba(157,122,255,0) 70%);filter:blur(10px);pointer-events:none;`
+  ? `position:absolute;inset:-${Math.round(size * 0.34)}px;border-radius:50%;background:radial-gradient(circle, rgba(157,122,255,0.42) 0%, rgba(255,255,255,0.16) 34%, rgba(157,122,255,0) 70%);filter:blur(${Math.max(8, Math.round(size * 0.1))}px);pointer-events:none;`
+  : '';
+const frameStyle = bg
+  ? `background:${bg};border-radius:22%;`
   : '';
 ---
-<div
+<span
   class={`planearc ${className}`}
-  style={`position:relative;display:inline-block;width:${size}px;height:${size}px;line-height:0;`}
+  style={`position:relative;display:inline-block;width:${size}px;height:${size}px;line-height:0;${frameStyle}`}
   data-animate={animate ? 'planearc' : undefined}
 >
-  {ambient && (
-    <div aria-hidden="true" style={ambientStyle}></div>
-  )}
-  <svg
-    viewBox="0 0 140 140"
+  {ambient && <span class="planearc-ambient" aria-hidden="true" style={ambientStyle}></span>}
+  <img
+    src={src}
+    alt={decorative ? '' : ariaLabel}
     width={size}
     height={size}
-    style="display:block;position:relative;overflow:visible;"
-    role={decorative ? undefined : 'img'}
-    aria-label={decorative ? undefined : ariaLabel}
+    class={`planearc-image${framed ? ' planearc-image--framed' : ''}`}
+    style={`width:${size}px;height:${size}px;`}
     aria-hidden={decorative ? 'true' : undefined}
-    focusable="false"
-  >
-    <defs>
-      <linearGradient id={gid} x1="0%" y1="100%" x2="100%" y2="0%">
-        <stop offset="0%"  stop-color="var(--violet-fade, #ff7ad1)" stop-opacity="0"/>
-        <stop offset="50%" stop-color="var(--violet-hot, #9d7aff)" stop-opacity="0.9"/>
-        <stop offset="100%" stop-color="var(--violet-soft, #c1a9ff)"/>
-      </linearGradient>
-    </defs>
-    {framed && (
-      <rect
-        class="planearc-frame"
-        x="4"
-        y="4"
-        width="132"
-        height="132"
-        rx="32"
-        fill={bg ?? 'var(--surface-warm, #f5f1e6)'}
-        stroke="var(--rule)"
-        stroke-width="1"
-      />
-    )}
-    <path
-      class="planearc-arc"
-      d="M 26 110 Q 60 98, 80 72"
-      stroke={`url(#${gid})`}
-      stroke-width="9"
-      stroke-linecap="butt"
-      fill="none"
-      pathLength="200"
-    />
-    {animate && (
-      <circle
-        class="planearc-particle"
-        cx="26"
-        cy="110"
-        r="2"
-        fill="var(--violet-hot, #9d7aff)"
-      />
-    )}
-    <!--
-      Static positioning via SVG transform attributes (no CSS transform here).
-      The plane is wrapped so the inner <g> receives ONLY the animated translate,
-      avoiding the CSS-vs-SVG-transform conflict that caused the flicker.
-    -->
-    <g transform="translate(81 66)">
-      <g transform="scale(1.1)">
-        <g class="planearc-plane">
-          <path
-            d="M 0 0 L 22 -26 L 14 10 L 4 4 L 0 18 L -8 4 Z"
-            fill="var(--milk, #fafaff)"
-          />
-          <path
-            d="M 4 4 L 14 10"
-            stroke="var(--milk, #fafaff)"
-            stroke-opacity="0.35"
-            stroke-width="1"
-          />
-        </g>
-      </g>
-    </g>
-  </svg>
-</div>
+    decoding="async"
+    loading="lazy"
+  />
+</span>
+
+<style>
+  .planearc-image {
+    display: block;
+    position: relative;
+    object-fit: contain;
+  }
+
+  .planearc-image--framed {
+    border-radius: 22%;
+    box-shadow: 0 20px 42px -30px rgba(7, 3, 24, 0.7);
+  }
+</style>

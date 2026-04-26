@@ -88,6 +88,8 @@ const APP_PATH_PREFIXES = [
   '/.well-known',
   '/.well-known/',
   '/og-image.png',
+  '/brand',
+  '/brand/',
 ];
 
 function isAppPath(pathname: string): boolean {

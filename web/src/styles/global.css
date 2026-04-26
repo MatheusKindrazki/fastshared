@@ -1001,56 +1001,28 @@
   }
 
   /* ============================================================
-     PlaneArc — cinematic sequence (CSS-driven)
+     Brand mark reveal
      ============================================================ */
-  @keyframes pa-frame-in {
-    from { opacity: 0; transform: scale(0.98); }
+  @keyframes pa-mark-in {
+    from { opacity: 0; transform: scale(0.94) translateY(10px); filter: blur(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+  }
+
+  @keyframes pa-ambient-in {
+    from { opacity: 0; transform: scale(0.78); }
     to   { opacity: 1; transform: scale(1); }
   }
 
-  @keyframes pa-arc-draw {
-    from { stroke-dashoffset: 200; }
-    to   { stroke-dashoffset: 0; }
-  }
-
-  @keyframes pa-plane-in {
-    from {
-      opacity: 0;
-      transform: translate(24px, -24px);
-    }
-    to {
-      opacity: 1;
-      transform: translate(0, 0);
-    }
-  }
-
-  @keyframes pa-particle {
-    0%   { opacity: 0; r: 2; }
-    35%  { opacity: 1; r: 8; }
-    100% { opacity: 0; r: 12; }
-  }
-
-  [data-animate="planearc"] .planearc-frame {
+  [data-animate="planearc"] .planearc-image {
     opacity: 0;
-    animation: pa-frame-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0s forwards;
+    transform-origin: 50% 50%;
+    animation: pa-mark-in 0.72s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
   }
 
-  [data-animate="planearc"] .planearc-arc {
-    stroke-dasharray: 200;
-    stroke-dashoffset: 200;
-    animation: pa-arc-draw 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
-  }
-
-  [data-animate="planearc"] .planearc-plane {
+  [data-animate="planearc"] .planearc-ambient {
     opacity: 0;
-    transform-box: fill-box;
-    transform-origin: 0 0;
-    animation: pa-plane-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.0s forwards;
-  }
-
-  [data-animate="planearc"] .planearc-particle {
-    opacity: 0;
-    animation: pa-particle 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+    transform-origin: 50% 50%;
+    animation: pa-ambient-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0s forwards;
   }
 
   /* FAQ details disclosure */
@@ -1242,14 +1214,14 @@
     transform: none !important;
   }
 
-  [data-animate="planearc"] .planearc-frame,
-  [data-animate="planearc"] .planearc-arc,
-  [data-animate="planearc"] .planearc-plane,
-  [data-animate="planearc"] .planearc-particle {
+  [data-animate="planearc"] .planearc-image,
+  [data-animate="planearc"] .planearc-ambient {
     animation: none !important;
   }
-  [data-animate="planearc"] .planearc-frame,
-  [data-animate="planearc"] .planearc-plane { opacity: 1 !important; transform: none !important; }
-  [data-animate="planearc"] .planearc-arc { stroke-dashoffset: 0 !important; }
-  [data-animate="planearc"] .planearc-particle { opacity: 0 !important; }
+  [data-animate="planearc"] .planearc-image,
+  [data-animate="planearc"] .planearc-ambient {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
 }

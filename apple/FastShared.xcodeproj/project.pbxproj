@@ -18,6 +18,7 @@
 		333DC1C558F01A914C916FC9 /* BrandLockup.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA90874696B4F367CD6E19A9 /* BrandLockup.swift */; };
 		3499E7DF9879858A2D659BEB /* FastSharedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A90C315E4E42DAF559921EF /* FastSharedApp.swift */; };
 		36AD6810F21FDF82745E3372 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A9F98BBB924186324802FF0 /* OnboardingView.swift */; };
+		3B9A13A56DD62A1B43DCA79E /* BrandAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */; };
 		3C769382012F6EAE207DA9E8 /* MacMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B053BEF38363D40385EBB074 /* MacMenuBarView.swift */; };
 		3D2894115A0C33074CCE1DD0 /* UploadServiceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73E8E3BF7E89828611589104 /* UploadServiceLocator.swift */; };
 		3EE6650FD00693859C9C5E60 /* PaywallTierCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14D78B3635A5613DE5C407BE /* PaywallTierCard.swift */; };
@@ -34,6 +35,7 @@
 		761F9E35C73774C1AEBE12FB /* BrandPalette+Redesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E51E9CDA15F39DD65F1B780 /* BrandPalette+Redesign.swift */; };
 		793E126371555702F56E9427 /* ExpiryTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A784E8C45E6D1B42C8023031 /* ExpiryTier.swift */; };
 		84FF9E49748CEA8AAA0FEA99 /* FastSharedCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2CBC13B53DE31A50DB265C2 /* FastSharedCore */; };
+		896D8B129024E22D14EF11D0 /* BrandAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */; };
 		8EE5F08B37A75483180A48EC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5C97B518FAD14B7B537E32ED /* PrivacyInfo.xcprivacy */; };
 		9100732A0A506E8744505E7B /* FastSharedLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 988DD6EAF3C4A04479959EE7 /* FastSharedLiveActivity.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		96154FACD6E84B2142CC1241 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F3145FBF97AEBC20F81E2B6 /* SignInView.swift */; };
@@ -45,6 +47,7 @@
 		B344D60EC4D57DB7A482CD56 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4EC203896546B3EFAB76E7A4 /* PrivacyInfo.xcprivacy */; };
 		B507DC7676BADCEA4146D08A /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36556BBD8D23476FEC5103D0 /* LibraryView.swift */; };
 		B78A3F22F722FF3F5CC7C428 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F0CCBFF2A59244E0D7C422 /* SplashView.swift */; };
+		B8F27A6F5DA84DD133F4029F /* BrandAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */; };
 		BE7E9F8527D7E2680B50039D /* FileGlyph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A6D87C839A504A9F3CE8BE /* FileGlyph.swift */; };
 		C0FD4798F5836A2B38F2205F /* FastSharedUploadLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652830B367D5AF398175B07E /* FastSharedUploadLiveActivity.swift */; };
 		C258F5ACFB74C3090F857B4F /* UploadCoordinatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3153F01945E303D20D1F29E0 /* UploadCoordinatorViewModel.swift */; };
@@ -145,6 +148,7 @@
 		97AD5286ABB21E895C3AE32E /* MacDropHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDropHandler.swift; sourceTree = "<group>"; };
 		988DD6EAF3C4A04479959EE7 /* FastSharedLiveActivity.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FastSharedLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9955F5B072E458EFAAEC2814 /* MacCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCompanionView.swift; sourceTree = "<group>"; };
+		A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = BrandAssets.xcassets; sourceTree = "<group>"; };
 		A784E8C45E6D1B42C8023031 /* ExpiryTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpiryTier.swift; sourceTree = "<group>"; };
 		B053BEF38363D40385EBB074 /* MacMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacMenuBarView.swift; sourceTree = "<group>"; };
 		B11B370818419C58E3A881BB /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -200,6 +204,7 @@
 				1E4906F8F703B17F99EB4108 /* FastSharedLiveActivity */,
 				D05F942AF656E5F9F23D6124 /* FastSharedShareExt */,
 				E4E058FC2C390CBC0EBAB91D /* Packages */,
+				A0AD72942AB4148EB1A56AA7 /* BrandAssets.xcassets */,
 				332150A0273107F7D84B42E8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -503,6 +508,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3B9A13A56DD62A1B43DCA79E /* BrandAssets.xcassets in Resources */,
 				B344D60EC4D57DB7A482CD56 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -512,6 +518,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6A73ABB1BE0CCE55F605302A /* Assets.xcassets in Resources */,
+				B8F27A6F5DA84DD133F4029F /* BrandAssets.xcassets in Resources */,
 				70104ECD469C6AA74BAEC127 /* FastShared.storekit in Resources */,
 				8EE5F08B37A75483180A48EC /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -521,6 +528,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				896D8B129024E22D14EF11D0 /* BrandAssets.xcassets in Resources */,
 				E18BB847D70C19CA5CA2D39A /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
