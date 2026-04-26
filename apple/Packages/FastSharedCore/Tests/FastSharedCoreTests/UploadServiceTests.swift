@@ -220,7 +220,12 @@ final class UploadServiceTests: XCTestCase {
                                     background: background,
                                     orchestrator: orchestrator,
                                     usageTracker: tracker,
-                                    subscriptionStore: nil) // nil → Free fallback
+                                    subscriptionStore: CustomCapSubscriptionStore(caps: TierCaps(
+                                        dailyUploadLimit: 3,
+                                        maxFileSizeBytes: 2 * 1024 * 1024 * 1024,
+                                        maxRetentionSeconds: 30 * 86_400,
+                                        allowsCloudSync: false
+                                    )))
 
         let fileURL = try Self.writeTempFile(bytes: 32)
         do {
@@ -238,8 +243,8 @@ final class UploadServiceTests: XCTestCase {
     }
 
     func test_enqueue_onFileTooLargeForFree_throwsSubscriptionGate() async throws {
-        // 100 MB cap + 1-byte file > cap (using small file + lowered cap via
-        // a custom FreeCapsSubscriptionStore).
+        // Use a tiny custom cap so a 64-byte fixture blows it without creating
+        // a huge test file.
         let tracker = UsageTracker(clock: UsageTrackerTests.FakeClock("2026-04-19"),
                                    defaults: isolatedDefaults())
         let store = SwiftDataStore.inMemoryForTests()
@@ -353,8 +358,8 @@ final class UploadServiceTests: XCTestCase {
                                     background: background,
                                     orchestrator: orchestrator,
                                     usageTracker: tracker,
-                                    // nil subscriptionStore → falls back to .free caps but uses
-                                    // the injected tracker so each test starts with a clean counter.
+                                    // Avoid quota gates in the shared happy-path helper; negative
+                                    // preflight coverage injects custom caps in focused tests.
                                     subscriptionStore: AlwaysProSubscriptionStore())
         return (service, mock, store, clipboard, orchestrator)
     }

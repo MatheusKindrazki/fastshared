@@ -282,9 +282,9 @@ uploadRoutes.post('/batch', async (c) => {
     }
   }
 
-  // Free-tier enforcement: each file in the bundle counts 1 against the daily
-  // cap, plus the per-file size cap. Pro skips both. Mirrors the logic in
-  // rateLimitFreeTier middleware but with count = items.length atomically.
+  // Free-tier enforcement mirrors rateLimitFreeTier middleware but reserves
+  // `items.length` atomically when a daily cap is configured. Launch Free caps
+  // use the unlimited sentinel, so this path skips the KV counter.
   const enforce = await enforceBatchFreeTierLimits(c, db, deviceId, body);
   if (enforce) return enforce;
 
