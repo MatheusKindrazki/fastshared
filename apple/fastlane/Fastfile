@@ -562,12 +562,14 @@ private_lane :upload_store_metadata_internal do |options|
   platform = options.fetch(:platform)
   api_key = options[:api_key] || app_store_api_key
   ensure_store_files!
+  skip_screenshots = ENV["FASTSHARED_STORE_METADATA_SKIP_SCREENSHOTS"] == "YES"
 
   deliver(
     store_common_options(platform: platform, api_key: api_key).merge(
       skip_binary_upload: true,
       submit_for_review: false,
-      overwrite_screenshots: true
+      skip_screenshots: skip_screenshots,
+      overwrite_screenshots: !skip_screenshots
     )
   )
 end
