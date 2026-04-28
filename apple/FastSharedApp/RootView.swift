@@ -119,11 +119,6 @@ struct RootView: View {
             } else {
                 NavigationStack {
                     HistoryView()
-                        // WHY: the Friendly redesign owns its own header
-                        // (BrandLockup + gear). We hide the system nav bar
-                        // here so the custom header can breathe —
-                        // navigation destinations still push normally.
-                        .toolbar(.hidden, for: .navigationBar)
                 }
             }
         }

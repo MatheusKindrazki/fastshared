@@ -553,6 +553,20 @@ struct SettingsView: View {
             line: line
         ) {
             let isPro = snapshot.isPro && snapshot.caps.allowsCloudSync
+            SettingsRow(
+                label: "View Pro plans",
+                value: "Monthly · Annual · Lifetime",
+                isDestructive: false,
+                hasChevron: true,
+                textPrimary: textPrimary,
+                textDim: textDim,
+                textFaint: textFaint,
+                line: line,
+                showDivider: true,
+                action: {
+                    paywallCoordinator.present(.cloudSyncRequested)
+                }
+            )
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {

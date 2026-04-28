@@ -12,6 +12,15 @@ To test Pro, use a sandbox Apple ID and these App Store Connect products:
 - red.fastsha.pro.annual
 - red.fastsha.pro.lifetime
 
-For launch, the basic upload flow is intentionally unlimited: non-Pro users can upload without a daily cap, use files up to 2 GB, and choose retention up to 30 days. Pro remains available for iCloud history sync, priority support, and Lifetime Family Sharing.
+Steps to locate In-App Purchases in the app:
+1. Launch FastShared.
+2. If this is a fresh install, tap "Get started".
+3. On the sign-in screen, tap "Continue without syncing" (sign-in is optional).
+4. On the main "Shares" screen, tap the gear icon in the top-left corner to open Settings.
+5. Scroll to the "Pro · Sync" section.
+6. Tap "View Pro plans". This opens the FastShared Pro paywall.
+7. The paywall shows the Monthly, Annual, and Lifetime purchase options. Tap any plan to start the Apple sandbox purchase flow, or tap "Restore purchases" to test restore.
+
+For launch, the basic upload flow is intentionally unlimited: users can upload without a daily cap, use files up to 2 GB, and choose retention up to 30 days. The "View Pro plans" row remains available in Settings so App Review can open the paywall and test the sandbox purchases directly.
 
 User-generated content is limited to private bearer links created by the reviewer during testing. There is no public feed, user search, follower graph, chat, comments, or permanent hosting. Uploaded files are private, revocable, and automatically deleted after their retention window. The public report endpoint for abuse is /v1/report/:token.
