@@ -166,10 +166,13 @@ struct FastSharedApp: App {
     @ViewBuilder
     private var normalWindowContent: some View {
             #if os(macOS)
-            // WHY: redesigned macOS window — `LibraryView` is the shared
-            // sidebar+table surface (also used on iPad regular). Replaces the
-            // legacy `MacCompanionView` companion layout.
-            LibraryView()
+            // WHY: macOS must traverse the SAME auth gate as iOS — onboarding →
+            // SignInView (Sign in with Apple) → mainContent. Apple rejected 1.0.1
+            // (Guideline 2.1a/2.1b) because the old path jumped straight to
+            // `LibraryView`, so the Mac build had no Sign in with Apple button and
+            // the reviewer "loaded indefinitely". `RootView.mainContent` already
+            // has a macOS branch that renders the shared `LibraryView` surface.
+            RootView()
                 .environment(\.apiClient, apiClient)
                 .environment(\.uploadService, uploadService)
                 .environment(\.uploadOrchestrator, orchestrator)

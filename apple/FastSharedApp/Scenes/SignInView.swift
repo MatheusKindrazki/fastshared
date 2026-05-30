@@ -79,7 +79,10 @@ struct SignInView: View {
 
                 // Actions
                 VStack(spacing: 12) {
-                    #if os(iOS)
+                    // WHY: `SignInWithAppleButton` + `APIClient.signInWithApple`
+                    // are both cross-platform. This used to be `#if os(iOS)` with
+                    // no macOS fallback, so the Mac build shipped with no way to
+                    // sign in — the cause of the 1.0.1 App Review rejection.
                     ZStack {
                         SignInWithAppleButton(
                             .signIn,
@@ -104,7 +107,6 @@ struct SignInView: View {
                                 .allowsHitTesting(false)
                         }
                     }
-                    #endif
 
                     // Guest escape hatch
                     Button {
@@ -165,7 +167,6 @@ struct SignInView: View {
         .lineSpacing(11 * 0.5)
     }
 
-    #if os(iOS)
     private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
         switch result {
         case .success(let auth):
@@ -265,7 +266,6 @@ struct SignInView: View {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? (error as NSError).localizedDescription
         }
     }
-    #endif
 }
 
 // MARK: - Auth state (App Group persisted)
