@@ -166,7 +166,23 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
             stateSerialization: loadSerialization(),
             delegate: self
         )
-        self.engine = CKSyncEngine(configuration)
+        let engine = CKSyncEngine(configuration)
+        self.engine = engine
+
+        // WHY: CKSyncEngine does NOT pull existing server records on its own at
+        // startup — it only reacts to push notifications and flushes local
+        // pending changes. A freshly-installed device therefore never sees the
+        // links another device already uploaded (the records sit in CloudKit,
+        // unfetched) until a push happens to arrive. Kick an explicit fetch on
+        // start so device B pulls device A's history immediately. Best-effort:
+        // push-driven sync still covers everything created afterwards.
+        Task { [weak engine, log] in
+            do {
+                try await engine?.fetchChanges()
+            } catch {
+                log.error("Initial CloudKit fetch failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private func ensureZoneExists() async throws {
