@@ -419,27 +419,21 @@ private struct LibrarySidebar: View {
                 }
             }
 
-            // Device footer.
+            // Device footer. Lists every device on the iCloud account (synced
+            // via CloudKit DeviceRecord); falls back to a single local row when
+            // sync hasn't populated yet.
             Section {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "laptopcomputer.and.iphone")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(textDimColor)
-                        Text(deviceName)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(textColor)
-                            .lineLimit(1)
+                if visibleDevices.isEmpty {
+                    deviceRow(name: deviceName, platform: localPlatform, isLocal: true)
+                } else {
+                    ForEach(visibleDevices) { device in
+                        deviceRow(name: device.name.isEmpty ? deviceName : device.name,
+                                  platform: device.platform,
+                                  isLocal: device.deviceId == localDeviceId)
                     }
-                    Text("····\(deviceShortHash)")
-                        .font(.system(size: 11).monospaced())
-                        .foregroundStyle(textFaintColor)
                 }
-                .padding(.vertical, 4)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             } header: {
-                Text("DEVICE")
+                Text(visibleDevices.count > 1 ? "DEVICES" : "DEVICE")
                     .font(.system(size: 11, weight: .semibold).monospaced())
                     .tracking(1.0)
                     .foregroundStyle(textFaintColor)
@@ -514,6 +508,68 @@ private struct LibrarySidebar: View {
         #endif
     }
 
+    /// Devices to render: hide ones not seen in the last 30 days, keep the
+    /// local device first, then most-recently-seen.
+    private var visibleDevices: [DeviceEntity] {
+        let cutoff = Date().addingTimeInterval(-30 * 24 * 60 * 60)
+        let local = localDeviceId
+        return devices
+            .filter { $0.lastSeenAt >= cutoff }
+            .sorted { lhs, rhs in
+                if (lhs.deviceId == local) != (rhs.deviceId == local) {
+                    return lhs.deviceId == local
+                }
+                return lhs.lastSeenAt > rhs.lastSeenAt
+            }
+    }
+
+    /// This install's CloudKit sync device id — same key the engine publishes
+    /// under. Read-only (never creates) so the sidebar just reflects state.
+    private var localDeviceId: UUID? {
+        let defaults = UserDefaults(suiteName: AppGroupConfig.identifier)
+        guard let raw = defaults?.string(forKey: "cksync_device_id_v1") else { return nil }
+        return UUID(uuidString: raw)
+    }
+
+    private var localPlatform: String {
+        #if os(macOS)
+        "mac"
+        #else
+        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+        #endif
+    }
+
+    private func symbol(forPlatform platform: String) -> String {
+        switch platform {
+        case "ipad": return "ipad"
+        case "mac": return "laptopcomputer"
+        case "iphone": return "iphone"
+        default: return "laptopcomputer.and.iphone"
+        }
+    }
+
+    @ViewBuilder
+    private func deviceRow(name: String, platform: String, isLocal: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol(forPlatform: platform))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(textDimColor)
+            Text(name)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(textColor)
+                .lineLimit(1)
+            if isLocal {
+                Text("This device")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(textFaintColor)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 3)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
     /// Real device name from the system (Mac hostname / iOS device name).
     private var deviceName: String {
         #if os(macOS)
@@ -521,18 +577,6 @@ private struct LibrarySidebar: View {
         #else
         UIDevice.current.name
         #endif
-    }
-
-    /// Stable 4-char device tail for visual affordance. Good-enough without
-    /// touching keychain on every render.
-    private var deviceShortHash: String {
-        #if os(macOS)
-        let raw = Host.current().localizedName ?? "mac"
-        #else
-        let raw = UIDevice.current.identifierForVendor?.uuidString ?? "ios"
-        #endif
-        let digest = abs(raw.hashValue)
-        return String(format: "%04x", digest & 0xffff)
     }
 }
 

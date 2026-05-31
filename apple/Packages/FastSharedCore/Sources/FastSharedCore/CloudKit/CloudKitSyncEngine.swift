@@ -183,6 +183,63 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
                 log.error("Initial CloudKit fetch failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+
+        // Publish/refresh this device's own identity record so the other devices
+        // can list it in the sidebar. Runs on every start (gated upstream by the
+        // Pro/allowsCloudSync check), refreshing lastSeenAt each launch.
+        publishSelfDevice(using: engine)
+    }
+
+    /// Upserts the local `DeviceEntity` for this install and queues its
+    /// `DeviceRecord` save. Idempotent — the record name is keyed on `deviceId`,
+    /// so re-publishes overwrite rather than duplicate.
+    private func publishSelfDevice(using engine: CKSyncEngine) {
+        let id = deviceId
+        let name = Self.localDeviceName()
+        let platform = Self.localPlatform()
+        let appVersion = Self.localAppVersion()
+
+        let context = store.backgroundContext()
+        let descriptor = FetchDescriptor<DeviceEntity>(predicate: #Predicate { $0.deviceId == id })
+        if let existing = try? context.fetch(descriptor).first {
+            existing.name = name
+            existing.platform = platform
+            existing.lastSeenAt = Date()
+            existing.appVersion = appVersion
+        } else {
+            context.insert(DeviceEntity(deviceId: id,
+                                        name: name,
+                                        platform: platform,
+                                        lastSeenAt: Date(),
+                                        appVersion: appVersion))
+        }
+        try? context.save()
+
+        let recordID = DeviceRecord.recordID(deviceId: id, in: zoneID)
+        engine.state.add(pendingRecordZoneChanges: [.saveRecord(recordID)])
+    }
+
+    private static func localDeviceName() -> String {
+        #if os(macOS)
+        return Host.current().localizedName ?? "Mac"
+        #else
+        return UIDevice.current.name
+        #endif
+    }
+
+    private static func localPlatform() -> String {
+        #if os(macOS)
+        return "mac"
+        #else
+        return UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+        #endif
+    }
+
+    private static func localAppVersion() -> String {
+        let dict = Bundle.main.infoDictionary
+        let short = dict?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = dict?["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
     }
 
     private func ensureZoneExists() async throws {
@@ -326,8 +383,19 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
 
     private func buildRecord(for recordID: CKRecord.ID) -> CKRecord? {
         let context = store.backgroundContext()
-        let token = recordID.recordName
-        let descriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.token == token })
+        let name = recordID.recordName
+
+        // Two record types share this zone. Device records carry a "device:"
+        // prefix; everything else is a share-link token.
+        if DeviceRecord.isDeviceRecordName(name) {
+            let descriptor = FetchDescriptor<DeviceEntity>(predicate: #Predicate { _ in true })
+            guard let entity = try? context.fetch(descriptor)
+                .first(where: { DeviceRecord.recordName(deviceId: $0.deviceId) == name })
+            else { return nil }
+            return entity.toCKRecord(in: zoneID)
+        }
+
+        let descriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.token == name })
         guard let entity = try? context.fetch(descriptor).first else { return nil }
         return entity.toCKRecord(deviceId: deviceId, in: zoneID)
     }
@@ -335,6 +403,11 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
     private func applyFetched(_ changes: CKSyncEngine.Event.FetchedRecordZoneChanges) async {
         let context = store.backgroundContext()
         for modification in changes.modifications {
+            // Device records share the zone — apply them on a separate path.
+            if modification.record.recordType == DeviceRecord.recordType {
+                await applyFetchedDevice(modification.record, in: context)
+                continue
+            }
             do {
                 let remote = try modification.record.asShareLinkEntity()
                 let token = remote.token
@@ -366,14 +439,45 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
             }
         }
         for deletion in changes.deletions {
-            let token = deletion.recordID.recordName
-            let descriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.token == token })
+            let name = deletion.recordID.recordName
+            if DeviceRecord.isDeviceRecordName(name) {
+                let descriptor = FetchDescriptor<DeviceEntity>(predicate: #Predicate { _ in true })
+                if let entities = try? context.fetch(descriptor) {
+                    for entity in entities where DeviceRecord.recordName(deviceId: entity.deviceId) == name {
+                        context.delete(entity)
+                    }
+                    try? context.save()
+                }
+                continue
+            }
+            let descriptor = FetchDescriptor<ShareLinkEntity>(predicate: #Predicate { $0.token == name })
             if let entities = try? context.fetch(descriptor) {
                 for entity in entities {
                     context.delete(entity)
                 }
                 try? context.save()
             }
+        }
+    }
+
+    /// Upserts a fetched `DeviceRecord` into the local `DeviceEntity` store.
+    /// Last-write-wins via CloudKit's `modificationDate`; we just mirror fields.
+    private func applyFetchedDevice(_ record: CKRecord, in context: ModelContext) async {
+        do {
+            let remote = try record.asDeviceEntity()
+            let remoteId = remote.deviceId
+            let descriptor = FetchDescriptor<DeviceEntity>(predicate: #Predicate { $0.deviceId == remoteId })
+            if let existing = try context.fetch(descriptor).first {
+                existing.name = remote.name
+                existing.platform = remote.platform
+                existing.lastSeenAt = remote.lastSeenAt
+                existing.appVersion = remote.appVersion
+            } else {
+                context.insert(remote)
+            }
+            try context.save()
+        } catch {
+            log.error("applyFetched device failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

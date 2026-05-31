@@ -227,7 +227,7 @@ public actor SwiftDataStore {
     public nonisolated let modelContainer: ModelContainer
 
     public init() throws {
-        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self])
+        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self, DeviceEntity.self])
         guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroupPaths.groupIdentifier) != nil else {
             throw AppGroupError.missingContainer(AppGroupPaths.groupIdentifier)
         }
@@ -241,7 +241,7 @@ public actor SwiftDataStore {
     }
 
     public init(inMemory: Bool) {
-        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self])
+        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self, DeviceEntity.self])
         let configuration = ModelConfiguration("FastShared", schema: schema, isStoredInMemoryOnly: true)
         self.modelContainer = (try? ModelContainer(for: schema, configurations: configuration)) ?? {
             fatalError("Unable to create in-memory SwiftData container")
