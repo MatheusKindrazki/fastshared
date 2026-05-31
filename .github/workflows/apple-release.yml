@@ -2,12 +2,14 @@ name: apple-release
 
 # Builds a signed archive of the FastShared app for both iOS and macOS and
 # exports it with the committed ExportOptions.plist. The exported artifacts
-# (.ipa / .app.zip) are uploaded to the workflow run so a human can inspect
+# (.ipa / .pkg) are uploaded to the workflow run so a human can inspect
 # entitlements and size before pushing to TestFlight.
 #
-# Uses the App Store Connect API key to let Xcode resolve managed signing
-# profiles during archive/export. It does not upload to TestFlight; the
-# production workflow owns that promotion step.
+# Signing uses a PERSISTENT Apple Distribution certificate + provisioning
+# profiles seeded by the setup-apple-signing composite action (manual signing,
+# no -allowProvisioningUpdates). This avoids minting a throwaway Development
+# certificate on every CI run, which exhausts the account certificate limit.
+# It does not upload to TestFlight; the production workflow owns that step.
 
 on:
   push:
@@ -48,6 +50,13 @@ jobs:
         working-directory: apple
         run: xcodegen generate
 
+      - name: Setup Apple code signing
+        uses: ./.github/actions/setup-apple-signing
+        with:
+          certificate-p12-base64: ${{ secrets.BUILD_CERT_P12_B64 }}
+          certificate-password: ${{ secrets.BUILD_CERT_PASSWORD }}
+          provisioning-profiles-base64: ${{ secrets.PROVISIONING_PROFILES_B64 }}
+
       - name: Decode App Store Connect API key
         run: |
           mkdir -p "$RUNNER_TEMP/asc"
@@ -72,10 +81,7 @@ jobs:
             -configuration Release \
             -archivePath "build/${{ matrix.platform.archive }}" \
             CURRENT_PROJECT_VERSION=${{ steps.build_number.outputs.value }} \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
-            -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
+            CODE_SIGN_STYLE=Manual
           test -d "build/${{ matrix.platform.archive }}" || (
             echo "::error::archive did not produce an xcarchive"; exit 1
           )
@@ -86,11 +92,7 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "build/${{ matrix.platform.archive }}" \
             -exportPath "build/${{ matrix.platform.export_subdir }}" \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
-            -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
+            -exportOptionsPlist ExportOptions.plist
           ls -la "build/${{ matrix.platform.export_subdir }}"
 
       - name: Upload archive + export
