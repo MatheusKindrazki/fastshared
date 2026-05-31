@@ -177,7 +177,8 @@ struct LibraryView: View {
                 textDimColor: textDimColor,
                 textFaintColor: textFaintColor,
                 lineColor: lineColor,
-                surfaceColor: surfaceColor
+                surfaceColor: surfaceColor,
+                devices: devices
             )
             .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
             #if os(macOS)
@@ -393,12 +394,10 @@ private struct LibrarySidebar: View {
     let textFaintColor: Color
     let lineColor: Color
     let surfaceColor: Color
+    let devices: [DeviceEntity]
     @State private var showSettings = false
 
     private let deviceVisibilityWindow: TimeInterval = 30 * 24 * 60 * 60  // 30 days
-
-    @Query(sort: [SortDescriptor(\DeviceEntity.lastSeenAt, order: .reverse)])
-    private var devices: [DeviceEntity]
 
     // WHY: iOS `List(selection:)` takes an Optional binding. We bridge the
     // non-optional LibrarySelection here so the parent stays simple.

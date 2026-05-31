@@ -480,11 +480,6 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
                 return
             }
             let remoteId = remote.deviceId
-
-            // Skip upserting the local device's own record to avoid overwriting
-            // more recent local values (lastSeenAt, appVersion) with stale remote data.
-            guard remoteId != deviceId else { return }
-
             let descriptor = FetchDescriptor<DeviceEntity>(predicate: #Predicate { $0.deviceId == remoteId })
             if let existing = try context.fetch(descriptor).first {
                 existing.name = remote.name
