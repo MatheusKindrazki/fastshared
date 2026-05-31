@@ -28,7 +28,7 @@
 	<key>destination</key>
 	<string>export</string>
 	<key>signingStyle</key>
-	<string>manual</string>
+	<string>automatic</string>
 	<key>teamID</key>
 	<string>YFYB6NKC73</string>
 	<key>uploadSymbols</key>
