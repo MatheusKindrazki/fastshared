@@ -4,7 +4,7 @@ import FastSharedCore
 
 /// Settings — pixel-perfect redesign.
 ///
-/// Sections: Sharing defaults · Quick share · This device · Danger zone.
+/// Sections: Account · Sharing defaults · This device · Danger zone · Pro/Sync · Usage.
 /// Each section uses a card (bg paper, border 1px line, cornerRadius 20).
 /// Rows have 14×16 padding; non-last rows have a 0.5pt bottom divider.
 struct SettingsView: View {
