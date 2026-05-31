@@ -39,6 +39,10 @@
 	<string>FastShared reads your most recent screenshot only when you ask — to upload it and give you a shareable link.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
