@@ -395,6 +395,11 @@ private struct LibrarySidebar: View {
     let surfaceColor: Color
     @State private var showSettings = false
 
+    private let deviceVisibilityWindow: TimeInterval = 30 * 24 * 60 * 60  // 30 days
+
+    @Query(sort: [SortDescriptor(\DeviceEntity.lastSeenAt, order: .reverse)])
+    private var devices: [DeviceEntity]
+
     // WHY: iOS `List(selection:)` takes an Optional binding. We bridge the
     // non-optional LibrarySelection here so the parent stays simple.
     private var optionalBinding: Binding<LibrarySelection?> {
@@ -514,7 +519,7 @@ private struct LibrarySidebar: View {
     /// Devices to render: hide ones not seen in the last 30 days, keep the
     /// local device first, then most-recently-seen.
     private var visibleDevices: [DeviceEntity] {
-        let cutoff = Date().addingTimeInterval(-30 * 24 * 60 * 60)
+        let cutoff = Date().addingTimeInterval(-deviceVisibilityWindow)
         let local = localDeviceId
         return devices
             .filter { $0.lastSeenAt >= cutoff }
