@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import FastSharedCore
 
 /// Settings — pixel-perfect redesign.
@@ -9,8 +10,12 @@ import FastSharedCore
 struct SettingsView: View {
     @Environment(\.subscriptionStore) private var subscriptionStore
     @Environment(\.paywallCoordinator) private var paywallCoordinator
+    @Environment(\.uploadOrchestrator) private var uploadOrchestrator
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+
+    @Query(filter: #Predicate<ShareLinkEntity> { $0.linkStatus == "active" })
+    private var activeLinks: [ShareLinkEntity]
 
     @State private var deviceIdSuffix: String = "------"
     @State private var confirmSignOut: Bool = false
@@ -19,14 +24,12 @@ struct SettingsView: View {
     @State private var authRefreshToken: Int = 0
     @State private var defaultRetention: RetentionPolicy = RetentionPolicy.defaultFromAppGroup()
     @State private var showRetentionPicker: Bool = false
-    @State private var screenshotBannerOn: Bool = true
-    @State private var actionButtonOn: Bool = true
-    @State private var backTapOn: Bool = false
     @State private var cloudSyncOn: Bool = true
     @State private var snapshot: SubscriptionSnapshot = .free
     @State private var usageCount: Int = 0
     @State private var copyLinkAuto: Bool = true
-    @State private var notifyOnOpen: Bool = false
+    @State private var confirmStopAll: Bool = false
+    @State private var stoppingAll: Bool = false
     #if os(macOS)
     @State private var openAtLoginOn: Bool = false
     @State private var openAtLoginStatus: String = "Off"
@@ -35,6 +38,7 @@ struct SettingsView: View {
     private let appGroupDefaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
     private let retentionKey = "default_retention_policy"
     private let cloudSyncKey = "cloud_sync_enabled_v1"
+    private let copyLinkAutoKey = SettingsKeys.copyLinkAuto
 
     // MARK: - Theme helpers — HIG semantic; adapts to light/dark.
 
@@ -100,29 +104,20 @@ struct SettingsView: View {
                                 showDivider: true,
                                 action: { showRetentionPicker = true }
                             )
-                            SettingsRow(
+                            SettingsToggleRow(
                                 label: "Copy link automatically",
-                                value: copyLinkAuto ? "On" : "Off",
-                                isDestructive: false,
-                                hasChevron: true,
+                                subtitle: "Copy the short link to the clipboard the moment a share is ready.",
+                                isOn: Binding(
+                                    get: { copyLinkAuto },
+                                    set: { newValue in
+                                        copyLinkAuto = newValue
+                                        appGroupDefaults?.set(newValue, forKey: copyLinkAutoKey)
+                                    }
+                                ),
                                 textPrimary: textPrimary,
-                                textDim: textDim,
                                 textFaint: textFaint,
                                 line: line,
-                                showDivider: true,
-                                action: nil
-                            )
-                            SettingsRow(
-                                label: "Notify me on open",
-                                value: notifyOnOpen ? "On" : "Off",
-                                isDestructive: false,
-                                hasChevron: true,
-                                textPrimary: textPrimary,
-                                textDim: textDim,
-                                textFaint: textFaint,
-                                line: line,
-                                showDivider: false,
-                                action: nil
+                                showDivider: false
                             )
                         }
 
@@ -133,51 +128,6 @@ struct SettingsView: View {
                                 onSave: { policy in
                                     appGroupDefaults?.set(policy.rawValue, forKey: retentionKey)
                                 }
-                            )
-                        }
-
-                        // 2. Quick share
-                        SettingsSection(
-                            header: "Quick share",
-                            textDim: textDim,
-                            paper: paper,
-                            line: line
-                        ) {
-                            SettingsRow(
-                                label: "Share sheet",
-                                value: "Enabled",
-                                isDestructive: false,
-                                hasChevron: true,
-                                textPrimary: textPrimary,
-                                textDim: textDim,
-                                textFaint: textFaint,
-                                line: line,
-                                showDivider: true,
-                                action: nil
-                            )
-                            SettingsRow(
-                                label: "Screenshot shortcut",
-                                value: screenshotBannerOn ? "On" : "Off",
-                                isDestructive: false,
-                                hasChevron: true,
-                                textPrimary: textPrimary,
-                                textDim: textDim,
-                                textFaint: textFaint,
-                                line: line,
-                                showDivider: true,
-                                action: nil
-                            )
-                            SettingsRow(
-                                label: "Action button",
-                                value: actionButtonOn ? "FastShared" : "Off",
-                                isDestructive: false,
-                                hasChevron: true,
-                                textPrimary: textPrimary,
-                                textDim: textDim,
-                                textFaint: textFaint,
-                                line: line,
-                                showDivider: false,
-                                action: nil
                             )
                         }
 
@@ -196,7 +146,7 @@ struct SettingsView: View {
                                 label: "Device name",
                                 value: "\(platformTag) ·  ••••\(deviceIdSuffix)",
                                 isDestructive: false,
-                                hasChevron: true,
+                                hasChevron: false,
                                 textPrimary: textPrimary,
                                 textDim: textDim,
                                 textFaint: textFaint,
@@ -208,7 +158,7 @@ struct SettingsView: View {
                                 label: "Server",
                                 value: AppGroupConfig.shortLinkHost.host ?? "fastsha.red",
                                 isDestructive: false,
-                                hasChevron: true,
+                                hasChevron: false,
                                 textPrimary: textPrimary,
                                 textDim: textDim,
                                 textFaint: textFaint,
@@ -226,16 +176,16 @@ struct SettingsView: View {
                             line: line
                         ) {
                             SettingsRow(
-                                label: "Stop all active shares",
-                                value: nil,
+                                label: stoppingAll ? "Stopping…" : "Stop all active shares",
+                                value: activeLinks.isEmpty ? "None active" : "\(activeLinks.count) active",
                                 isDestructive: true,
-                                hasChevron: true,
+                                hasChevron: !activeLinks.isEmpty && !stoppingAll,
                                 textPrimary: textPrimary,
                                 textDim: textDim,
                                 textFaint: textFaint,
                                 line: line,
                                 showDivider: true,
-                                action: nil
+                                action: (activeLinks.isEmpty || stoppingAll) ? nil : { confirmStopAll = true }
                             )
                             SettingsRow(
                                 label: "Reset this device",
@@ -283,6 +233,7 @@ struct SettingsView: View {
             await loadDeviceId()
             loadDefaultRetention()
             loadCloudSync()
+            loadCopyLinkAuto()
             #if os(macOS)
             refreshOpenAtLogin()
             #endif
@@ -316,6 +267,28 @@ struct SettingsView: View {
                 authRefreshToken &+= 1 // force section rebuild with fresh AuthState
             })
         }
+        .confirmationDialog("Stop all active shares?", isPresented: $confirmStopAll, titleVisibility: .visible) {
+            Button("Stop \(activeLinks.count) share\(activeLinks.count == 1 ? "" : "s")", role: .destructive) {
+                Task { await stopAllShares() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Every active link is revoked immediately. Recipients lose access and the files are scheduled for deletion. This can't be undone.")
+        }
+    }
+
+    /// Revokes every currently-active link owned by this device. Reuses the
+    /// per-token revoke (idempotent server-side); the local entity flips to
+    /// revoked as each call returns. Best-effort per link — one failure doesn't
+    /// abort the rest.
+    private func stopAllShares() async {
+        guard let orchestrator = uploadOrchestrator else { return }
+        stoppingAll = true
+        let tokens = activeLinks.map(\.token)
+        for token in tokens {
+            try? await orchestrator.revoke(token: token)
+        }
+        stoppingAll = false
     }
 
     // MARK: - Account section
@@ -715,6 +688,14 @@ struct SettingsView: View {
         }
     }
 
+    private func loadCopyLinkAuto() {
+        if let stored = appGroupDefaults?.object(forKey: copyLinkAutoKey) as? Bool {
+            copyLinkAuto = stored
+        } else {
+            copyLinkAuto = true
+        }
+    }
+
     #if os(macOS)
     private func refreshOpenAtLogin() {
         openAtLoginOn = MacLaunchAtLoginController.isEnabledOrNeedsApproval
@@ -897,6 +878,47 @@ private struct SettingsRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+    }
+}
+
+// MARK: - SettingsToggleRow (label + optional subtitle + FriendlyToggle)
+
+private struct SettingsToggleRow: View {
+    let label: String
+    let subtitle: String?
+    @Binding var isOn: Bool
+    let textPrimary: Color
+    let textFaint: Color
+    let line: Color
+    let showDivider: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(textPrimary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(textFaint)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 12)
+                FriendlyToggle(isOn: $isOn)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            if showDivider {
+                Rectangle()
+                    .fill(line)
+                    .frame(height: 0.5)
+                    .padding(.leading, 16)
+            }
+        }
     }
 }
 

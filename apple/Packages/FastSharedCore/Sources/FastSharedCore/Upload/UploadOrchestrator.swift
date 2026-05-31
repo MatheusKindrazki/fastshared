@@ -92,7 +92,9 @@ public actor UploadOrchestrator {
                                   token: String,
                                   shortUrl: URL) async {
         _ = token // reserved for future wiring (telemetry / banner contract)
-        clipboard.copy(shortUrl.absoluteString)
+        if SettingsPreferences.copyLinkAutoEnabled() {
+            clipboard.copy(shortUrl.absoluteString)
+        }
         do {
             try await repository.markLinkCopied(clientJobId: clientJobId, shortURL: shortUrl)
         } catch {
@@ -121,7 +123,9 @@ public actor UploadOrchestrator {
                                  deleteAfter: dedupe.deleteAfter,
                                  linkStatus: "active",
                                  retentionPolicy: dedupe.retentionPolicy)
-        clipboard.copy(dedupe.shortUrl.absoluteString)
+        if SettingsPreferences.copyLinkAutoEnabled() {
+            clipboard.copy(dedupe.shortUrl.absoluteString)
+        }
         await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
                                                           shortUrl: dedupe.shortUrl.absoluteString,
                                                           expiresAt: dedupe.expiresAt)
@@ -212,7 +216,8 @@ public actor UploadOrchestrator {
         _ = await usageTracker.increment()
         // Tier 1: if presign already pushed the short URL to clipboard the
         // user may have pasted it elsewhere — don't clobber that by re-copying.
-        if !linkAlreadyCopied {
+        // Also respects the "Copy link automatically" preference.
+        if !linkAlreadyCopied && SettingsPreferences.copyLinkAutoEnabled() {
             clipboard.copy(completion.shortUrl.absoluteString)
         }
         await LiveActivityController.shared.finishSuccess(clientJobId: clientJobId,
@@ -293,7 +298,9 @@ public actor UploadOrchestrator {
             log.error("recordBundleSuccess persist failed: \(error.localizedDescription, privacy: .public)")
         }
 
-        clipboard.copy(bundle.bundleShortUrl.absoluteString)
+        if SettingsPreferences.copyLinkAutoEnabled() {
+            clipboard.copy(bundle.bundleShortUrl.absoluteString)
+        }
         // Per-file cap accounting — N files = N quota units.
         for _ in 0..<bundle.jobs.count {
             _ = await usageTracker.increment()
