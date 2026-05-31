@@ -2,6 +2,12 @@ import Foundation
 import OSLog
 import SwiftData
 import CloudKit
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
 
 // MARK: - Public protocol
 
