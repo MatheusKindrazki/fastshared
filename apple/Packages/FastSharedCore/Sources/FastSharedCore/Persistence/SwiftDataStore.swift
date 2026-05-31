@@ -213,6 +213,31 @@ public final class BundledAssetEntity {
     }
 }
 
+/// One row per device the user has on this iCloud account. Synced via CloudKit
+/// (`DeviceRecord`) so the sidebar can list iPhone/iPad/Mac. All properties have
+/// defaults — a hard requirement for CloudKit-backed SwiftData models.
+@Model
+public final class DeviceEntity {
+    @Attribute(.unique) public var deviceId: UUID = UUID()
+    public var name: String = ""
+    /// "iphone" | "ipad" | "mac" — drives the sidebar SF Symbol.
+    public var platform: String = ""
+    public var lastSeenAt: Date = Date.distantPast
+    public var appVersion: String = ""
+
+    public init(deviceId: UUID,
+                name: String = "",
+                platform: String = "",
+                lastSeenAt: Date = .distantPast,
+                appVersion: String = "") {
+        self.deviceId = deviceId
+        self.name = name
+        self.platform = platform
+        self.lastSeenAt = lastSeenAt
+        self.appVersion = appVersion
+    }
+}
+
 public actor SwiftDataStore {
     public static let shared: SwiftDataStore = {
         do {
@@ -227,7 +252,7 @@ public actor SwiftDataStore {
     public nonisolated let modelContainer: ModelContainer
 
     public init() throws {
-        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self])
+        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self, DeviceEntity.self])
         guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroupPaths.groupIdentifier) != nil else {
             throw AppGroupError.missingContainer(AppGroupPaths.groupIdentifier)
         }
@@ -241,7 +266,7 @@ public actor SwiftDataStore {
     }
 
     public init(inMemory: Bool) {
-        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self])
+        let schema = Schema([UploadJobEntity.self, ShareLinkEntity.self, BundledAssetEntity.self, DeviceEntity.self])
         let configuration = ModelConfiguration("FastShared", schema: schema, isStoredInMemoryOnly: true)
         self.modelContainer = (try? ModelContainer(for: schema, configurations: configuration)) ?? {
             fatalError("Unable to create in-memory SwiftData container")
