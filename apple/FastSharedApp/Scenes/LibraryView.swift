@@ -59,6 +59,9 @@ struct LibraryView: View {
     @Query(sort: [SortDescriptor(\ShareLinkEntity.createdAt, order: .reverse)])
     private var allLinks: [ShareLinkEntity]
 
+    @Query(sort: [SortDescriptor(\DeviceEntity.lastSeenAt, order: .reverse)])
+    private var devices: [DeviceEntity]
+
     @State private var viewModel: HistoryViewModel?
     @State private var selection: LibrarySelection = .library
     @State private var searchText: String = ""
