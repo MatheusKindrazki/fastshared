@@ -471,6 +471,14 @@ public final class CKSyncEngineKernel: NSObject, SyncEngineKernel, CKSyncEngineD
     private func applyFetchedDevice(_ record: CKRecord, in context: ModelContext) async {
         do {
             let remote = try record.asDeviceEntity()
+            // WHY: Never reapply this device's own remote record. publishSelfDevice()
+            // runs on every boot and refreshes lastSeenAt/appVersion to now.
+            // If fetchChanges() brings back an older snapshot of this same device
+            // (e.g., from a previous boot), this guard prevents regressing those
+            // fields to stale values and re‑queueing an unnecessary save.
+            guard remote.deviceId != deviceId else {
+                return
+            }
             let remoteId = remote.deviceId
             let descriptor = FetchDescriptor<DeviceEntity>(predicate: #Predicate { $0.deviceId == remoteId })
             if let existing = try context.fetch(descriptor).first {
