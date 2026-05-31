@@ -1,5 +1,12 @@
 name: Apple — Promote to Production
 
+# Builds, signs, and uploads the FastShared app to TestFlight / App Store
+# Connect for both iOS and macOS. Manual-only with a typed confirmation.
+#
+# Signing uses a PERSISTENT Apple Distribution certificate + provisioning
+# profiles via the setup-apple-signing composite action (manual signing, no
+# -allowProvisioningUpdates), so CI never mints throwaway certificates.
+
 on:
   workflow_dispatch:
     inputs:
@@ -45,6 +52,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install XcodeGen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: apple
+        run: xcodegen generate
+
+      - name: Setup Apple code signing
+        uses: ./.github/actions/setup-apple-signing
+        with:
+          certificate-p12-base64: ${{ secrets.BUILD_CERT_P12_B64 }}
+          certificate-password: ${{ secrets.BUILD_CERT_PASSWORD }}
+          provisioning-profiles-base64: ${{ secrets.PROVISIONING_PROFILES_B64 }}
+
       - name: Decode App Store Connect API key
         run: |
           mkdir -p "$RUNNER_TEMP/asc"
@@ -59,11 +80,8 @@ jobs:
             -destination '${{ matrix.platform.destination }}' \
             -configuration Release \
             -archivePath "build/${{ matrix.platform.archive }}" \
-            CURRENT_PROJECT_VERSION=$(($(date +%s) - 1577836800)) \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
-            -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGN_STYLE=Manual
           test -d "build/${{ matrix.platform.archive }}" || (
             echo "::error::archive did not produce an xcarchive"; exit 1
           )
@@ -74,11 +92,7 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "build/${{ matrix.platform.archive }}" \
             -exportPath "build/${{ matrix.platform.export_subdir }}" \
-            -exportOptionsPlist ExportOptions.plist \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey.p8" \
-            -authenticationKeyID "${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.APPSTORE_CONNECT_API_KEY_ISSUER_ID }}"
+            -exportOptionsPlist ExportOptions.plist
           ls -la "build/${{ matrix.platform.export_subdir }}"
 
       - name: Resolve upload artifact
