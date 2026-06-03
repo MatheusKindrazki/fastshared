@@ -125,6 +125,13 @@ struct FastSharedApp: App {
             .environment(\.subscriptionStore, subscriptionStore)
             .modelContainer(store.modelContainer)
         TrayManager.shared.configure(with: menuBarRootView, uploadService: uploadService)
+
+        // Auto-start: enable "Open at login" by default on the first run. This
+        // runs once (App Group flag) and never overrides a later opt-out — see
+        // MacLaunchAtLoginController.applyLaunchAtLoginDefaultOnFirstRunIfNeeded.
+        Task { @MainActor in
+            MacLaunchAtLoginController.applyLaunchAtLoginDefaultOnFirstRunIfNeeded()
+        }
         #endif
     }
 
