@@ -1,1 +1,7 @@
-First public release. Share anything from any app, pick how long the link lives, and the short URL is already on your clipboard before the upload even finishes. Every file is temporary on purpose: links expire on schedule and the media is deleted automatically. Built for iOS 17, iPadOS 17, and macOS 14 and later, with a Live Activity and Dynamic Island moment on supported iPhones.
+What's new in 1.0.3
+
+• On Mac, FastShared now starts automatically at login and waits quietly in the menu bar, ready the moment you need to share. You can turn this off anytime in Settings.
+• The sidebar now lists all of your iCloud devices, so it's clearer where your links and uploads are coming from.
+• Reliability fixes for iCloud sync and Settings, plus general polish.
+
+As always: share anything from any app, choose how long the link lives, and the short URL is on your clipboard before the upload even finishes. Every file is temporary on purpose — links expire on schedule and the media is deleted automatically.
