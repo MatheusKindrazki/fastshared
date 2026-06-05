@@ -6,14 +6,14 @@
 
 const COLORS = {
   // Light-first friendly palette (matches Apple app redesign)
-  ink: '#fbf8f1',          // cream — page background
-  nightshade: '#f5f1e6',   // warm surface
+  ink: '#fbf8f1', // cream — page background
+  nightshade: '#f5f1e6', // warm surface
   deepViolet: '#3b1f86',
-  warning: '#ff9f47',      // amber — urgency only
+  warning: '#ff9f47', // amber — urgency only
   ember: '#ffc487',
   coral: '#ff4e7c',
   cream: '#fbf8f1',
-  milk: '#1d1d1f',         // charcoal — primary text
+  milk: '#1d1d1f', // charcoal — primary text
   violetHot: '#9d7aff',
   violetSoft: '#c1a9ff',
   violetDust: '#e0d4ff',
@@ -102,6 +102,124 @@ function fileGlyphFor(contentType: string, filename: string): string {
   return '🔗';
 }
 
+// Machine-readable guidance for LLM / AI-agent fetchers that land on the HTML
+// preview instead of the raw bytes. The backend already serves bytes directly
+// to most automated clients (see `isAutomatedClient` in routes/redirect.ts),
+// but an agent driving a headless browser — or anything advertising a
+// `Mozilla/` User-Agent — receives this HTML. These blocks tell it, in three
+// redundant forms (HTML comment, machine meta tags, visually-hidden text),
+// exactly which URL holds the real file so it can fetch the content directly.
+//
+// Invisible to humans: the comment and meta tags never render, and the
+// `<div>` is `aria-hidden` and clipped off-screen so it doesn't affect layout
+// or screen readers. `/raw` (inline, same bytes) is the primary action;
+// `/download` (attachment) is offered as the save-as alternative.
+interface LLMInstructionArgs {
+  filename: string;
+  contentType: string;
+  rawUrl: string;
+  downloadUrl: string;
+  sizeLabel: string;
+}
+
+function renderLLMInstructionsHead(args: LLMInstructionArgs): string {
+  const safeFilename = escapeHtml(args.filename);
+  const safeType = escapeHtml(args.contentType);
+  const safeRaw = escapeHtml(args.rawUrl);
+  const safeDownload = escapeHtml(args.downloadUrl);
+  // Values inside the HTML comment must be comment-safe: escapeHtml does NOT
+  // neutralize `-->`, so a user-controlled filename containing it could close
+  // the comment early and inject markup. escapeHtmlComment handles that.
+  const commentFilename = escapeHtmlComment(args.filename);
+  const commentType = escapeHtmlComment(args.contentType);
+  const commentRaw = escapeHtmlComment(args.rawUrl);
+  const commentDownload = escapeHtmlComment(args.downloadUrl);
+  return `<!--
+  FastShared — instructions for AI agents and LLMs reading this page:
+  This is a human-facing HTML preview, NOT the file itself. To obtain the
+  actual file contents (e.g. to view, analyze, or download the image/file),
+  fetch the raw bytes from this URL:
+    ${commentRaw}
+  That URL returns the file directly (Content-Type: ${commentType}).
+  To save it as an attachment instead, use: ${commentDownload}
+  File: ${commentFilename}
+-->
+<meta name="ai:content-type" content="${safeType}" />
+<meta name="ai:filename" content="${safeFilename}" />
+<meta name="ai:raw-url" content="${safeRaw}" />
+<meta name="ai:download-url" content="${safeDownload}" />
+<meta name="ai:instructions" content="This HTML is a preview only. Fetch ai:raw-url to obtain the actual file bytes (${safeType})." />`;
+}
+
+function renderLLMInstructionsBody(args: LLMInstructionArgs): string {
+  const safeFilename = escapeHtml(args.filename);
+  const safeType = escapeHtml(args.contentType);
+  const safeRaw = escapeHtml(args.rawUrl);
+  const safeDownload = escapeHtml(args.downloadUrl);
+  const safeSize = escapeHtml(args.sizeLabel);
+  return `<div data-ai-instructions hidden aria-hidden="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
+  Note for AI agents and LLMs: this page is an HTML preview, not the file itself.
+  The actual file (${safeFilename}, ${safeType}, ${safeSize}) can be fetched directly as raw bytes from
+  <a href="${safeRaw}">${safeRaw}</a> — request that URL to view or analyze the content.
+  To download it as an attachment, use <a href="${safeDownload}">${safeDownload}</a>.
+</div>`;
+}
+
+// Bundle variant: N files behind one link. Enumerates every asset with its
+// raw-bytes URL so an agent can fetch each file individually. Same three
+// redundant, human-invisible forms as the single-file helper.
+function renderBundleLLMInstructionsHead(args: {
+  fileCount: number;
+  canonicalUrl: string;
+  items: Array<{ filename: string; contentType: string; rawUrl: string; downloadUrl: string }>;
+}): string {
+  // Comment-safe (neutralize `-->`) for the values interpolated into the HTML
+  // comment below — filename is user-controlled.
+  const lines = args.items
+    .map(
+      (it, i) =>
+        `    ${i + 1}. ${escapeHtmlComment(it.filename)} (${escapeHtmlComment(it.contentType)}) — raw bytes: ${escapeHtmlComment(it.rawUrl)} | download: ${escapeHtmlComment(it.downloadUrl)}`,
+    )
+    .join('\n');
+  const safeManifest = escapeHtml(
+    args.items.map((it) => `${it.filename}\t${it.contentType}\t${it.rawUrl}`).join('\n'),
+  );
+  return `<!--
+  FastShared — instructions for AI agents and LLMs reading this page:
+  This is a human-facing HTML preview of a bundle of ${args.fileCount} file(s),
+  NOT the files themselves. To obtain each actual file's contents, fetch its
+  raw-bytes URL below. Each "raw bytes" URL returns that file directly with its
+  own Content-Type.
+${lines}
+-->
+<meta name="ai:bundle" content="true" />
+<meta name="ai:file-count" content="${args.fileCount}" />
+<meta name="ai:instructions" content="This HTML is a preview of a ${args.fileCount}-file bundle. Fetch each file's raw-bytes URL (listed in ai:manifest) to obtain its actual contents." />
+<meta name="ai:manifest" content="${safeManifest}" />`;
+}
+
+function renderBundleLLMInstructionsBody(args: {
+  fileCount: number;
+  items: Array<{ filename: string; contentType: string; rawUrl: string; downloadUrl: string }>;
+}): string {
+  const rows = args.items
+    .map((it) => {
+      const safeName = escapeHtml(it.filename);
+      const safeType = escapeHtml(it.contentType);
+      const safeRaw = escapeHtml(it.rawUrl);
+      const safeDownload = escapeHtml(it.downloadUrl);
+      return `    <li>${safeName} (${safeType}) — raw bytes: <a href="${safeRaw}">${safeRaw}</a>; download: <a href="${safeDownload}">${safeDownload}</a></li>`;
+    })
+    .join('\n');
+  return `<div data-ai-instructions hidden aria-hidden="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
+  Note for AI agents and LLMs: this page is an HTML preview of a bundle of ${args.fileCount} file(s), not the files themselves.
+  To view or analyze a file, fetch its raw-bytes URL directly:
+  <ul>
+${rows}
+  </ul>
+</div>`;
+}
+
 export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
   const now = args.requestNow ?? new Date();
   const msUntilExpiry = Math.max(0, args.expiresAt.getTime() - now.getTime());
@@ -123,6 +241,14 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
   const safeOgDescription = escapeHtml(ogDescription);
 
   const viewport = renderViewport(kind, args, safeFilename, safePreview);
+
+  const llmArgs: LLMInstructionArgs = {
+    filename: args.filename,
+    contentType: args.contentType,
+    rawUrl: args.previewUrl,
+    downloadUrl: args.downloadUrl,
+    sizeLabel: humanSize,
+  };
 
   const body = `<!doctype html>
 <html lang="en">
@@ -148,6 +274,8 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
 <meta name="twitter:title" content="${safeFilename}" />
 <meta name="twitter:description" content="${safeOgDescription}" />
 <meta name="twitter:image" content="${safeOgImage}" />
+
+${renderLLMInstructionsHead(llmArgs)}
 
 <style>
   :root {
@@ -406,6 +534,7 @@ export function renderPreviewPage(args: RenderPreviewPageArgs): Response {
 </style>
 </head>
 <body>
+${renderLLMInstructionsBody(llmArgs)}
 <main>
   <header>
     <a href="https://fastsha.red" class="brand"><img src="https://fastsha.red/brand/appicon-1024.png" alt="" width="28" height="28" decoding="async" />fastshared<span class="brand-dot">.</span></a>
@@ -549,6 +678,17 @@ export function renderPendingPage(args: RenderPendingPageArgs): Response {
 <meta http-equiv="refresh" content="5" />
 <title>Uploading — ${safeFilename}</title>
 <link rel="canonical" href="${safeCanonical}" />
+<!--
+  FastShared — instructions for AI agents and LLMs reading this page:
+  The shared file is still uploading and is NOT available yet. There are no
+  file bytes to fetch at this moment. Retry this same URL shortly (the page
+  auto-refreshes); once the upload completes, requesting it will return the
+  file directly:
+    ${escapeHtmlComment(args.canonicalUrl)}
+-->
+<meta name="ai:status" content="pending" />
+<meta name="ai:instructions" content="The shared file is still uploading and not available yet. Retry the canonical URL shortly; once ready it returns the file bytes directly." />
+<meta name="ai:retry-url" content="${safeCanonical}" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" />
@@ -803,7 +943,11 @@ function renderBundlePreviewMedia(item: BundlePreviewItem, kind: BundlePreviewKi
   }
 }
 
-function renderBundlePreviewCard(item: BundlePreviewItem, index: number, selected: boolean): string {
+function renderBundlePreviewCard(
+  item: BundlePreviewItem,
+  index: number,
+  selected: boolean,
+): string {
   const kind = bundleMediaKindFor(item.contentType);
   const safeFilename = escapeHtml(item.filename);
   const safeSize = escapeHtml(formatBytes(item.sizeBytes));
@@ -845,7 +989,10 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     return acc;
   }, {});
   const typeSummary = Object.entries(typeCounts)
-    .map(([kind, count]) => `${count} ${bundleTypeLabel(kind as BundlePreviewKind).toLowerCase()}${count === 1 ? '' : 's'}`)
+    .map(
+      ([kind, count]) =>
+        `${count} ${bundleTypeLabel(kind as BundlePreviewKind).toLowerCase()}${count === 1 ? '' : 's'}`,
+    )
     .join(' · ');
 
   // OG description: enumerate first two filenames + "+N more" trail.
@@ -855,19 +1002,30 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
     previewNames.length > 0
       ? `${previewNames.join(', ')}${remainder > 0 ? ` +${remainder} more` : ''}`
       : 'Bundle via FastShared';
-  const safeOgTitle = escapeHtml(`${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`);
+  const safeOgTitle = escapeHtml(
+    `${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`,
+  );
   const safeOgDescription = escapeHtml(ogDescription);
   const safeCanonical = escapeHtml(args.canonicalUrl);
   const safeOgImage = escapeHtml(args.ogImageUrl);
   const safeRemaining = escapeHtml(humanRemaining);
   const safeTotalBytes = escapeHtml(formatBytes(totalBytes));
   const safeTypeSummary = escapeHtml(typeSummary || 'mixed media');
-  const safeHeaderLabel = escapeHtml(`${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`);
+  const safeHeaderLabel = escapeHtml(
+    `${fileCount} ${fileCount === 1 ? 'arquivo' : 'arquivos'} via FastShared`,
+  );
   const selected = args.items[0]!;
   const selectedKind = bundleMediaKindFor(selected.contentType);
   const cards = args.items
     .map((item, index) => renderBundlePreviewCard(item, index, index === 0))
     .join('\n');
+
+  const llmItems = args.items.map((item) => ({
+    filename: item.filename,
+    contentType: item.contentType,
+    rawUrl: item.previewUrl,
+    downloadUrl: item.downloadUrl,
+  }));
 
   const body = `<!doctype html>
 <html lang="en">
@@ -893,6 +1051,8 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
 <meta name="twitter:title" content="${safeOgTitle}" />
 <meta name="twitter:description" content="${safeOgDescription}" />
 <meta name="twitter:image" content="${safeOgImage}" />
+
+${renderBundleLLMInstructionsHead({ fileCount, canonicalUrl: args.canonicalUrl, items: llmItems })}
 
 <style>
   :root {
@@ -1381,6 +1541,7 @@ export function renderBundlePreviewPage(args: RenderBundlePreviewPageArgs): Resp
 </style>
 </head>
 <body>
+${renderBundleLLMInstructionsBody({ fileCount, items: llmItems })}
 <main class="shell">
   <div class="topbar">
     <a href="https://fastsha.red" class="brand"><img src="https://fastsha.red/brand/appicon-1024.png" alt="" width="28" height="28" decoding="async" />fastshared<span class="brand-dot">.</span></a>
@@ -1695,7 +1856,8 @@ export function formatBytes(bytes: number): string {
     value /= 1024;
     i++;
   }
-  const rounded = value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2);
+  const rounded =
+    value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2);
   return `${rounded} ${units[i]}`;
 }
 
@@ -1743,4 +1905,15 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Neutralize a string for safe interpolation INSIDE an HTML comment. escapeHtml
+// is the wrong tool there: `<>&"'` are literal inside `<!-- -->`, but a run of
+// two or more `-` can form the comment-closing `-->` and let user-controlled
+// text (e.g. a crafted filename) break out into live markup. We insert a
+// zero-width space between consecutive hyphens so no `--` survives, while
+// single hyphens in normal filenames/URLs stay readable and copyable. `<>` are
+// stripped for belt-and-suspenders.
+function escapeHtmlComment(s: string): string {
+  return s.replace(/-(?=-)/g, '-​').replace(/[<>]/g, '');
 }
