@@ -91,4 +91,8 @@ final class FakeAPIClient: APIClientProtocol, @unchecked Sendable {
         if let onFetchPricingFlags { return try await onFetchPricingFlags() }
         return PricingFlags(earlyAccessLifetimeActive: false, earlyAccessEndsAt: nil)
     }
+
+    func deleteAccount() async throws {
+        throw APIError.transport(underlying: "unimplemented: deleteAccount")
+    }
 }

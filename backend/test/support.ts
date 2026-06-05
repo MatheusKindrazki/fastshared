@@ -24,6 +24,9 @@ export interface UserRow {
 export interface AssetRow {
   id: string;
   ownerDeviceId: string;
+  // Optional in fixtures: most suites only care about device ownership. The
+  // account-deletion suite seeds it explicitly.
+  ownerUserId?: string | null;
   bucket: string;
   storageKey: string;
   contentType: string;
@@ -150,8 +153,7 @@ export const TEST_ENV: Env = {
   APP_ENV: 'test',
   APP_STORE_CONNECT_KEY_ID: 'TESTKEYID0',
   APP_STORE_CONNECT_ISSUER_ID: '00000000-0000-0000-0000-000000000000',
-  APP_STORE_CONNECT_P8_KEY_BASE64:
-    'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
+  APP_STORE_CONNECT_P8_KEY_BASE64: 'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
   APPLE_BUNDLE_ID: 'red.fastsha.FastShared',
 };
 
@@ -194,6 +196,13 @@ function extractParamStrings(cond: unknown): string[] {
   const visit = (node: unknown) => {
     if (!node) return;
     if (typeof node !== 'object') return;
+    // inArray(col, [...]) embeds the bound values as a raw array of Param
+    // objects directly inside queryChunks — recurse into bare arrays so those
+    // IN members are surfaced rather than dropped (which would nuke the table).
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
     const obj = node as { value?: unknown; queryChunks?: unknown[] };
     if (typeof obj.value === 'string') out.push(obj.value);
     if (Array.isArray(obj.queryChunks)) obj.queryChunks.forEach(visit);
@@ -279,6 +288,17 @@ export function installDrizzleFake(): void {
                   (r, conds) => {
                     if (conds.length === 0) return true;
                     if (conds.includes(r.id)) return true;
+                    // Account-deletion ownership scan:
+                    // or(eq(ownerUserId), inArray(ownerDeviceId, [...])). It
+                    // never carries a status literal, so gate the ownerDeviceId
+                    // match on the absence of 'verified' to avoid colliding with
+                    // the dedup lookup below.
+                    if (r.ownerUserId !== null && r.ownerUserId !== undefined) {
+                      if (conds.includes(r.ownerUserId)) return true;
+                    }
+                    if (!conds.includes('verified') && conds.includes(r.ownerDeviceId)) {
+                      return true;
+                    }
                     const byHash = r.sha256 !== null && conds.includes(r.sha256);
                     const byDevice = conds.includes(r.ownerDeviceId);
                     if (byHash && byDevice && r.status !== 'deleted' && r.deletedAt === null) {
@@ -332,10 +352,7 @@ export function installDrizzleFake(): void {
                     // sharing the bundle, masking real duplicates.
                     return conds.every(
                       (c) =>
-                        c === r.id ||
-                        c === r.shareLinkId ||
-                        c === r.assetId ||
-                        c === r.uploadJobId,
+                        c === r.id || c === r.shareLinkId || c === r.assetId || c === r.uploadJobId,
                     );
                   },
                 );
@@ -395,6 +412,7 @@ export function installDrizzleFake(): void {
                     const row: AssetRow = {
                       id: (v.id as string) ?? crypto.randomUUID(),
                       ownerDeviceId: v.ownerDeviceId as string,
+                      ownerUserId: (v.ownerUserId as string | null) ?? null,
                       bucket: v.bucket as string,
                       storageKey: v.storageKey as string,
                       contentType: v.contentType as string,
@@ -640,8 +658,37 @@ export function installDrizzleFake(): void {
             },
           };
         },
-        delete() {
-          return { where: () => Promise.resolve() };
+        delete(table: { _: { name: string } }) {
+          const name = tableName(table);
+          return {
+            where(cond?: unknown) {
+              // Mirror update()'s permissive param extraction: a DELETE with no
+              // extractable literal clears the whole table; otherwise drop rows
+              // whose string fields intersect the captured predicate values.
+              const conds = extractParamStrings(cond);
+              const keep = (row: Record<string, unknown>): boolean => {
+                if (conds.length === 0) return false;
+                for (const candidate of Object.values(row)) {
+                  if (typeof candidate === 'string' && conds.includes(candidate)) return false;
+                }
+                return true;
+              };
+              const prune = <T>(rows: T[]) => {
+                const survivors = rows.filter((r) => keep(r as unknown as Record<string, unknown>));
+                rows.length = 0;
+                rows.push(...survivors);
+              };
+              if (name === 'user') prune(store.users);
+              if (name === 'subscription') prune(store.subscriptions);
+              if (name === 'asset') prune(store.assets);
+              if (name === 'device') prune(store.devices);
+              if (name === 'share_link') prune(store.shareLinks);
+              if (name === 'upload_job') prune(store.uploadJobs);
+              if (name === 'deletion_job') prune(store.deletionJobs);
+              if (name === 'bundle_asset') prune(store.bundleAssets);
+              return Promise.resolve();
+            },
+          };
         },
         execute<T>(_sql: unknown) {
           void _sql;

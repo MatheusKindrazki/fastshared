@@ -517,6 +517,8 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     func fetchPricingFlags() async throws -> PricingFlags {
         PricingFlags(earlyAccessLifetimeActive: false, earlyAccessEndsAt: nil)
     }
+
+    func deleteAccount() async throws {}
 }
 
 final class InMemoryKeychain: KeychainStoring, @unchecked Sendable {

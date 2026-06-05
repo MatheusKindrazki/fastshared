@@ -27,6 +27,9 @@ public protocol APIClientProtocol: Sendable {
     func verifyIAP(jwsRepresentation: String) async throws -> IAPVerifyResponse
     func fetchMe() async throws -> MeResponse
     func fetchPricingFlags() async throws -> PricingFlags
+    /// Permanently deletes the authenticated account and all its data
+    /// (App Store Guideline 5.1.1v). Authenticated DELETE; throws on non-2xx.
+    func deleteAccount() async throws
 }
 
 /// Response from `POST /v1/auth/apple`. Server issues a first-class device token
@@ -225,6 +228,15 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         try await attachAuth(&request)
         return try await send(request)
+    }
+
+    public func deleteAccount() async throws {
+        let endpoint = APIEndpoint.deleteAccount
+        var request = URLRequest(url: baseURL.appendingPathComponent(endpoint.path))
+        request.httpMethod = endpoint.method.rawValue
+        try await attachAuth(&request)
+        let (data, httpResponse) = try await dataTask(request)
+        try validate(httpResponse, data: data)
     }
 
     // MARK: - Internals

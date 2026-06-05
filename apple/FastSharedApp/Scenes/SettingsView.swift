@@ -2,6 +2,10 @@ import SwiftUI
 import SwiftData
 import FastSharedCore
 
+#if canImport(AuthenticationServices)
+import AuthenticationServices
+#endif
+
 /// Settings — pixel-perfect redesign.
 ///
 /// Sections: Account · Sharing defaults · This device · Danger zone · Pro/Sync · Usage.
@@ -11,6 +15,7 @@ struct SettingsView: View {
     @Environment(\.subscriptionStore) private var subscriptionStore
     @Environment(\.paywallCoordinator) private var paywallCoordinator
     @Environment(\.uploadOrchestrator) private var uploadOrchestrator
+    @Environment(\.apiClient) private var apiClient
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
 
@@ -20,6 +25,8 @@ struct SettingsView: View {
     @State private var deviceIdSuffix: String = "------"
     @State private var confirmSignOut: Bool = false
     @State private var confirmAppleSignOut: Bool = false
+    @State private var confirmAccountDeletion: Bool = false
+    @State private var accountDeletionError: String?
     @State private var showSignInSheet: Bool = false
     @State private var authRefreshToken: Int = 0
     @State private var defaultRetention: RetentionPolicy = RetentionPolicy.defaultFromAppGroup()
@@ -261,6 +268,25 @@ struct SettingsView: View {
         } message: {
             Text("Your Apple account will be disconnected on this device. Your shares stay where they are.")
         }
+        .confirmationDialog("Delete account?", isPresented: $confirmAccountDeletion, titleVisibility: .visible) {
+            Button("Delete account", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes your account and all its data and can't be undone. It does not cancel your Apple subscription — manage subscriptions through Apple.")
+        }
+        .alert(
+            "Couldn't delete account",
+            isPresented: Binding(
+                get: { accountDeletionError != nil },
+                set: { if !$0 { accountDeletionError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { accountDeletionError = nil }
+        } message: {
+            Text(accountDeletionError ?? "Something went wrong. Please try again.")
+        }
         .sheet(isPresented: $showSignInSheet) {
             SignInView(onComplete: {
                 showSignInSheet = false
@@ -425,6 +451,31 @@ struct SettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+
+        Rectangle()
+            .fill(line)
+            .frame(height: 0.5)
+            .padding(.leading, 16)
+
+        // Row 4 — Delete account (destructive, App Store Guideline 5.1.1v)
+        Button {
+            confirmAccountDeletion = true
+        } label: {
+            HStack {
+                Text("Delete account")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(BrandPalette.urgencyCritical)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(textFaint)
+                    .padding(.leading, 4)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Auth read helpers
@@ -461,6 +512,18 @@ struct SettingsView: View {
     /// the injected instance instead of instantiating `DeviceTokenStore`
     /// locally here.
     private func appleSignOut() async {
+        await tearDownLocalSession()
+    }
+
+    /// Wipes local credentials + device token and forces the app back to the
+    /// sign-in/onboarding gate IN-SESSION. Posting
+    /// `credentialRevokedNotification` reuses RootView's existing
+    /// `handleCredentialInvalidated` observer (the same path used for real
+    /// Apple credential revocation), so `hasCompletedAuth` flips to `false` and
+    /// the gate reappears immediately instead of only on the next cold launch.
+    /// Shared by `appleSignOut` and `deleteAccount` so both converge on one
+    /// teardown.
+    private func tearDownLocalSession() async {
         AuthState.reset()
         let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
         let tokenStore = DeviceTokenStore(keychain: keychain)
@@ -468,7 +531,53 @@ struct SettingsView: View {
         await MainActor.run {
             authRefreshToken &+= 1
             deviceIdSuffix = "------"
+            #if canImport(AuthenticationServices)
+            NotificationCenter.default.post(
+                name: ASAuthorizationAppleIDProvider.credentialRevokedNotification,
+                object: nil
+            )
+            #endif
         }
+    }
+
+    /// Permanently deletes the account server-side (App Store Guideline 5.1.1v),
+    /// then performs the same local cleanup as `appleSignOut` so the app returns
+    /// to sign-in/onboarding. If the server reports the account is ALREADY gone
+    /// (400 `not_linked`, or 401 unauthorized — e.g. a lost response or a double
+    /// tap), we treat it as success and still tear down locally so the user is
+    /// never stranded on a button that can't complete. Genuine failures keep the
+    /// local credentials intact and surface a friendly, specific error.
+    private func deleteAccount() async {
+        do {
+            try await apiClient.deleteAccount()
+        } catch let error as APIError {
+            switch error {
+            // Account is already gone server-side — finish the local teardown
+            // rather than stranding the user on a retry that can never succeed.
+            case .http(status: 400, let problem) where problem?.code == "not_linked":
+                await tearDownLocalSession()
+                return
+            case .unauthorized:
+                await tearDownLocalSession()
+                return
+            case .ratelimited:
+                await MainActor.run {
+                    accountDeletionError = "Too many attempts. Please wait a few minutes and try again."
+                }
+                return
+            default:
+                await MainActor.run {
+                    accountDeletionError = "We couldn't delete your account. Please check your connection and try again."
+                }
+                return
+            }
+        } catch {
+            await MainActor.run {
+                accountDeletionError = "We couldn't delete your account. Please check your connection and try again."
+            }
+            return
+        }
+        await tearDownLocalSession()
     }
 
     #if os(macOS)

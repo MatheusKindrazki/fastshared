@@ -22,6 +22,7 @@ public enum APIEndpoint: Sendable {
     case iapVerify
     case me
     case pricingFlags
+    case deleteAccount
 
     public var path: String {
         switch self {
@@ -38,6 +39,7 @@ public enum APIEndpoint: Sendable {
         case .iapVerify: return "/v1/iap/verify"
         case .me: return "/v1/me"
         case .pricingFlags: return "/v1/pricing-flags"
+        case .deleteAccount: return "/v1/account"
         }
     }
 
@@ -45,7 +47,7 @@ public enum APIEndpoint: Sendable {
         switch self {
         case .registerDevice, .signInApple, .requestUpload, .requestBatchUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
         case .fetchHistory, .me, .pricingFlags: return .get
-        case .deleteAsset: return .delete
+        case .deleteAsset, .deleteAccount: return .delete
         }
     }
 }
