@@ -1,8 +1,6 @@
-import { eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import type { Db } from '~/db/client';
-import { asset, device, shareLink, subscription, user } from '~/db/schema';
-import { scheduleDeletion } from '~/services/assets';
-import { log } from '~/lib/logger';
+import { asset, deletionJob, device, shareLink, subscription, user } from '~/db/schema';
 
 export type DeleteAccountResult =
   | {
@@ -23,7 +21,7 @@ export type DeleteAccountResult =
 // support interactive transactions, so we run sequential, individually
 // idempotent statements in an order that never trips a foreign key:
 //
-//   1. revoke + schedule-delete each asset (no FK impact; pure data lifecycle)
+//   1. revoke + schedule-delete every asset in bulk (no FK impact; pure data lifecycle)
 //   2. delete subscription rows keyed by the user's devices
 //   3. NULL out asset.owner_user_id for the user's assets   <-- critical
 //   4. NULL out device.user_id for the user's devices
@@ -69,37 +67,33 @@ export async function deleteAccountForDevice(
     );
   const assetIds = [...new Set(ownedAssets.map((a) => a.id))];
 
-  // 1. Revoke active/pending links and schedule immediate deletion per asset.
-  // Per-asset try/catch so one bad row never strands the rest of the account.
+  // 1. Revoke active/pending links and schedule immediate deletion for every
+  // owned asset. Keep this bulk-only: real accounts can have hundreds of
+  // assets, and doing 2-3 Neon HTTP round-trips per asset makes the Worker
+  // request time out before the user row is deleted.
   const now = new Date();
-  let assetsScheduled = 0;
   let linksRevoked = 0;
-  for (const assetId of assetIds) {
-    try {
-      // Count the links we're actually transitioning out of a live state for an
-      // accurate `linksRevoked`, then collapse them all to revoked. Mirrors
-      // softDeleteAsset: revoke by asset (re-revoking a dead link is a no-op).
-      const liveLinks = await db
-        .select({ id: shareLink.id, linkStatus: shareLink.linkStatus })
-        .from(shareLink)
-        .where(eq(shareLink.assetId, assetId));
-      linksRevoked += liveLinks.filter(
-        (l) => l.linkStatus === 'active' || l.linkStatus === 'pending',
-      ).length;
-      await db
-        .update(shareLink)
-        .set({ linkStatus: 'revoked', revokedAt: sql`now()` })
-        .where(eq(shareLink.assetId, assetId));
-      await scheduleDeletion(db, assetId, now);
-      assetsScheduled += 1;
-    } catch (err) {
-      log.warn({
-        msg: 'account_deletion_asset_failed',
-        userId,
-        assetId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+  if (assetIds.length > 0) {
+    const liveLinks = await db
+      .select({ id: shareLink.id })
+      .from(shareLink)
+      .where(
+        and(
+          inArray(shareLink.assetId, assetIds),
+          inArray(shareLink.linkStatus, ['active', 'pending']),
+        ),
+      );
+    linksRevoked = liveLinks.length;
+
+    await db
+      .update(shareLink)
+      .set({ linkStatus: 'revoked', revokedAt: sql`now()` })
+      .where(inArray(shareLink.assetId, assetIds));
+
+    await db
+      .insert(deletionJob)
+      .values(assetIds.map((assetId) => ({ assetId, scheduledFor: now, status: 'pending' })))
+      .onConflictDoNothing();
   }
 
   // 2. Drop subscriptions for the user's devices (subscription.device_id has no
@@ -125,7 +119,7 @@ export async function deleteAccountForDevice(
   return {
     status: 'deleted',
     userId,
-    assetsScheduled,
+    assetsScheduled: assetIds.length,
     linksRevoked,
     devicesUnlinked: deviceIds.length,
   };

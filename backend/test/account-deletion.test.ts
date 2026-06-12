@@ -158,6 +158,44 @@ describe('deleteAccountForDevice', () => {
     expect(scheduled.has(assetDevice)).toBe(true);
   });
 
+  it('handles large accounts without per-asset scheduling work', async () => {
+    const userId = crypto.randomUUID();
+    seedUser(userId);
+    const deviceId = crypto.randomUUID();
+    store.devices.push({
+      id: deviceId,
+      tokenHash: 'hLarge',
+      platform: 'ios',
+      appVersion: '1.0.3',
+      userId,
+    });
+
+    const assetIds: string[] = [];
+    for (let i = 0; i < 120; i += 1) {
+      const id = crypto.randomUUID();
+      assetIds.push(id);
+      seedAsset({
+        id,
+        ownerDeviceId: deviceId,
+        ownerUserId: i % 2 === 0 ? userId : null,
+      });
+      seedActiveLink(`largeLink${i.toString().padStart(3, '0')}AAAAAAAA`, id);
+    }
+
+    const result = await deleteAccountForDevice(db, deviceId);
+
+    expect(result.status).toBe('deleted');
+    if (result.status !== 'deleted') throw new Error('unreachable');
+    expect(result.assetsScheduled).toBe(120);
+    expect(result.linksRevoked).toBe(120);
+    expect(store.users.find((u) => u.id === userId)).toBeUndefined();
+    expect(store.devices.find((d) => d.id === deviceId)?.userId ?? null).toBeNull();
+    const scheduled = new Set(store.deletionJobs.map((j) => j.assetId));
+    for (const assetId of assetIds) {
+      expect(scheduled.has(assetId)).toBe(true);
+    }
+  });
+
   it('does not touch a different account', async () => {
     const mine = crypto.randomUUID();
     const theirs = crypto.randomUUID();
