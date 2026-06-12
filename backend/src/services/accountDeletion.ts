@@ -26,15 +26,16 @@ export type DeleteAccountResult =
 //   1. revoke + schedule-delete each asset (no FK impact; pure data lifecycle)
 //   2. delete subscription rows keyed by the user's devices
 //   3. NULL out asset.owner_user_id for the user's assets   <-- critical
-//   4. delete the user row last
+//   4. NULL out device.user_id for the user's devices
+//   5. delete the user row last
 //
 // Step 3 is the load-bearing one: asset.owner_user_id references user.id with
 // NO on-delete rule (NO ACTION / RESTRICT). Deleting the user while any asset
 // still points at it via owner_user_id would raise a 23503 and abort the whole
-// thing. We must orphan those assets onto owner_device_id first. Deleting the
-// user (step 4) in turn fires device.user_id's ON DELETE SET NULL, orphaning —
-// not dropping — every device so their uploads/history survive the grace
-// window until the deletion jobs sweep them.
+// thing. We must orphan those assets onto owner_device_id first. Step 4 is
+// deliberately explicit even though the intended FK is ON DELETE SET NULL:
+// production schemas can lag migrations, and account deletion must not depend
+// on that FK action to succeed.
 export async function deleteAccountForDevice(
   db: Db,
   deviceId: string,
@@ -111,8 +112,14 @@ export async function deleteAccountForDevice(
   // owner_user_id has no ON DELETE rule, so this prevents an FK violation.
   await db.update(asset).set({ ownerUserId: null }).where(eq(asset.ownerUserId, userId));
 
-  // 4. Delete the user row last; device.user_id ON DELETE SET NULL unlinks all
-  // of the account's devices in the same statement.
+  // 4. Unlink devices explicitly before deleting the user. This keeps deletion
+  // robust even if an older production FK is still RESTRICT instead of
+  // ON DELETE SET NULL.
+  if (deviceIds.length > 0) {
+    await db.update(device).set({ userId: null }).where(inArray(device.id, deviceIds));
+  }
+
+  // 5. Delete the user row last.
   await db.delete(user).where(eq(user.id, userId));
 
   return {

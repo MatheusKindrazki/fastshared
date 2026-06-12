@@ -234,7 +234,11 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         let endpoint = APIEndpoint.deleteAccount
         var request = URLRequest(url: baseURL.appendingPathComponent(endpoint.path))
         request.httpMethod = endpoint.method.rawValue
-        try await attachAuth(&request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let token = try await tokenStore.load()?.token, !token.isEmpty else {
+            throw APIError.unauthorized(detail: "missing_device_token")
+        }
+        signer.sign(&request, token: token)
         let (data, httpResponse) = try await dataTask(request)
         try validate(httpResponse, data: data)
     }

@@ -140,6 +140,10 @@ describe('deleteAccountForDevice', () => {
 
     // User row gone.
     expect(store.users.find((u) => u.id === userId)).toBeUndefined();
+    // Devices are unlinked explicitly before deleting the user, so this does
+    // not depend on the production FK action being ON DELETE SET NULL.
+    expect(store.devices.find((d) => d.id === deviceA)?.userId ?? null).toBeNull();
+    expect(store.devices.find((d) => d.id === deviceB)?.userId ?? null).toBeNull();
     // Subscription for the account's devices gone.
     expect(store.subscriptions.length).toBe(0);
     // Both assets had their owner_user_id orphaned before the user delete.
@@ -233,6 +237,7 @@ describe('deleteAccountForDevice', () => {
     expect(result.linksRevoked).toBe(0);
     expect(result.devicesUnlinked).toBe(1);
     expect(store.users.find((u) => u.id === userId)).toBeUndefined();
+    expect(store.devices.find((d) => d.id === deviceId)?.userId ?? null).toBeNull();
     expect(store.deletionJobs.length).toBe(0);
   });
 
@@ -310,5 +315,6 @@ describe('DELETE /v1/account', () => {
     expect(body.linksRevoked).toBe(1);
     expect(body.devicesUnlinked).toBe(1);
     expect(store.users.find((u) => u.id === userId)).toBeUndefined();
+    expect(store.devices.find((d) => d.id === deviceId)?.userId ?? null).toBeNull();
   });
 });
