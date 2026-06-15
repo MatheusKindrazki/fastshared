@@ -275,7 +275,23 @@ struct MacMenuBarView: View {
         VStack(spacing: 0) {
             lineColor.frame(height: 1)
             HStack {
+                Button {
+                    TrayManager.shared.closePopover()
+                    NSApp.terminate(nil)
+                } label: {
+                    Label("Quit", systemImage: "power")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(textDimColor)
+                        .padding(.horizontal, 9)
+                        .frame(height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Quit FastShared")
+                .accessibilityLabel("Quit FastShared")
+
                 Spacer()
+
                 Button {
                     TrayManager.shared.closePopover()
                     MacLaunchAtLoginController.showMainWindow()

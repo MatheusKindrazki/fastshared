@@ -2,7 +2,7 @@
 
 BUNDLER_VERSION ?= 2.4.22
 BUNDLE ?= bundle _$(BUNDLER_VERSION)_
-APPLE_ENV = set -a && { [ ! -f ./.env.testflight ] || . ./.env.testflight; } && { [ ! -f ./.env.appstore.local ] || . ./.env.appstore.local; } && set +a
+APPLE_ENV = _FASTSHARED_APPSTORE_VERSION="$${FASTSHARED_APPSTORE_VERSION-}" && set -a && { [ ! -f ./.env.testflight ] || . ./.env.testflight; } && { [ ! -f ./.env.appstore.local ] || . ./.env.appstore.local; } && set +a && { [ -z "$$_FASTSHARED_APPSTORE_VERSION" ] || export FASTSHARED_APPSTORE_VERSION="$$_FASTSHARED_APPSTORE_VERSION"; }
 
 bootstrap:
 	@command -v xcodegen >/dev/null 2>&1 || brew install xcodegen

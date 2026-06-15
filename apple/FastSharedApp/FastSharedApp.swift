@@ -167,6 +167,14 @@ struct FastSharedApp: App {
         .windowToolbarStyle(.unified)
         .defaultSize(width: AppStoreScreenshotMode.isEnabled ? 1440 : 1100,
                      height: AppStoreScreenshotMode.isEnabled ? 900 : 720)
+        .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("Quit FastShared") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .keyboardShortcut("q")
+            }
+        }
         #endif
     }
 

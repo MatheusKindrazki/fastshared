@@ -376,13 +376,13 @@ private struct ProPanel: View {
                 PanelTitle(symbol: "bolt.fill", title: "FastShared Pro", subtitle: "Built for frequent sharing")
 
                 VStack(spacing: 12) {
-                    ProTierRow(name: "Monthly", price: "$2.99", cadence: "per month", badge: nil)
-                    ProTierRow(name: "Annual", price: "$19.99", cadence: "per year", badge: "Save 44%")
-                    ProTierRow(name: "Lifetime", price: "$49.99", cadence: "one time", badge: "Family Sharing")
+                    ProTierRow(name: "Sync across devices", detail: "iCloud history on iPhone, iPad, and Mac", badge: "Pro")
+                    ProTierRow(name: "Priority support", detail: "Faster help when sharing matters", badge: nil)
+                    ProTierRow(name: "Family Sharing", detail: "Share Pro with your household", badge: "Lifetime")
                 }
 
                 HStack(spacing: 10) {
-                    ProFeature(symbol: "infinity", text: "Unlimited uploads")
+                    ProFeature(symbol: "infinity", text: "Generous sharing")
                     ProFeature(symbol: "externaldrive", text: "2 GB files")
                     ProFeature(symbol: "icloud", text: "iCloud sync")
                 }
@@ -671,8 +671,7 @@ private struct HistoryPreviewRow: View {
 
 private struct ProTierRow: View {
     let name: String
-    let price: String
-    let cadence: String
+    let detail: String
     let badge: String?
 
     var body: some View {
@@ -691,24 +690,22 @@ private struct ProTierRow: View {
                             .background(Capsule().fill(BrandPalette.accentHot.opacity(0.12)))
                     }
                 }
-                Text(cadence)
+                Text(detail)
                     .font(.caption)
                     .foregroundStyle(BrandPalette.friendlyTextDim)
             }
             Spacer()
-            Text(price)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(BrandPalette.friendlyText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(BrandPalette.successGreen)
         }
         .padding(15)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(name == "Annual" ? BrandPalette.accentHot.opacity(0.12) : BrandPalette.friendlySurface0)
+                .fill(name == "Sync across devices" ? BrandPalette.accentHot.opacity(0.12) : BrandPalette.friendlySurface0)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(name == "Annual" ? BrandPalette.accentHot.opacity(0.45) : Color.clear, lineWidth: 1)
+                        .stroke(name == "Sync across devices" ? BrandPalette.accentHot.opacity(0.45) : Color.clear, lineWidth: 1)
                 )
         )
     }
