@@ -30,8 +30,10 @@ final class ShareViewController: PlatformViewController {
 
     private func embed(_ root: some View) {
         let host = UIHostingController(rootView: root)
+        let backgroundColor = shareExtensionBackgroundColor(for: traitCollection)
+        view.backgroundColor = backgroundColor
+        host.view.backgroundColor = backgroundColor
         addChild(host)
-        host.view.backgroundColor = .clear
         host.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(host.view)
         NSLayoutConstraint.activate([
@@ -41,6 +43,11 @@ final class ShareViewController: PlatformViewController {
             host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         host.didMove(toParent: self)
+    }
+
+    private func shareExtensionBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {
+        let scheme: ColorScheme = traitCollection.userInterfaceStyle == .dark ? .dark : .light
+        return UIColor(FriendlyPalette.ground(scheme))
     }
     #elseif canImport(AppKit)
     override func loadView() {

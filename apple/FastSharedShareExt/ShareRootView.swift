@@ -5,32 +5,10 @@ import FastSharedCore
 import UIKit
 #endif
 
-// MARK: - Cross-platform semantic colors
-// WHY: this file compiles in both iOS and macOS share-extension targets.
-// `Color(uiColor:)` does not exist on macOS; `Color(nsColor:)` does not exist on iOS.
-#if os(macOS)
-private var sysBackground:         Color { Color(nsColor: .windowBackgroundColor) }
-private var sysSecondaryBackground: Color { Color(nsColor: .controlBackgroundColor) }
-private var sysTertiaryBackground:  Color { Color(nsColor: .controlBackgroundColor) }
-private var sysLabel:             Color { Color(nsColor: .labelColor) }
-private var sysSecondaryLabel:    Color { Color(nsColor: .secondaryLabelColor) }
-private var sysTertiaryLabel:     Color { Color(nsColor: .tertiaryLabelColor) }
-private var sysSeparator:         Color { Color(nsColor: .separatorColor) }
-#else
-private var sysBackground:         Color { Color(uiColor: .systemBackground) }
-private var sysSecondaryBackground: Color { Color(uiColor: .secondarySystemBackground) }
-private var sysTertiaryBackground:  Color { Color(uiColor: .tertiarySystemBackground) }
-private var sysLabel:             Color { Color(uiColor: .label) }
-private var sysSecondaryLabel:    Color { Color(uiColor: .secondaryLabel) }
-private var sysTertiaryLabel:     Color { Color(uiColor: .tertiaryLabel) }
-private var sysSeparator:         Color { Color(uiColor: .separator) }
-#endif
-
 /// Share extension root — Friendly redesign.
 ///
-/// Five phases backed by `ShareViewModel`. The sheet itself sits on top of a
-/// faded host-app backdrop. All color tokens are read via `@Environment(\.colorScheme)`
-/// so the sheet adapts to both light and dark appearances.
+/// Five phases backed by `ShareViewModel`. The extension owns a full-bleed
+/// Friendly canvas while adapting to both light and dark appearances.
 struct ShareRootView: View {
     @Bindable var viewModel: ShareViewModel
     /// Process-scoped coordinator owned by ShareViewController; shared here
@@ -44,34 +22,25 @@ struct ShareRootView: View {
 
     var body: some View {
         ZStack {
-            // Dim the host context so the sheet reads as modal.
-            LinearGradient(
-                colors: [groundColor.opacity(0.6),
-                         groundColor.opacity(0.85),
-                         groundColor],
-                startPoint: .top, endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            groundColor.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Nav bar
-                navBar
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .padding(.bottom, 16)
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        navBar
+                            .padding(.bottom, 24)
 
-                content
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
+                        content
+                    }
+                    .frame(maxWidth: 560)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: proxy.size.height, alignment: .top)
+                    .safeAreaPadding(.horizontal, 20)
+                    .safeAreaPadding(.top, 20)
+                    .safeAreaPadding(.bottom, 24)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .background(groundColor, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(lineColor, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.4), radius: 32, y: -12)
-            .padding(12)
-            .frame(minWidth: 360)
         }
         .foregroundStyle(textColor)
         .animation(BrandMotion.transition, value: phaseKey)
@@ -200,13 +169,8 @@ struct ShareRootView: View {
 
     // MARK: - Theme helpers
 
-    private var groundColor: Color     { sysBackground }
-    private var canvasColor: Color     { sysSecondaryBackground }
-    private var surface0Color: Color   { sysTertiaryBackground }
-    private var textColor: Color       { sysLabel }
-    private var textDimColor: Color    { sysSecondaryLabel }
-    private var lineColor: Color       { sysSeparator }
-    private var lineStrongColor: Color { sysSeparator }
+    private var groundColor: Color     { FriendlyPalette.ground(colorScheme) }
+    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
     private var accentHot: Color       { FriendlyPalette.accentHot }
 }
 
@@ -284,7 +248,7 @@ private struct SheetBrandLockup: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color { sysLabel }
+    private var textColor: Color { FriendlyPalette.text(colorScheme) }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -311,7 +275,7 @@ private struct SheetFileIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { sysTertiaryBackground }
+    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
 
     var body: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -340,7 +304,7 @@ private struct SheetBundleStackIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { sysTertiaryBackground }
+    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
 
     var body: some View {
         ZStack {
@@ -366,7 +330,7 @@ private struct SheetProgressBar: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var trackColor: Color { sysSeparator }
+    private var trackColor: Color { FriendlyPalette.line(colorScheme) }
 
     var body: some View {
         GeometryReader { geo in
@@ -391,7 +355,7 @@ private struct SheetIndeterminateBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var animate = false
 
-    private var trackColor: Color { sysSeparator }
+    private var trackColor: Color { FriendlyPalette.line(colorScheme) }
 
     var body: some View {
         GeometryReader { geo in
@@ -468,12 +432,10 @@ private struct IdleStage: View {
     @Environment(\.colorScheme) private var colorScheme
 
     // MARK: Theme helpers
-    private var textColor: Color       { sysLabel }
-    private var textDimColor: Color    { sysSecondaryLabel }
-    private var textFaintColor: Color  { sysTertiaryLabel }
-    private var canvasColor: Color     { sysSecondaryBackground }
-    private var lineColor: Color       { sysSeparator }
-    private var lineStrongColor: Color { sysSeparator }
+    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color    { FriendlyPalette.textDim(colorScheme) }
+    private var canvasColor: Color     { FriendlyPalette.paper(colorScheme) }
+    private var lineColor: Color       { FriendlyPalette.line(colorScheme) }
     private var activeChipText: Color {
         colorScheme == .dark ? .white : FriendlyPalette.text(.light)
     }
@@ -783,10 +745,10 @@ private struct SuccessStage: View {
     @State private var copied: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { sysLabel }
-    private var textDimColor: Color { sysSecondaryLabel }
-    private var canvasColor: Color  { sysSecondaryBackground }
-    private var lineColor: Color    { sysSeparator }
+    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
+    private var canvasColor: Color  { FriendlyPalette.paper(colorScheme) }
+    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -869,7 +831,7 @@ private struct SuccessStage: View {
 
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { copyIfNeeded() }
     }
 
@@ -981,10 +943,10 @@ private struct BundleSuccessStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { sysLabel }
-    private var textDimColor: Color { sysSecondaryLabel }
-    private var canvasColor: Color  { sysSecondaryBackground }
-    private var lineColor: Color    { sysSeparator }
+    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
+    private var canvasColor: Color  { FriendlyPalette.paper(colorScheme) }
+    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1060,7 +1022,7 @@ private struct BundleSuccessStage: View {
 
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             // Defensive re-copy: orchestrator already did this in /complete,
             // but if the pasteboard got clobbered by another app we rewrite
@@ -1096,6 +1058,10 @@ struct SharePaywallSheet: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.colorScheme) private var colorScheme
 
+    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
+    private var groundColor: Color  { FriendlyPalette.ground(colorScheme) }
+
     var body: some View {
         VStack(spacing: 18) {
             Spacer()
@@ -1105,12 +1071,12 @@ struct SharePaywallSheet: View {
             Text(headline)
                 .font(.system(size: 22, weight: .bold))
                 .tracking(-0.6)
-                .foregroundStyle(sysLabel)
+                .foregroundStyle(textColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Text(subhead)
                 .font(.system(size: 14, weight: .regular))
-                .foregroundStyle(sysSecondaryLabel)
+                .foregroundStyle(textDimColor)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Spacer()
@@ -1137,12 +1103,12 @@ struct SharePaywallSheet: View {
                 Text("NOT NOW")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .tracking(1.4)
-                    .foregroundStyle(sysSecondaryLabel)
+                    .foregroundStyle(textDimColor)
             }
             .buttonStyle(.plain)
             .padding(.bottom, 12)
         }
-        .background(sysBackground.ignoresSafeArea())
+        .background(groundColor.ignoresSafeArea())
     }
 
     private var headline: String {
@@ -1175,11 +1141,11 @@ private struct FailureStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color      { sysLabel }
-    private var textDimColor: Color   { sysSecondaryLabel }
-    private var textFaintColor: Color { sysTertiaryLabel }
-    private var canvasColor: Color    { sysSecondaryBackground }
-    private var lineColor: Color      { sysSeparator }
+    private var textColor: Color      { FriendlyPalette.text(colorScheme) }
+    private var textDimColor: Color   { FriendlyPalette.textDim(colorScheme) }
+    private var textFaintColor: Color { FriendlyPalette.textFaint(colorScheme) }
+    private var canvasColor: Color    { FriendlyPalette.paper(colorScheme) }
+    private var lineColor: Color      { FriendlyPalette.line(colorScheme) }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -1239,6 +1205,6 @@ private struct FailureStage: View {
                 #endif
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
