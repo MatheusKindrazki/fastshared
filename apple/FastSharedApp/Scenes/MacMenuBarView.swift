@@ -394,6 +394,8 @@ private struct MenuBarShareRow: View {
 @MainActor
 final class SettingsWindowHolder {
     static let shared = SettingsWindowHolder()
+    private static let initialWindowSize = NSSize(width: 620, height: 760)
+    private static let minimumWindowSize = NSSize(width: 560, height: 680)
     private var window: NSWindow?
 
     private init() {}
@@ -406,13 +408,14 @@ final class SettingsWindowHolder {
         if let existing = window {
             NSLog("[SettingsWindowHolder] existing window found, isVisible=\(existing.isVisible)")
             if existing.isVisible {
+                Self.prepareForDisplay(existing)
                 NSApp.activate(ignoringOtherApps: true)
                 existing.makeKeyAndOrderFront(nil)
                 return
             }
         }
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 540, height: 680),
+            contentRect: NSRect(origin: .zero, size: Self.initialWindowSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -421,16 +424,34 @@ final class SettingsWindowHolder {
         newWindow.identifier = .fastSharedSettingsWindow
         newWindow.isReleasedWhenClosed = false
         newWindow.level = .floating
+        newWindow.minSize = Self.minimumWindowSize
         newWindow.contentViewController = NSHostingController(
             rootView: SettingsView()
                 .environment(\.subscriptionStore, subscriptionStore)
                 .environment(\.paywallCoordinator, paywallCoordinator)
+                .frame(minWidth: Self.minimumWindowSize.width,
+                       minHeight: Self.minimumWindowSize.height)
         )
+        Self.prepareForDisplay(newWindow)
         newWindow.center()
         NSApp.activate(ignoringOtherApps: true)
         newWindow.makeKeyAndOrderFront(nil)
         NSLog("[SettingsWindowHolder] new window created and shown")
         window = newWindow
+    }
+
+    private static func prepareForDisplay(_ window: NSWindow) {
+        window.minSize = minimumWindowSize
+
+        let currentSize = window.frame.size
+        guard currentSize.width < minimumWindowSize.width || currentSize.height < minimumWindowSize.height else {
+            return
+        }
+
+        var frame = window.frame
+        frame.size.width = max(currentSize.width, initialWindowSize.width)
+        frame.size.height = max(currentSize.height, initialWindowSize.height)
+        window.setFrame(frame, display: true)
     }
 }
 
@@ -493,11 +514,19 @@ final class TrayManager: NSObject {
         // alive and allows drag events to flow through.
         let view = TrayIconView(frame: button.bounds)
         view.manager = self
-        view.autoresizingMask = [.width, .height]
+        view.translatesAutoresizingMaskIntoConstraints = false
         button.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: button.trailingAnchor),
+            view.topAnchor.constraint(equalTo: button.topAnchor),
+            view.bottomAnchor.constraint(equalTo: button.bottomAnchor)
+        ])
         self.trayView = view
 
         button.imagePosition = .imageOnly
+        button.target = self
+        button.action = #selector(togglePopover)
         refreshIcon()
     }
 
@@ -516,21 +545,25 @@ final class TrayManager: NSObject {
     // MARK: - Popover control
 
     @objc func togglePopover() {
-        guard let popover, let view = trayView else { return }
+        guard let popover, let anchor = popoverAnchorView else { return }
         if popover.isShown {
             popover.performClose(nil)
         } else {
-            popover.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+            popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
         }
     }
 
     func openPopover() {
-        guard let popover, let view = trayView, !popover.isShown else { return }
-        popover.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+        guard let popover, let anchor = popoverAnchorView, !popover.isShown else { return }
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
     }
 
     func closePopover() {
         popover?.performClose(nil)
+    }
+
+    private var popoverAnchorView: NSView? {
+        statusItem?.button ?? trayView
     }
 
     /// Schedules a delayed close so the popover stays open long enough
