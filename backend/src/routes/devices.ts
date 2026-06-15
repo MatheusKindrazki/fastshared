@@ -2,14 +2,24 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AppBindings } from '~/env';
 import { createDb } from '~/db/client';
-import { createDevice, hashDeviceToken } from '~/services/devices';
+import { createDevice, hashDeviceToken, updateDevicePushToken } from '~/services/devices';
 import { toBase64Url } from '~/lib/hash';
 import { ratelimit } from '~/middleware/ratelimit';
+import { auth } from '~/middleware/auth';
 
 const registerSchema = z.object({
   platform: z.enum(['ios', 'ipados', 'macos', 'cli']),
   appVersion: z.string().min(1).max(64),
   idfv: z.string().min(1).max(128).optional(),
+});
+
+const pushTokenSchema = z.object({
+  apnsToken: z
+    .string()
+    .min(32)
+    .max(512)
+    .regex(/^[a-fA-F0-9]+$/),
+  environment: z.enum(['development', 'production']),
 });
 
 export const deviceRoutes = new Hono<AppBindings>();
@@ -37,4 +47,18 @@ deviceRoutes.post('/', async (c) => {
   });
 
   return c.json({ deviceId: device.id, deviceToken }, 201);
+});
+
+deviceRoutes.post('/push-token', auth(), async (c) => {
+  const body = pushTokenSchema.parse(await c.req.json());
+  const deviceId = c.get('deviceId');
+  if (!deviceId) return c.json({ error: 'unauthorized' }, 401);
+
+  const db = createDb(c.env.DATABASE_URL);
+  await updateDevicePushToken(db, deviceId, {
+    apnsToken: body.apnsToken.toLowerCase(),
+    environment: body.environment,
+  });
+
+  return c.json({ ok: true });
 });

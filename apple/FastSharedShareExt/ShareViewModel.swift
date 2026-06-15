@@ -52,6 +52,7 @@ final class ShareViewModel {
     var items: [StagedItem] = []
     var phase: ShareUploadPhase = .idle
     var retentionPolicy: RetentionPolicy
+    var notifyOnOpen: Bool
 
     /// True once "Done" has been tapped or the extension is ready to dismiss. The view controller observes this.
     var readyToDismiss: Bool = false
@@ -67,6 +68,7 @@ final class ShareViewModel {
         let defaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
         let stored = defaults?.string(forKey: "default_retention_policy")
         self.retentionPolicy = stored.flatMap(RetentionPolicy.init(rawValue:)) ?? .default
+        self.notifyOnOpen = SettingsPreferences.notifyOnOpenEnabled()
     }
 
     /// Mirrors a `UploadPreparePhase` emission from UploadService into the UI.

@@ -7,6 +7,9 @@ interface Device {
   tokenHash: string;
   platform: string;
   appVersion: string;
+  apnsToken?: string | null;
+  apnsEnvironment?: 'development' | 'production' | null;
+  apnsUpdatedAt?: Date | null;
 }
 interface Asset {
   id: string;
@@ -29,7 +32,7 @@ interface Asset {
 interface ShareLink {
   id: string;
   token: string;
-  assetId: string;
+  assetId: string | null;
   visibility: string;
   expiresAt: Date;
   hits: number;
@@ -38,6 +41,7 @@ interface ShareLink {
   revokedAt: Date | null;
   lastAccessedAt: Date | null;
   accessCount: number;
+  notifyOnOpen?: boolean;
   maxAccessCount: number | null;
   createdAt: Date;
 }
@@ -200,6 +204,10 @@ vi.mock('~/db/client', () => {
                     tokenHash: v.tokenHash as string,
                     platform: v.platform as string,
                     appVersion: v.appVersion as string,
+                    apnsToken: (v.apnsToken as string | null) ?? null,
+                    apnsEnvironment:
+                      (v.apnsEnvironment as 'development' | 'production' | null) ?? null,
+                    apnsUpdatedAt: (v.apnsUpdatedAt as Date | null) ?? null,
                   };
                   store.devices.push(row);
                   out.push(row);
@@ -228,7 +236,7 @@ vi.mock('~/db/client', () => {
                   const row: ShareLink = {
                     id: crypto.randomUUID(),
                     token: (v.token as string) ?? Math.random().toString(36).slice(2, 9),
-                    assetId: v.assetId as string,
+                    assetId: (v.assetId as string | null) ?? null,
                     visibility: (v.visibility as string) ?? 'signed',
                     expiresAt: v.expiresAt as Date,
                     hits: 0,
@@ -237,6 +245,7 @@ vi.mock('~/db/client', () => {
                     revokedAt: (v.revokedAt as Date | null) ?? null,
                     lastAccessedAt: (v.lastAccessedAt as Date | null) ?? null,
                     accessCount: 0,
+                    notifyOnOpen: (v.notifyOnOpen as boolean) ?? false,
                     maxAccessCount: (v.maxAccessCount as number | null) ?? null,
                     createdAt: new Date(),
                   };
@@ -445,8 +454,7 @@ const TEST_ENV: Env = {
   APP_ENV: 'test',
   APP_STORE_CONNECT_KEY_ID: 'TESTKEYID0',
   APP_STORE_CONNECT_ISSUER_ID: '00000000-0000-0000-0000-000000000000',
-  APP_STORE_CONNECT_P8_KEY_BASE64:
-    'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
+  APP_STORE_CONNECT_P8_KEY_BASE64: 'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
   APPLE_BUNDLE_ID: 'red.fastsha.FastShared',
 };
 
@@ -475,7 +483,15 @@ async function seedDevice(): Promise<{ deviceId: string; token: string }> {
   const { hashDeviceToken } = await import('~/services/devices');
   const tokenHash = await hashDeviceToken(token, TEST_ENV.DEVICE_TOKEN_PEPPER);
   const deviceId = crypto.randomUUID();
-  store.devices.push({ id: deviceId, tokenHash, platform: 'ios', appVersion: '0.1.0' });
+  store.devices.push({
+    id: deviceId,
+    tokenHash,
+    platform: 'ios',
+    appVersion: '0.1.0',
+    apnsToken: null,
+    apnsEnvironment: null,
+    apnsUpdatedAt: null,
+  });
   return { deviceId, token };
 }
 
@@ -861,7 +877,11 @@ describe('uploads flow', () => {
       { authorization: `Bearer ${token}` },
     );
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { deduped?: unknown; uploadId?: string; upload?: { url: string } };
+    const body = (await res.json()) as {
+      deduped?: unknown;
+      uploadId?: string;
+      upload?: { url: string };
+    };
     expect(body.deduped).toBeUndefined();
     expect(body.uploadId).toBeTruthy();
     expect(body.upload?.url).toContain('https://r2.test/');
@@ -873,7 +893,12 @@ describe('uploads flow', () => {
     const { token } = await seedDevice();
     const res = await post(
       '/v1/uploads',
-      { clientJobId: crypto.randomUUID(), contentType: 'image/jpeg', sizeBytes: 1024 },
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'image/jpeg',
+        sizeBytes: 1024,
+        notifyOnOpen: true,
+      },
       { authorization: `Bearer ${token}` },
     );
     expect(res.status).toBe(200);
@@ -882,15 +907,18 @@ describe('uploads flow', () => {
       shortUrl: string;
       linkStatus: string;
       uploadId: string;
+      notifyOnOpen: boolean;
     };
     expect(body.token).toMatch(BASE62_22);
     expect(body.shortUrl).toBe(`https://fastsha.red/s/${body.token}`);
     expect(body.linkStatus).toBe('pending');
+    expect(body.notifyOnOpen).toBe(true);
     // The share_link row was inserted with pending status.
     const row = store.shareLinks.find((l) => l.token === body.token);
     expect(row).toBeDefined();
     expect(row?.linkStatus).toBe('pending');
     expect(row?.assetId).toBeNull();
+    expect(row?.notifyOnOpen).toBe(true);
   });
 
   it('/complete flips pending share_link to active and attaches assetId', async () => {
@@ -961,7 +989,11 @@ describe('uploads flow', () => {
     const size = 12 * 1024 * 1024;
     const res = await post(
       '/v1/uploads',
-      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'application/octet-stream',
+        sizeBytes: size,
+      },
       { authorization: `Bearer ${token}` },
     );
     expect(res.status).toBe(200);
@@ -991,7 +1023,11 @@ describe('uploads flow', () => {
     const size = 5 * 1024 * 1024;
     const res = await post(
       '/v1/uploads',
-      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'application/octet-stream',
+        sizeBytes: size,
+      },
       { authorization: `Bearer ${token}` },
     );
     expect(res.status).toBe(200);
@@ -1010,7 +1046,11 @@ describe('uploads flow', () => {
     const size = 12 * 1024 * 1024;
     const presign = await post(
       '/v1/uploads',
-      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'application/octet-stream',
+        sizeBytes: size,
+      },
       { authorization: `Bearer ${token}` },
     );
     const { uploadId } = (await presign.json()) as { uploadId: string };
@@ -1072,7 +1112,11 @@ describe('uploads flow', () => {
     const size = 12 * 1024 * 1024;
     const presign = await post(
       '/v1/uploads',
-      { clientJobId: crypto.randomUUID(), contentType: 'application/octet-stream', sizeBytes: size },
+      {
+        clientJobId: crypto.randomUUID(),
+        contentType: 'application/octet-stream',
+        sizeBytes: size,
+      },
       { authorization: `Bearer ${token}` },
     );
     const { uploadId, token: shareToken } = (await presign.json()) as {

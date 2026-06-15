@@ -28,6 +28,8 @@ final class FakeAPIClient: APIClientProtocol, @unchecked Sendable {
         return DeviceToken(deviceId: UUID(), token: "fake")
     }
 
+    func updatePushToken(apnsToken: String, environment: String) async throws {}
+
     func signInWithApple(
         identityToken: String,
         authorizationCode: String,

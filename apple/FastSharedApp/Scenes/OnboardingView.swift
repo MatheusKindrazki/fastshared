@@ -213,6 +213,8 @@ struct OnboardingView: View {
             let keychain = KeychainStore(service: AppGroupConfig.identifier, accessGroup: AppGroupConfig.keychainAccessGroup)
             let tokenStore = DeviceTokenStore(keychain: keychain)
             try await tokenStore.save(token)
+            await PushNotificationRegistrar.syncCachedAPNSToken(apiClient: apiClient,
+                                                                tokenStore: tokenStore)
             startedPulse &+= 1
             onComplete()
         } catch {

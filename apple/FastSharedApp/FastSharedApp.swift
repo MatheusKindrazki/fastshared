@@ -5,6 +5,7 @@ import OSLog
 
 #if canImport(UIKit)
 import UIKit
+import UserNotifications
 #endif
 #if canImport(AppKit)
 import AppKit
@@ -237,11 +238,46 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         guard !AppStoreScreenshotMode.isEnabled else { return true }
-        // WHY: CKSyncEngine uses push notifications to trigger real-time sync
-        // when records change on another device. Without this, cross-device sync
-        // only happens on launch / foreground, causing multi-minute delays.
-        application.registerForRemoteNotifications()
+        configureRemoteNotifications(application)
         return true
+    }
+
+    private func configureRemoteNotifications(_ application: UIApplication) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [log] granted, error in
+            if let error {
+                log.error("notification authorization failed: \(error.localizedDescription, privacy: .public)")
+            } else {
+                log.info("notification authorization granted=\(granted, privacy: .public)")
+            }
+            DispatchQueue.main.async {
+                // CKSyncEngine also depends on remote-notification registration
+                // for silent sync pushes, so register even when alert permission
+                // is denied.
+                application.registerForRemoteNotifications()
+            }
+        }
+    }
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        Task {
+            await PushNotificationRegistrar.registerAPNSToken(token,
+                                                              environment: Self.apnsEnvironment)
+        }
+    }
+
+    func application(_ application: UIApplication,
+                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        log.error("remote notification registration failed: \(error.localizedDescription, privacy: .public)")
+    }
+
+    private static var apnsEnvironment: String {
+        #if DEBUG
+        return "development"
+        #else
+        return "production"
+        #endif
     }
 
     func application(_ application: UIApplication,
@@ -343,7 +379,8 @@ private func processPendingShareUploads(
                     stagedURL: item.stagedURL,
                     contentType: item.contentType,
                     originalFilename: item.originalFilename,
-                    retentionPolicy: policy
+                    retentionPolicy: policy,
+                    notifyOnOpen: SettingsPreferences.notifyOnOpenEnabled()
                 )
             } catch let gate as SubscriptionGate {
                 await MainActor.run {

@@ -21,11 +21,15 @@ public protocol UploadServiceProtocol: Sendable {
     func enqueue(stagedURL: URL,
                  contentType: String,
                  originalFilename: String?,
-                 retentionPolicy: RetentionPolicy) async throws -> UploadJob
-    func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy) async throws -> EnqueueResult
+                 retentionPolicy: RetentionPolicy,
+                 notifyOnOpen: Bool) async throws -> UploadJob
     func enqueueDrop(urls: [URL],
                      retentionPolicy: RetentionPolicy,
-                     progressClientJobId: UUID?) async throws -> EnqueueResult
+                     notifyOnOpen: Bool) async throws -> EnqueueResult
+    func enqueueDrop(urls: [URL],
+                     retentionPolicy: RetentionPolicy,
+                     progressClientJobId: UUID?,
+                     notifyOnOpen: Bool) async throws -> EnqueueResult
 }
 
 public extension UploadServiceProtocol {
@@ -35,17 +39,40 @@ public extension UploadServiceProtocol {
         try await enqueue(stagedURL: stagedURL,
                           contentType: contentType,
                           originalFilename: originalFilename,
-                          retentionPolicy: .default)
+                          retentionPolicy: .default,
+                          notifyOnOpen: SettingsPreferences.notifyOnOpenEnabled())
+    }
+
+    func enqueue(stagedURL: URL,
+                 contentType: String,
+                 originalFilename: String?,
+                 retentionPolicy: RetentionPolicy) async throws -> UploadJob {
+        try await enqueue(stagedURL: stagedURL,
+                          contentType: contentType,
+                          originalFilename: originalFilename,
+                          retentionPolicy: retentionPolicy,
+                          notifyOnOpen: SettingsPreferences.notifyOnOpenEnabled())
     }
 
     func enqueueDrop(urls: [URL]) async throws -> EnqueueResult {
-        try await enqueueDrop(urls: urls, retentionPolicy: RetentionPolicy.defaultFromAppGroup())
+        try await enqueueDrop(urls: urls,
+                              retentionPolicy: RetentionPolicy.defaultFromAppGroup(),
+                              notifyOnOpen: SettingsPreferences.notifyOnOpenEnabled())
+    }
+
+    func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy) async throws -> EnqueueResult {
+        try await enqueueDrop(urls: urls,
+                              retentionPolicy: retentionPolicy,
+                              notifyOnOpen: SettingsPreferences.notifyOnOpenEnabled())
     }
 
     func enqueueDrop(urls: [URL],
                      retentionPolicy: RetentionPolicy,
                      progressClientJobId: UUID?) async throws -> EnqueueResult {
-        try await enqueueDrop(urls: urls, retentionPolicy: retentionPolicy)
+        try await enqueueDrop(urls: urls,
+                              retentionPolicy: retentionPolicy,
+                              progressClientJobId: progressClientJobId,
+                              notifyOnOpen: SettingsPreferences.notifyOnOpenEnabled())
     }
 }
 
@@ -194,11 +221,13 @@ public actor UploadService: UploadServiceProtocol {
     public func enqueue(stagedURL: URL,
                         contentType: String,
                         originalFilename: String?,
-                        retentionPolicy: RetentionPolicy = .default) async throws -> UploadJob {
+                        retentionPolicy: RetentionPolicy = .default,
+                        notifyOnOpen: Bool = SettingsPreferences.notifyOnOpenEnabled()) async throws -> UploadJob {
         try await enqueue(stagedURL: stagedURL,
                           contentType: contentType,
                           originalFilename: originalFilename,
                           retentionPolicy: retentionPolicy,
+                          notifyOnOpen: notifyOnOpen,
                           prepareObserver: nil)
     }
 
@@ -210,6 +239,7 @@ public actor UploadService: UploadServiceProtocol {
                         contentType: String,
                         originalFilename: String?,
                         retentionPolicy: RetentionPolicy = .default,
+                        notifyOnOpen: Bool = SettingsPreferences.notifyOnOpenEnabled(),
                         prepareObserver: (@Sendable (UploadPreparePhase) -> Void)?) async throws -> UploadJob {
         _ = try await ensureDeviceToken()
         await refreshSubscriptionSnapshotIfNeeded()
@@ -266,6 +296,7 @@ public actor UploadService: UploadServiceProtocol {
                 sha256: nil,
                 originalFilename: originalFilename,
                 retentionPolicy: retentionPolicy.rawValue,
+                notifyOnOpen: notifyOnOpen,
                 customTtlSeconds: nil
             ))
             let sha = try await hashFuture
@@ -371,13 +402,19 @@ public actor UploadService: UploadServiceProtocol {
         }
     }
 
-    public func enqueueDrop(urls: [URL], retentionPolicy: RetentionPolicy = .default) async throws -> EnqueueResult {
-        try await enqueueDrop(urls: urls, retentionPolicy: retentionPolicy, progressClientJobId: nil)
+    public func enqueueDrop(urls: [URL],
+                            retentionPolicy: RetentionPolicy = .default,
+                            notifyOnOpen: Bool = SettingsPreferences.notifyOnOpenEnabled()) async throws -> EnqueueResult {
+        try await enqueueDrop(urls: urls,
+                              retentionPolicy: retentionPolicy,
+                              progressClientJobId: nil,
+                              notifyOnOpen: notifyOnOpen)
     }
 
     public func enqueueDrop(urls: [URL],
                             retentionPolicy: RetentionPolicy = .default,
-                            progressClientJobId: UUID?) async throws -> EnqueueResult {
+                            progressClientJobId: UUID?,
+                            notifyOnOpen: Bool = SettingsPreferences.notifyOnOpenEnabled()) async throws -> EnqueueResult {
         let stagingTotalBytes = urls.map(Self.fileSize).reduce(0, +)
         var stagedBytesBase: Int64 = 0
 
@@ -407,7 +444,8 @@ public actor UploadService: UploadServiceProtocol {
             let job = try await enqueue(stagedURL: staged.url,
                                         contentType: staged.contentType,
                                         originalFilename: staged.filename,
-                                        retentionPolicy: retentionPolicy)
+                                        retentionPolicy: retentionPolicy,
+                                        notifyOnOpen: notifyOnOpen)
             return .single(job)
         }
         var staged: [StagedDrop] = []
@@ -418,6 +456,7 @@ public actor UploadService: UploadServiceProtocol {
         }
         let bundle = try await enqueueBundle(stagedItems: staged,
                                              retentionPolicy: retentionPolicy,
+                                             notifyOnOpen: notifyOnOpen,
                                              progressClientJobId: progressClientJobId)
         return .bundle(bundle)
     }
@@ -495,7 +534,9 @@ public actor UploadService: UploadServiceProtocol {
     /// the headline "Sending N files · X%". The actual /complete + history
     /// persistence is delegated to `UploadOrchestrator.recordBundleSuccess`
     /// once the last per-item /complete returns.
-    public func enqueueBundle(stagedURLs: [URL], retentionPolicy: RetentionPolicy) async throws -> BundleUploadJob {
+    public func enqueueBundle(stagedURLs: [URL],
+                              retentionPolicy: RetentionPolicy,
+                              notifyOnOpen: Bool = SettingsPreferences.notifyOnOpenEnabled()) async throws -> BundleUploadJob {
         let staged = stagedURLs.map { url -> StagedDrop in
             // Files at this entry point are already inside the App Group
             // staging dir (caller's responsibility), so we skip the
@@ -504,11 +545,14 @@ public actor UploadService: UploadServiceProtocol {
             let ct = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
             return StagedDrop(url: url, filename: filename, contentType: ct)
         }
-        return try await enqueueBundle(stagedItems: staged, retentionPolicy: retentionPolicy)
+        return try await enqueueBundle(stagedItems: staged,
+                                       retentionPolicy: retentionPolicy,
+                                       notifyOnOpen: notifyOnOpen)
     }
 
     private func enqueueBundle(stagedItems: [StagedDrop],
                                retentionPolicy: RetentionPolicy,
+                               notifyOnOpen: Bool,
                                progressClientJobId: UUID? = nil) async throws -> BundleUploadJob {
         _ = try await ensureDeviceToken()
         await refreshSubscriptionSnapshotIfNeeded()
@@ -579,6 +623,7 @@ public actor UploadService: UploadServiceProtocol {
         let response = try await apiClient.requestBatchUpload(BatchPresignRequest(
             retentionPolicy: retentionPolicy.rawValue,
             visibility: "signed",
+            notifyOnOpen: notifyOnOpen,
             items: batchItems
         ))
 
@@ -955,19 +1000,7 @@ public actor UploadService: UploadServiceProtocol {
     }
 
     private func ensureDeviceToken() async throws -> DeviceToken {
-        if let existing = try await tokenStore.load() { return existing }
-        let platform: String
-        #if os(iOS)
-        platform = "ios"
-        #elseif os(macOS)
-        platform = "macos"
-        #else
-        platform = "unknown"
-        #endif
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
-        let token = try await apiClient.registerDevice(platform: platform, appVersion: version)
-        try await tokenStore.save(token)
-        return token
+        try await DeviceRegistration.ensureDeviceToken(apiClient: apiClient, tokenStore: tokenStore)
     }
 
     private func refreshSubscriptionSnapshotIfNeeded() async {

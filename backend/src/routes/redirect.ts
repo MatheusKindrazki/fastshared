@@ -4,6 +4,7 @@ import type { AppBindings } from '~/env';
 import { createDb, type Db } from '~/db/client';
 import { asset, bundleAsset, type Asset, type ShareLink } from '~/db/schema';
 import { findByToken, incrementAccess, markExpiredByToken } from '~/services/shareLinks';
+import { sendLinkOpenedNotification } from '~/services/apns';
 import { getObjectStream, type R2GetRange } from '~/services/r2';
 import { parseRangeHeader } from '~/lib/httpRange';
 import { contentDispositionAttachment, contentDispositionInline } from '~/lib/contentDisposition';
@@ -136,19 +137,16 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
     return binaryHandler(c, 'attachment');
   }
 
-  // Preview page (HTML).
-  c.executionCtx.waitUntil(
-    incrementAccess(db, token).catch((err) => {
-      log.warn({
-        msg: 'access_increment_failed',
-        requestId: c.get('requestId'),
-        token,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }),
-  );
-
   const a = loaded.assetRow;
+  // Preview page (HTML).
+  scheduleAccessSideEffects(c, db, {
+    token,
+    link: loaded.link,
+    ownerDeviceId: a.ownerDeviceId,
+    filename: a.originalFilename ?? 'download',
+    shortUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
+  });
+
   let textPreview: string | undefined;
   let textTruncated = false;
   if (isTextLikeContentType(a.contentType) && a.sizeBytes > 0) {
@@ -182,6 +180,48 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
 }
 
 const TEXT_PREVIEW_CAP_BYTES = 16 * 1024;
+
+interface AccessSideEffectArgs {
+  token: string;
+  link: ShareLink;
+  ownerDeviceId: string | null;
+  filename: string;
+  shortUrl: string;
+}
+
+function scheduleAccessSideEffects(
+  c: Context<AppBindings>,
+  db: Db,
+  args: AccessSideEffectArgs,
+): void {
+  c.executionCtx.waitUntil(
+    recordAccessAndMaybeNotify(c, db, args).catch((err) => {
+      log.warn({
+        msg: 'access_side_effect_failed',
+        requestId: c.get('requestId'),
+        token: args.token,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }),
+  );
+}
+
+async function recordAccessAndMaybeNotify(
+  c: Context<AppBindings>,
+  db: Db,
+  args: AccessSideEffectArgs,
+): Promise<void> {
+  const accessCount = await incrementAccess(db, args.token);
+  if (accessCount !== 1 || !args.link.notifyOnOpen || !args.ownerDeviceId) return;
+  await sendLinkOpenedNotification({
+    env: c.env,
+    db,
+    deviceId: args.ownerDeviceId,
+    token: args.token,
+    filename: args.filename,
+    shortUrl: args.shortUrl,
+  });
+}
 
 function isTextLikeContentType(ct: string): boolean {
   const lower = ct.toLowerCase();
@@ -225,16 +265,13 @@ async function binaryHandler(
 
   const onLeadingHit = (offset: number) => {
     if (offset !== 0) return;
-    c.executionCtx.waitUntil(
-      incrementAccess(db, token).catch((err) => {
-        log.warn({
-          msg: 'access_increment_failed',
-          requestId: c.get('requestId'),
-          token,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }),
-    );
+    scheduleAccessSideEffects(c, db, {
+      token,
+      link: loaded.link,
+      ownerDeviceId: loaded.assetRow.ownerDeviceId,
+      filename: loaded.assetRow.originalFilename ?? 'download',
+      shortUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
+    });
   };
   return streamAssetBytes(c, loaded.assetRow, mode, onLeadingHit);
 }
@@ -332,9 +369,18 @@ function isAutomatedClient(ua: string | undefined | null): boolean {
 
   // Known link-unfurl bots that need HTML (OG tags).
   const unfurlers = [
-    'slackbot', 'discordbot', 'telegrambot', 'whatsapp', 'linkedinbot',
-    'facebookexternalhit', 'twitterbot', 'skypeuripreview', 'redditbot',
-    'embedly', 'iframely', 'pinterest',
+    'slackbot',
+    'discordbot',
+    'telegrambot',
+    'whatsapp',
+    'linkedinbot',
+    'facebookexternalhit',
+    'twitterbot',
+    'skypeuripreview',
+    'redditbot',
+    'embedly',
+    'iframely',
+    'pinterest',
   ];
   if (unfurlers.some((b) => lower.includes(b))) return false;
 
@@ -426,13 +472,7 @@ function goneOrNotFoundJson(
   code: 'not_found' | 'gone',
   reason: string,
 ): Response {
-  const res = problem(
-    c,
-    status,
-    code,
-    status === 404 ? 'Not Found' : 'Gone',
-    reason,
-  );
+  const res = problem(c, status, code, status === 404 ? 'Not Found' : 'Gone', reason);
   applySecurityHeaders(res.headers);
   return res;
 }
@@ -466,7 +506,12 @@ async function loadActiveBundle(
   c: Context<AppBindings>,
   db: Db,
   token: string,
-): Promise<LoadedBundle | { status: 'not_found' } | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' } | { status: 'pending'; link: ShareLink }> {
+): Promise<
+  | LoadedBundle
+  | { status: 'not_found' }
+  | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' }
+  | { status: 'pending'; link: ShareLink }
+> {
   const link = await findByToken(db, token);
   if (!link || !link.isBundle) return { status: 'not_found' };
   if (link.linkStatus === 'revoked') return { status: 'gone', reason: 'revoked' };
@@ -508,7 +553,8 @@ async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> 
   const db = createDb(c.env.DATABASE_URL);
   const loaded = await loadActiveBundle(c, db, token);
   if ('status' in loaded) {
-    if (loaded.status === 'not_found') return goneOrNotFoundHtml(c, 404, 'not_found', 'unknown bundle');
+    if (loaded.status === 'not_found')
+      return goneOrNotFoundHtml(c, 404, 'not_found', 'unknown bundle');
     if (loaded.status === 'pending') {
       return renderPendingPage({
         filename: 'Bundle upload',
@@ -521,16 +567,17 @@ async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> 
     return goneOrNotFoundHtml(c, 410, 'gone', loaded.reason);
   }
 
-  c.executionCtx.waitUntil(
-    incrementAccess(db, token).catch((err) => {
-      log.warn({
-        msg: 'access_increment_failed',
-        requestId: c.get('requestId'),
-        token,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }),
-  );
+  const firstAsset = loaded.assets[0]?.asset;
+  scheduleAccessSideEffects(c, db, {
+    token,
+    link: loaded.link,
+    ownerDeviceId: firstAsset?.ownerDeviceId ?? null,
+    filename:
+      loaded.assets.length === 1
+        ? (firstAsset?.originalFilename ?? 'download')
+        : `${loaded.assets.length} files`,
+    shortUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
+  });
 
   return renderBundlePreviewPage({
     token,
@@ -557,7 +604,8 @@ async function bundleAssetPreviewHandler(c: Context<AppBindings>): Promise<Respo
   const link = await findByToken(db, token);
   if (!link || !link.isBundle) return goneOrNotFoundJson(c, 404, 'not_found', 'unknown bundle');
   if (link.linkStatus === 'revoked') return goneOrNotFoundJson(c, 410, 'gone', 'revoked');
-  if (link.linkStatus === 'pending') return goneOrNotFoundJson(c, 404, 'not_found', 'bundle still uploading');
+  if (link.linkStatus === 'pending')
+    return goneOrNotFoundJson(c, 404, 'not_found', 'bundle still uploading');
   if (link.expiresAt.getTime() <= Date.now()) {
     return goneOrNotFoundJson(c, 410, 'gone', 'expired');
   }
@@ -588,7 +636,8 @@ async function bundleAssetDownloadHandler(c: Context<AppBindings>): Promise<Resp
   const link = await findByToken(db, token);
   if (!link || !link.isBundle) return goneOrNotFoundJson(c, 404, 'not_found', 'unknown bundle');
   if (link.linkStatus === 'revoked') return goneOrNotFoundJson(c, 410, 'gone', 'revoked');
-  if (link.linkStatus === 'pending') return goneOrNotFoundJson(c, 404, 'not_found', 'bundle still uploading');
+  if (link.linkStatus === 'pending')
+    return goneOrNotFoundJson(c, 404, 'not_found', 'bundle still uploading');
   if (link.expiresAt.getTime() <= Date.now()) {
     return goneOrNotFoundJson(c, 410, 'gone', 'expired');
   }
@@ -612,16 +661,13 @@ async function bundleAssetDownloadHandler(c: Context<AppBindings>): Promise<Resp
 
   const onLeadingHit = (offset: number) => {
     if (offset !== 0) return;
-    c.executionCtx.waitUntil(
-      incrementAccess(db, token).catch((err) => {
-        log.warn({
-          msg: 'access_increment_failed',
-          requestId: c.get('requestId'),
-          token,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }),
-    );
+    scheduleAccessSideEffects(c, db, {
+      token,
+      link,
+      ownerDeviceId: a.ownerDeviceId,
+      filename: a.originalFilename ?? 'download',
+      shortUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
+    });
   };
   return streamAssetBytes(c, a, 'attachment', onLeadingHit);
 }

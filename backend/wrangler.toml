@@ -14,6 +14,8 @@ account_id = "aad020260082c48f6370fa7954b72f81"
 #   DATABASE_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, DEVICE_TOKEN_PEPPER,
 #   APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
 #   APP_STORE_CONNECT_P8_KEY_BASE64
+# Optional for "Notify me on open" APNs delivery:
+#   APNS_KEY_ID, APNS_TEAM_ID, APNS_P8_KEY_BASE64
 # (APPLE_BUNDLE_ID is a public var — see [vars] below.)
 
 # Production custom domains. Apex serves short-link redirects at /s/:token

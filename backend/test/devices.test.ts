@@ -87,4 +87,27 @@ describe('POST /v1/devices', () => {
     expect(res.status).toBe(400);
     expect(store.devices).toHaveLength(0);
   });
+
+  it('updates APNs token for the authenticated device', async () => {
+    const register = await post('/v1/devices', {
+      platform: 'ios',
+      appVersion: '1.0.0',
+    });
+    expect(register.status).toBe(201);
+    const registered = (await register.json()) as { deviceToken: string };
+
+    const res = await post(
+      '/v1/devices/push-token',
+      {
+        apnsToken: 'A'.repeat(64),
+        environment: 'production',
+      },
+      { authorization: `Bearer ${registered.deviceToken}` },
+    );
+
+    expect(res.status).toBe(200);
+    expect(store.devices[0]?.apnsToken).toBe('a'.repeat(64));
+    expect(store.devices[0]?.apnsEnvironment).toBe('production');
+    expect(store.devices[0]?.apnsUpdatedAt).toBeInstanceOf(Date);
+  });
 });

@@ -49,8 +49,10 @@ final class UploadServiceTests: XCTestCase {
         _ = try await service.enqueue(stagedURL: fileURL,
                                       contentType: "application/octet-stream",
                                       originalFilename: "f.bin",
-                                      retentionPolicy: .oneHour)
+                                      retentionPolicy: .oneHour,
+                                      notifyOnOpen: true)
         XCTAssertEqual(mock.capturedPresignRequest?.retentionPolicy, "oneHour")
+        XCTAssertEqual(mock.capturedPresignRequest?.notifyOnOpen, true)
         XCTAssertNil(mock.capturedPresignRequest?.customTtlSeconds)
     }
 
@@ -438,6 +440,8 @@ final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     func registerDevice(platform: String, appVersion: String) async throws -> DeviceToken {
         DeviceToken(deviceId: UUID(), token: "mock")
     }
+
+    func updatePushToken(apnsToken: String, environment: String) async throws {}
 
     func signInWithApple(
         identityToken: String,

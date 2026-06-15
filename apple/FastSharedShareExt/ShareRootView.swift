@@ -694,8 +694,10 @@ private struct IdleStage: View {
 
     private var notifyRow: some View {
         HStack(spacing: 12) {
-            Text("🔕")
-                .font(.system(size: 18))
+            Image(systemName: viewModel.notifyOnOpen ? "bell.badge.fill" : "bell.slash")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(FriendlyPalette.accentHot)
+                .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Notify me on open")
@@ -711,6 +713,7 @@ private struct IdleStage: View {
             Toggle("", isOn: notifyBinding)
                 .labelsHidden()
                 .tint(FriendlyPalette.accentHot)
+                .accessibilityLabel("Notify me on open")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -721,16 +724,14 @@ private struct IdleStage: View {
         )
     }
 
-    /// Bind to UserDefaults notification preference (best-effort; not a strict view-model field).
     private var notifyBinding: Binding<Bool> {
         Binding(
             get: {
-                UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?
-                    .bool(forKey: "notify_on_open") ?? false
+                viewModel.notifyOnOpen
             },
             set: { newValue in
-                UserDefaults(suiteName: AppGroupPaths.groupIdentifier)?
-                    .set(newValue, forKey: "notify_on_open")
+                viewModel.notifyOnOpen = newValue
+                SettingsPreferences.setNotifyOnOpenEnabled(newValue)
             }
         )
     }

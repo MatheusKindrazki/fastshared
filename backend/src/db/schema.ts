@@ -49,6 +49,9 @@ export const device = pgTable(
     tokenHash: text('token_hash').notNull().unique(),
     platform: text('platform').notNull(),
     appVersion: text('app_version').notNull(),
+    apnsToken: text('apns_token'),
+    apnsEnvironment: text('apns_environment'),
+    apnsUpdatedAt: timestamp('apns_updated_at', { withTimezone: true }),
     // Nullable so anonymous devices can run without an account; set when the
     // device is claimed by a Sign in with Apple flow. ON DELETE SET NULL lets
     // a user deletion orphan their devices rather than cascade-dropping uploads.
@@ -131,6 +134,7 @@ export const shareLink = pgTable(
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
     accessCount: bigint('access_count', { mode: 'number' }).notNull().default(0),
+    notifyOnOpen: boolean('notify_on_open').notNull().default(false),
     maxAccessCount: bigint('max_access_count', { mode: 'number' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // Bundle links group N assets behind one token; assetId stays NULL and
@@ -173,7 +177,10 @@ export const bundleAsset = pgTable(
   (t) => ({
     linkOrderIdx: index('bundle_asset_link_order_idx').on(t.shareLinkId, t.displayOrder),
     assetIdx: index('bundle_asset_asset_idx').on(t.assetId),
-    linkOrderUnique: uniqueIndex('bundle_asset_link_order_unique').on(t.shareLinkId, t.displayOrder),
+    linkOrderUnique: uniqueIndex('bundle_asset_link_order_unique').on(
+      t.shareLinkId,
+      t.displayOrder,
+    ),
     linkJobUnique: uniqueIndex('bundle_asset_link_job_unique').on(t.shareLinkId, t.uploadJobId),
   }),
 );
@@ -262,7 +269,9 @@ export type SubscriptionVerificationStatus = (typeof SUBSCRIPTION_VERIFICATION_S
 export const subscription = pgTable(
   'subscription',
   {
-    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     deviceId: uuid('device_id')
       .notNull()
       .references(() => device.id),

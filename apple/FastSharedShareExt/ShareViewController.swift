@@ -291,13 +291,15 @@ final class ShareViewController: PlatformViewController {
         )
 
         let policy = await viewModel.retentionPolicy
+        let notifyOnOpen = await viewModel.notifyOnOpen
         do {
             // M4: bundle branch. Multi-file shares mint one bundle token +
             // aggregated short URL. Single-file path is unchanged.
             if stagedItems.count > 1 {
                 let bundle = try await service.enqueueBundle(
                     stagedURLs: stagedItems.map { $0.localURL },
-                    retentionPolicy: policy
+                    retentionPolicy: policy,
+                    notifyOnOpen: notifyOnOpen
                 )
                 log.info("share ext enqueued bundle token=\(bundle.bundleToken, privacy: .public) files=\(stagedItems.count, privacy: .public)")
                 let fileCount = stagedItems.count
@@ -322,13 +324,14 @@ final class ShareViewController: PlatformViewController {
                 contentType: first.contentType,
                 originalFilename: first.filename,
                 retentionPolicy: policy,
+                notifyOnOpen: notifyOnOpen,
                 prepareObserver: { phase in
                     Task { @MainActor in
                         vm.applyPreparePhase(phase)
                     }
                 }
             )
-            log.info("share ext enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public)")
+            log.info("share ext enqueued file=\(first.filename, privacy: .public) retentionPolicy=\(policy.rawValue, privacy: .public) notifyOnOpen=\(notifyOnOpen, privacy: .public)")
 
             await MainActor.run {
                 viewModel.startObserving(

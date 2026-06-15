@@ -3,6 +3,7 @@ import OSLog
 
 public protocol APIClientProtocol: Sendable {
     func registerDevice(platform: String, appVersion: String) async throws -> DeviceToken
+    func updatePushToken(apnsToken: String, environment: String) async throws
     func signInWithApple(
         identityToken: String,
         authorizationCode: String,
@@ -115,6 +116,11 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
         let body = RegisterDeviceRequest(platform: platform, appVersion: appVersion)
         let response: RegisterDeviceResponse = try await perform(endpoint: .registerDevice, body: body, requiresAuth: false)
         return DeviceToken(deviceId: response.deviceId, token: response.deviceToken)
+    }
+
+    public func updatePushToken(apnsToken: String, environment: String) async throws {
+        let body = UpdatePushTokenRequest(apnsToken: apnsToken, environment: environment)
+        try await performVoid(endpoint: .updatePushToken, body: body)
     }
 
     public func signInWithApple(

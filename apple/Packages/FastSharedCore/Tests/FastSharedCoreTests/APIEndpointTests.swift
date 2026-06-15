@@ -39,12 +39,31 @@ final class APIEndpointTests: XCTestCase {
                                       sha256: "deadbeef",
                                       originalFilename: "a.png",
                                       retentionPolicy: "oneHour",
+                                      notifyOnOpen: true,
                                       customTtlSeconds: nil)
         let data = try encoder.encode(original)
         let json = String(data: data, encoding: .utf8) ?? ""
         XCTAssertTrue(json.contains("\"retentionPolicy\":\"oneHour\""), "encoded JSON missing retentionPolicy: \(json)")
+        XCTAssertTrue(json.contains("\"notifyOnOpen\":true"), "encoded JSON missing notifyOnOpen: \(json)")
         let decoded = try decoder.decode(PresignRequest.self, from: data)
         XCTAssertEqual(original, decoded)
+    }
+
+    func test_batchPresignRequest_encodes_notifyOnOpen() throws {
+        let original = BatchPresignRequest(
+            retentionPolicy: "oneDay",
+            visibility: "signed",
+            notifyOnOpen: true,
+            items: [
+                BatchUploadItemRequest(clientJobId: UUID().uuidString,
+                                       contentType: "image/jpeg",
+                                       sizeBytes: 123)
+            ]
+        )
+        let data = try encoder.encode(original)
+        let json = String(data: data, encoding: .utf8) ?? ""
+        XCTAssertTrue(json.contains("\"notifyOnOpen\":true"), "encoded JSON missing notifyOnOpen: \(json)")
+        XCTAssertEqual(try decoder.decode(BatchPresignRequest.self, from: data), original)
     }
 
     func test_presignResponse_roundTrip() throws {

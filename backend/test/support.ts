@@ -11,6 +11,9 @@ export interface DeviceRow {
   tokenHash: string;
   platform: string;
   appVersion: string;
+  apnsToken?: string | null;
+  apnsEnvironment?: 'development' | 'production' | null;
+  apnsUpdatedAt?: Date | null;
   userId: string | null;
 }
 export interface UserRow {
@@ -54,6 +57,7 @@ export interface ShareLinkRow {
   revokedAt: Date | null;
   lastAccessedAt: Date | null;
   accessCount: number;
+  notifyOnOpen?: boolean;
   maxAccessCount: number | null;
   createdAt: Date;
   isBundle?: boolean;
@@ -393,6 +397,10 @@ export function installDrizzleFake(): void {
                       tokenHash: v.tokenHash as string,
                       platform: v.platform as string,
                       appVersion: v.appVersion as string,
+                      apnsToken: (v.apnsToken as string | null) ?? null,
+                      apnsEnvironment:
+                        (v.apnsEnvironment as 'development' | 'production' | null) ?? null,
+                      apnsUpdatedAt: (v.apnsUpdatedAt as Date | null) ?? null,
                       userId: (v.userId as string | null) ?? null,
                     };
                     store.devices.push(row);
@@ -443,6 +451,7 @@ export function installDrizzleFake(): void {
                       revokedAt: (v.revokedAt as Date | null) ?? null,
                       lastAccessedAt: (v.lastAccessedAt as Date | null) ?? null,
                       accessCount: 0,
+                      notifyOnOpen: (v.notifyOnOpen as boolean) ?? false,
                       maxAccessCount: (v.maxAccessCount as number | null) ?? null,
                       createdAt: new Date(),
                       isBundle: (v.isBundle as boolean) ?? false,
@@ -598,7 +607,21 @@ export function installDrizzleFake(): void {
                   const conds = extractParamStrings(_cond);
                   const apply = (target: Record<string, unknown>) => {
                     for (const [k, v] of Object.entries(patch)) {
-                      if (v && typeof v === 'object' && 'queryChunks' in (v as object)) continue;
+                      if (v && typeof v === 'object' && 'queryChunks' in (v as object)) {
+                        if (k === 'accessCount') {
+                          target[k] = Number(target[k] ?? 0) + 1;
+                        } else if (k === 'hits') {
+                          target[k] = Number(target[k] ?? 0) + 1;
+                        } else if (
+                          k === 'lastAccessedAt' ||
+                          k === 'updatedAt' ||
+                          k === 'lastSeenAt' ||
+                          k === 'apnsUpdatedAt'
+                        ) {
+                          target[k] = new Date();
+                        }
+                        continue;
+                      }
                       target[k] = v;
                     }
                   };
@@ -610,44 +633,32 @@ export function installDrizzleFake(): void {
                     }
                     return false;
                   };
-                  if (name === 'asset')
-                    store.assets
-                      .filter((a) => matches(a as unknown as Record<string, unknown>))
-                      .forEach((a) => apply(a as unknown as Record<string, unknown>));
-                  if (name === 'share_link')
-                    store.shareLinks
-                      .filter((l) => matches(l as unknown as Record<string, unknown>))
-                      .forEach((l) => apply(l as unknown as Record<string, unknown>));
-                  if (name === 'upload_job')
-                    store.uploadJobs
-                      .filter((j) => matches(j as unknown as Record<string, unknown>))
-                      .forEach((j) => apply(j as unknown as Record<string, unknown>));
-                  if (name === 'deletion_job')
-                    store.deletionJobs
-                      .filter((j) => matches(j as unknown as Record<string, unknown>))
-                      .forEach((j) => apply(j as unknown as Record<string, unknown>));
-                  if (name === 'device')
-                    store.devices
-                      .filter((d) => matches(d as unknown as Record<string, unknown>))
-                      .forEach((d) => apply(d as unknown as Record<string, unknown>));
-                  if (name === 'user')
-                    store.users
-                      .filter((u) => matches(u as unknown as Record<string, unknown>))
-                      .forEach((u) => apply(u as unknown as Record<string, unknown>));
-                  if (name === 'subscription')
-                    store.subscriptions
-                      .filter((s) => matches(s as unknown as Record<string, unknown>))
-                      .forEach((s) => apply(s as unknown as Record<string, unknown>));
+                  const updatedRows: Record<string, unknown>[] = [];
+                  const applyAll = <T>(rows: T[]) => {
+                    rows
+                      .filter((r) => matches(r as unknown as Record<string, unknown>))
+                      .forEach((r) => {
+                        const target = r as unknown as Record<string, unknown>;
+                        apply(target);
+                        updatedRows.push(target);
+                      });
+                  };
+                  if (name === 'asset') applyAll(store.assets);
+                  if (name === 'share_link') applyAll(store.shareLinks);
+                  if (name === 'upload_job') applyAll(store.uploadJobs);
+                  if (name === 'deletion_job') applyAll(store.deletionJobs);
+                  if (name === 'device') applyAll(store.devices);
+                  if (name === 'user') applyAll(store.users);
+                  if (name === 'subscription') applyAll(store.subscriptions);
                   return {
                     returning() {
-                      if (name === 'share_link') return Promise.resolve(store.shareLinks.slice());
+                      if (name === 'share_link') return Promise.resolve(updatedRows);
                       if (name === 'user') {
-                        const updated = store.users.filter((u) =>
-                          matches(u as unknown as Record<string, unknown>),
-                        );
-                        return Promise.resolve(updated);
+                        return Promise.resolve(updatedRows);
                       }
-                      return Promise.resolve([{ id: 'stub' }]);
+                      return Promise.resolve(
+                        updatedRows.length > 0 ? updatedRows : [{ id: 'stub' }],
+                      );
                     },
                     then<T>(onFulfilled?: (v: unknown) => T) {
                       return Promise.resolve(undefined).then(onFulfilled);
@@ -718,6 +729,9 @@ export async function seedDevice(options?: {
     tokenHash,
     platform: 'ios',
     appVersion: '0.1.0',
+    apnsToken: null,
+    apnsEnvironment: null,
+    apnsUpdatedAt: null,
     userId: null,
   });
   return { deviceId, token };

@@ -30,6 +30,38 @@ export async function findDeviceByTokenHash(db: Db, tokenHash: string): Promise<
   return rows[0] ?? null;
 }
 
+export async function findDeviceById(db: Db, deviceId: string): Promise<Device | null> {
+  const rows = await db.select().from(device).where(eq(device.id, deviceId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function updateDevicePushToken(
+  db: Db,
+  deviceId: string,
+  args: { apnsToken: string; environment: 'development' | 'production' },
+): Promise<void> {
+  await db
+    .update(device)
+    .set({
+      apnsToken: args.apnsToken,
+      apnsEnvironment: args.environment,
+      apnsUpdatedAt: sql`now()`,
+      lastSeenAt: sql`now()`,
+    })
+    .where(eq(device.id, deviceId));
+}
+
+export async function clearDevicePushToken(db: Db, deviceId: string): Promise<void> {
+  await db
+    .update(device)
+    .set({
+      apnsToken: null,
+      apnsEnvironment: null,
+      apnsUpdatedAt: sql`now()`,
+    })
+    .where(eq(device.id, deviceId));
+}
+
 export async function touchLastSeen(db: Db, deviceId: string): Promise<void> {
   await db
     .update(device)

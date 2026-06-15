@@ -1,14 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  installDrizzleFake,
-  resetStore,
-  resetKv,
-  store,
-  TEST_ENV,
-  ctx,
-} from './support';
+import { installDrizzleFake, resetStore, resetKv, store, TEST_ENV, ctx } from './support';
 
 installDrizzleFake();
+
+const apnsMocks = vi.hoisted(() => ({
+  sendLinkOpenedNotification: vi.fn(async () => undefined),
+}));
+
+vi.mock('~/services/apns', () => ({
+  sendLinkOpenedNotification: apnsMocks.sendLinkOpenedNotification,
+}));
 
 import worker from '~/index';
 
@@ -41,16 +42,19 @@ async function head(path: string, headers: Record<string, string> = {}): Promise
   );
 }
 
-function seedLinkAndAsset(overrides: {
-  token?: string;
-  linkStatus?: 'active' | 'expired' | 'revoked';
-  expiresAt?: Date;
-  deletedAt?: Date | null;
-  originalFilename?: string | null;
-  contentType?: string;
-  sizeBytes?: number;
-  storageKey?: string;
-} = {}): { token: string; assetId: string; storageKey: string } {
+function seedLinkAndAsset(
+  overrides: {
+    token?: string;
+    linkStatus?: 'active' | 'expired' | 'revoked';
+    expiresAt?: Date;
+    deletedAt?: Date | null;
+    originalFilename?: string | null;
+    contentType?: string;
+    sizeBytes?: number;
+    storageKey?: string;
+    notifyOnOpen?: boolean;
+  } = {},
+): { token: string; assetId: string; storageKey: string } {
   const token = overrides.token ?? 'liveTokenAAAAAAAAAAAAA';
   const assetId = crypto.randomUUID();
   const deviceId = crypto.randomUUID();
@@ -86,6 +90,7 @@ function seedLinkAndAsset(overrides: {
     revokedAt: null,
     lastAccessedAt: null,
     accessCount: 0,
+    notifyOnOpen: overrides.notifyOnOpen ?? false,
     maxAccessCount: null,
     createdAt: new Date(),
   });
@@ -156,6 +161,7 @@ describe('redirect proxy', () => {
     // Silence `log` noise from Hono's logger middleware.
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+    apnsMocks.sendLinkOpenedNotification.mockClear();
   });
 
   it('HTML Accept returns 200 with preview page + OG tags', async () => {
@@ -173,6 +179,52 @@ describe('redirect proxy', () => {
     expect(body).toContain('<meta property="og:title"');
     expect(body).toContain('data-expires-at="');
     expect(body).toContain('photo.jpg');
+  });
+
+  it('sends link-open notification only on first access when enabled', async () => {
+    const { token } = seedLinkAndAsset({
+      originalFilename: 'photo.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 4096,
+      notifyOnOpen: true,
+    });
+
+    const first = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(first.status).toBe(200);
+
+    await vi.waitFor(() => {
+      expect(apnsMocks.sendLinkOpenedNotification).toHaveBeenCalledTimes(1);
+    });
+    const firstCall = apnsMocks.sendLinkOpenedNotification.mock.calls[0] as
+      | [Record<string, unknown>]
+      | undefined;
+    expect(firstCall?.[0]).toMatchObject({
+      token,
+      filename: 'photo.jpg',
+      shortUrl: `https://fastsha.red/s/${token}`,
+    });
+
+    const second = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(second.status).toBe(200);
+    await vi.waitFor(() => {
+      expect(store.shareLinks[0]?.accessCount).toBe(2);
+    });
+    expect(apnsMocks.sendLinkOpenedNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send link-open notification when disabled', async () => {
+    const { token } = seedLinkAndAsset({
+      originalFilename: 'quiet.jpg',
+      contentType: 'image/jpeg',
+      notifyOnOpen: false,
+    });
+
+    const res = await get(`/s/${token}`, { accept: 'text/html' });
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => {
+      expect(store.shareLinks[0]?.accessCount).toBe(1);
+    });
+    expect(apnsMocks.sendLinkOpenedNotification).not.toHaveBeenCalled();
   });
 
   it('non-HTML Accept streams the bytes with attachment disposition', async () => {
@@ -327,10 +379,7 @@ describe('redirect proxy', () => {
   });
 
   it('GET /s/:token on expired pending link returns 410 instead of Uploading', async () => {
-    const token = seedPendingLink(
-      'pendingExpiredTokenAAAAA',
-      new Date(Date.now() - 1_000),
-    );
+    const token = seedPendingLink('pendingExpiredTokenAAAAA', new Date(Date.now() - 1_000));
     const res = await get(`/s/${token}`, { accept: 'text/html' });
     expect(res.status).toBe(410);
     expect(store.shareLinks.find((l) => l.token === token)?.linkStatus).toBe('expired');

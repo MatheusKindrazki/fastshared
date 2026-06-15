@@ -139,7 +139,7 @@ describe('POST /uploads/batch', () => {
 
     const res = await post(
       '/v1/uploads/batch',
-      { retentionPolicy: 'oneDay', visibility: 'signed', items },
+      { retentionPolicy: 'oneDay', visibility: 'signed', notifyOnOpen: true, items },
       { authorization: `Bearer ${token}` },
     );
     expect(res.status).toBe(200);
@@ -177,6 +177,7 @@ describe('POST /uploads/batch', () => {
     expect(link.assetId).toBeNull();
     expect(link.bundleAssetCount).toBe(3);
     expect(link.linkStatus).toBe('pending');
+    expect(link.notifyOnOpen).toBe(true);
 
     // DB: one upload_job per item, all carrying the bundleToken.
     expect(store.uploadJobs).toHaveLength(3);

@@ -30,6 +30,12 @@ export interface Env {
   // Temporary beta/launch override. When enabled, every registered device
   // resolves as Pro/lifetime without requiring StoreKit or Sign in with Apple.
   PRO_FOR_ALL_USERS?: string;
+  // Optional APNs provider-token credentials. Missing values disable
+  // link-open push delivery without breaking redirects/uploads.
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  APNS_P8_KEY_BASE64?: string;
+  APNS_TOPIC?: string;
 }
 
 export interface AppVars {

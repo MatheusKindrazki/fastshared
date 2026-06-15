@@ -254,6 +254,8 @@ struct SignInView: View {
             // deviceId is just a local tag — not a security boundary.
             let newToken = DeviceToken(deviceId: UUID(), token: response.deviceToken)
             try await tokenStore.save(newToken)
+            await PushNotificationRegistrar.syncCachedAPNSToken(apiClient: apiClient,
+                                                                tokenStore: tokenStore)
 
             AuthState.markSignedInOrGuest(
                 mode: .apple,

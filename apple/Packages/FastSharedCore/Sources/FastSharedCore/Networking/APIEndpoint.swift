@@ -10,6 +10,7 @@ public enum HTTPMethod: String, Sendable {
 
 public enum APIEndpoint: Sendable {
     case registerDevice
+    case updatePushToken
     case signInApple
     case requestUpload
     case requestBatchUpload
@@ -27,6 +28,7 @@ public enum APIEndpoint: Sendable {
     public var path: String {
         switch self {
         case .registerDevice: return "/v1/devices"
+        case .updatePushToken: return "/v1/devices/push-token"
         case .signInApple: return "/v1/auth/apple"
         case .requestUpload: return "/v1/uploads"
         case .requestBatchUpload: return "/v1/uploads/batch"
@@ -45,7 +47,7 @@ public enum APIEndpoint: Sendable {
 
     public var method: HTTPMethod {
         switch self {
-        case .registerDevice, .signInApple, .requestUpload, .requestBatchUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
+        case .registerDevice, .updatePushToken, .signInApple, .requestUpload, .requestBatchUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
         case .fetchHistory, .me, .pricingFlags: return .get
         case .deleteAsset, .deleteAccount: return .delete
         }
@@ -71,6 +73,16 @@ public struct RegisterDeviceResponse: Sendable, Codable, Equatable {
     public init(deviceId: UUID, deviceToken: String) {
         self.deviceId = deviceId
         self.deviceToken = deviceToken
+    }
+}
+
+public struct UpdatePushTokenRequest: Sendable, Codable, Equatable {
+    public let apnsToken: String
+    public let environment: String
+
+    public init(apnsToken: String, environment: String) {
+        self.apnsToken = apnsToken
+        self.environment = environment
     }
 }
 
@@ -104,6 +116,7 @@ public struct PresignRequest: Sendable, Codable, Equatable {
     public let sha256: String?
     public let originalFilename: String?
     public let retentionPolicy: String
+    public let notifyOnOpen: Bool
     public let customTtlSeconds: Int?
 
     public init(clientJobId: UUID,
@@ -112,6 +125,7 @@ public struct PresignRequest: Sendable, Codable, Equatable {
                 sha256: String?,
                 originalFilename: String?,
                 retentionPolicy: String,
+                notifyOnOpen: Bool = false,
                 customTtlSeconds: Int? = nil) {
         self.clientJobId = clientJobId
         self.contentType = contentType
@@ -119,6 +133,7 @@ public struct PresignRequest: Sendable, Codable, Equatable {
         self.sha256 = sha256
         self.originalFilename = originalFilename
         self.retentionPolicy = retentionPolicy
+        self.notifyOnOpen = notifyOnOpen
         self.customTtlSeconds = customTtlSeconds
     }
 }
@@ -320,15 +335,18 @@ public struct BatchUploadItemRequest: Sendable, Codable, Equatable {
 public struct BatchPresignRequest: Sendable, Codable, Equatable {
     public let retentionPolicy: String
     public let visibility: String
+    public let notifyOnOpen: Bool
     public let customTtlSeconds: Int?
     public let items: [BatchUploadItemRequest]
 
     public init(retentionPolicy: String,
                 visibility: String,
+                notifyOnOpen: Bool = false,
                 customTtlSeconds: Int? = nil,
                 items: [BatchUploadItemRequest]) {
         self.retentionPolicy = retentionPolicy
         self.visibility = visibility
+        self.notifyOnOpen = notifyOnOpen
         self.customTtlSeconds = customTtlSeconds
         self.items = items
     }

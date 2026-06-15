@@ -13,6 +13,7 @@ export interface CreateShareLinkArgs {
   visibility?: Visibility;
   passwordHash?: string | null;
   maxAccessCount?: number | null;
+  notifyOnOpen?: boolean;
   token?: string;
 }
 
@@ -31,6 +32,7 @@ export async function createShareLink(args: CreateShareLinkArgs): Promise<ShareL
         linkStatus: 'active',
         passwordHash: args.passwordHash ?? null,
         maxAccessCount: args.maxAccessCount ?? null,
+        notifyOnOpen: args.notifyOnOpen ?? false,
       };
       const [row] = await args.db.insert(shareLink).values(values).returning();
       if (row) return row;
@@ -94,25 +96,25 @@ export async function markExpiredByToken(db: Db, token: string): Promise<void> {
     .where(and(eq(shareLink.token, token), inArray(shareLink.linkStatus, ['active', 'pending'])));
 }
 
-// Single UPDATE keeps the hot redirect path to one round trip.
-export async function incrementAccess(db: Db, token: string): Promise<void> {
-  await db
+// Single UPDATE keeps the hot redirect path to one round trip and returns the
+// new count so callers can trigger one-time side effects on the first open.
+export async function incrementAccess(db: Db, token: string): Promise<number | null> {
+  const [updated] = await db
     .update(shareLink)
     .set({
       accessCount: sql`${shareLink.accessCount} + 1`,
       lastAccessedAt: sql`now()`,
       hits: sql`${shareLink.hits} + 1`,
     })
-    .where(eq(shareLink.token, token));
+    .where(eq(shareLink.token, token))
+    .returning({ accessCount: shareLink.accessCount });
+  return updated?.accessCount ?? null;
 }
 
 // Once /complete observes that bundle_asset rows == bundleAssetCount, flip the
 // pending bundle to active. The pending guard makes this a no-op for any
 // caller that lost the race — only the first one wins. Returns true on flip.
-export async function activateBundleIfPending(
-  db: Db,
-  shareLinkId: string,
-): Promise<boolean> {
+export async function activateBundleIfPending(db: Db, shareLinkId: string): Promise<boolean> {
   const updated = await db
     .update(shareLink)
     .set({ linkStatus: 'active' })

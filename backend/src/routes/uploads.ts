@@ -60,6 +60,7 @@ const createUploadSchema = z
       .optional(),
     originalFilename: z.string().min(1).max(512).optional(),
     retentionPolicy: z.enum(RETENTION_POLICIES).default('oneDay'),
+    notifyOnOpen: z.boolean().default(false),
     customTtlSeconds: z.number().int().min(300).max(2_592_000).optional(),
   })
   .superRefine((val, ctx) => {
@@ -94,6 +95,7 @@ const batchItemSchema = z.object({
 const createBatchSchema = z.object({
   retentionPolicy: z.enum(RETENTION_POLICIES).default('oneDay'),
   visibility: z.enum(['public', 'signed', 'password']).default('signed'),
+  notifyOnOpen: z.boolean().default(false),
   customTtlSeconds: z.number().int().min(300).max(2_592_000).optional(),
   // Single-item batches are intentionally rejected — clients should call
   // POST /uploads instead so we don't pay the bundle wrapper for nothing.
@@ -189,6 +191,7 @@ uploadRoutes.post('/', async (c) => {
       expiresAt: retention.expiresAt,
       linkStatus: 'pending',
       retentionPolicy: retention.retentionPolicy,
+      notifyOnOpen: body.notifyOnOpen,
     })
     .onConflictDoNothing({ target: shareLink.token });
 
@@ -309,6 +312,7 @@ uploadRoutes.post('/batch', async (c) => {
       expiresAt: retention.expiresAt,
       linkStatus: 'pending',
       retentionPolicy: retention.retentionPolicy,
+      notifyOnOpen: body.notifyOnOpen,
       isBundle: true,
       bundleAssetCount: itemCount,
     })
@@ -537,6 +541,7 @@ uploadRoutes.post('/:uploadId/complete', async (c) => {
       retentionPolicy: job.retentionPolicy,
       expiresAt: job.expiresAt,
       visibility: 'signed',
+      notifyOnOpen: false,
     });
   }
 
@@ -657,6 +662,14 @@ async function tryDedupResponse(
   if (!link) return null;
   if (link.expiresAt.getTime() <= Date.now()) return null;
 
+  if (link.notifyOnOpen !== body.notifyOnOpen) {
+    await db
+      .update(shareLink)
+      .set({ notifyOnOpen: body.notifyOnOpen })
+      .where(eq(shareLink.id, link.id));
+    link.notifyOnOpen = body.notifyOnOpen;
+  }
+
   await db
     .insert(uploadJob)
     .values({
@@ -771,6 +784,7 @@ function presignResponse(
     token,
     shortUrl: `${shortLinkHost}/s/${token}`,
     linkStatus: 'pending' as const,
+    notifyOnOpen: body.notifyOnOpen,
     ...(retentionClamped ? { retentionClamped: true, clampedTo: 'oneDay' as const } : {}),
   };
 }
@@ -810,6 +824,7 @@ function multipartPresignResponse(
     token,
     shortUrl: `${shortLinkHost}/s/${token}`,
     linkStatus: 'pending' as const,
+    notifyOnOpen: body.notifyOnOpen,
     ...(retentionClamped ? { retentionClamped: true, clampedTo: 'oneDay' as const } : {}),
   };
 }
