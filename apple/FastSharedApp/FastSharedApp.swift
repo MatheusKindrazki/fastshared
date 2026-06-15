@@ -232,7 +232,7 @@ struct FastSharedApp: App {
 }
 
 #if canImport(UIKit)
-final class IOSAppDelegate: NSObject, UIApplicationDelegate {
+final class IOSAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     private let log = Logger(subsystem: Log.subsystem, category: "app")
 
     func application(_ application: UIApplication,
@@ -243,7 +243,9 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     }
 
     private func configureRemoteNotifications(_ application: UIApplication) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [log] granted, error in
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.delegate = self
+        notificationCenter.requestAuthorization(options: [.alert, .sound, .badge]) { [log] granted, error in
             if let error {
                 log.error("notification authorization failed: \(error.localizedDescription, privacy: .public)")
             } else {
@@ -270,6 +272,11 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
         log.error("remote notification registration failed: \(error.localizedDescription, privacy: .public)")
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .list, .sound, .badge]
     }
 
     private static var apnsEnvironment: String {

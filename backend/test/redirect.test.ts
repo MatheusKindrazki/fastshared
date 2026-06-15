@@ -181,7 +181,7 @@ describe('redirect proxy', () => {
     expect(body).toContain('photo.jpg');
   });
 
-  it('sends link-open notification only on first access when enabled', async () => {
+  it('sends link-open notification on every access when enabled', async () => {
     const { token } = seedLinkAndAsset({
       originalFilename: 'photo.jpg',
       contentType: 'image/jpeg',
@@ -209,7 +209,7 @@ describe('redirect proxy', () => {
     await vi.waitFor(() => {
       expect(store.shareLinks[0]?.accessCount).toBe(2);
     });
-    expect(apnsMocks.sendLinkOpenedNotification).toHaveBeenCalledTimes(1);
+    expect(apnsMocks.sendLinkOpenedNotification).toHaveBeenCalledTimes(2);
   });
 
   it('does not send link-open notification when disabled', async () => {

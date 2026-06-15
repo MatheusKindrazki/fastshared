@@ -212,7 +212,7 @@ async function recordAccessAndMaybeNotify(
   args: AccessSideEffectArgs,
 ): Promise<void> {
   const accessCount = await incrementAccess(db, args.token);
-  if (accessCount !== 1 || !args.link.notifyOnOpen || !args.ownerDeviceId) return;
+  if (accessCount === null || !args.link.notifyOnOpen || !args.ownerDeviceId) return;
   await sendLinkOpenedNotification({
     env: c.env,
     db,
