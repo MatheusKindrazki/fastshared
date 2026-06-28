@@ -37,8 +37,14 @@ bucket_name = "fastshared"
 binding = "RATE_LIMIT"
 id = "6fba7370dd774b42b4ac36d00ec90238"
 
+# Deletion sweeper runs every 30 min (not every minute) so the Neon compute can
+# scale-to-zero between ticks. A 1-min cron kept the DB awake 24/7 and was the
+# dominant cost driver (~$30/mo of idle compute for a single user). Expired-link
+# bytes now leave R2 with up to ~30 min of lag — harmless, it's byte cleanup, not
+# anything user-facing. IMPORTANT: the cron string here MUST stay byte-identical
+# to the `cron === ...` match in src/index.ts:scheduled, or the handler no-ops.
 [triggers]
-crons = ["*/1 * * * *", "0 * * * *", "0 3 * * SUN"]
+crons = ["*/30 * * * *", "0 * * * *", "0 3 * * SUN"]
 
 [vars]
 APP_ENV = "production"

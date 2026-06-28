@@ -127,7 +127,10 @@ export default {
       return;
     }
     const cron = controller.cron;
-    if (cron === '*/1 * * * *') {
+    // Must match wrangler.toml [triggers].crons byte-for-byte. The deletion
+    // sweeper runs every 30 min so Neon can scale-to-zero between ticks; a
+    // 1-min cadence pinned the compute awake 24/7 (the idle-compute cost leak).
+    if (cron === '*/30 * * * *') {
       ctx.waitUntil(runDueDeletionJobs(env, ctx));
     } else if (cron === '0 * * * *') {
       ctx.waitUntil(runReconciliation(env));
