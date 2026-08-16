@@ -268,8 +268,8 @@ Apple-account-gated items still need to exist before the automation can finish:
   `dev.kindrazki.fastshared` covering iOS/iPadOS and macOS. Do not create
   separate App Store app records for the share extension or Live Activity;
   those are Developer Portal identifiers embedded in the main app.
-- Keep the Privacy Policy URL as `https://www.fastsha.red/privacy` and Support
-  URL as `https://www.fastsha.red/support`.
+- Keep the Privacy Policy URL as `https://fastsha.red/privacy` and Support
+  URL as `https://fastsha.red/support`.
 - Configure the three Pro IAPs with product IDs
   `red.fastsha.pro.monthly`, `red.fastsha.pro.annual`, and
   `red.fastsha.pro.lifetime`.

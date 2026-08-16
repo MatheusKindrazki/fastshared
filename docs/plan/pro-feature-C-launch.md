@@ -611,7 +611,7 @@ cd web && pnpm build
 cat dist/sitemap-0.xml
 ```
 
-**Expected output:** `<loc>https://www.fastsha.red/pricing</loc>` appears in the output.
+**Expected output:** `<loc>https://fastsha.red/pricing</loc>` appears in the output.
 
 **Step 2: If missing, confirm `@astrojs/sitemap` is registered in `astro.config.mjs`** (it is — line 12). No code change needed; the integration auto-discovers pages in `src/pages/`.
 
@@ -1491,7 +1491,7 @@ shred -u /tmp/p8.b64 2>/dev/null || rm -P /tmp/p8.b64
 ## Week 4 — Public landing + App Store metadata go live
 
 - Merge Plan C's web branch to `main`; Cloudflare Pages auto-deploys.
-- Verify https://www.fastsha.red/pricing is live, sitemap includes it,
+- Verify https://fastsha.red/pricing is live, sitemap includes it,
   schema.org Product markup validates clean.
 - Update App Store metadata per `docs/marketing/app-store.md`:
   - Subtitle (if switching to Pro-aware variant)

@@ -163,9 +163,9 @@ NOT INCLUDED — ON PURPOSE
 
 The recipient never signs in. They open the link in any browser or messaging preview, and the file downloads through a short-lived signed redirect. When the window ends, the link stops working for everyone at once.
 
-Support — https://www.fastsha.red/support
-Privacy — https://www.fastsha.red/privacy
-Terms — https://www.fastsha.red/terms
+Support — https://fastsha.red/support
+Privacy — https://fastsha.red/privacy
+Terms — https://fastsha.red/terms
 ```
 
 (3816 / 4000)

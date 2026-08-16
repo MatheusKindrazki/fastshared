@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.fastsha.red/sitemap.xml
+Sitemap: https://fastsha.red/sitemap-index.xml

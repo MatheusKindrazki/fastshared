@@ -26,7 +26,7 @@
 ## Week 4 — Public landing + App Store metadata go live
 
 - Merge Plan C's web branch to `main`; Cloudflare Pages auto-deploys.
-- Verify https://www.fastsha.red/pricing is live, sitemap includes it,
+- Verify https://fastsha.red/pricing is live, sitemap includes it,
   schema.org Product markup validates clean.
 - Update App Store metadata per `docs/marketing/app-store.md`:
   - Subtitle (if switching to Pro-aware variant)

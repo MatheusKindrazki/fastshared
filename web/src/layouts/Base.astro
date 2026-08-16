@@ -17,8 +17,8 @@ const {
   noindex = false,
 } = Astro.props;
 
-const pageUrl = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://www.fastsha.red').toString();
-const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toString();
+const pageUrl = canonical ?? new URL(Astro.url.pathname, Astro.site ?? 'https://fastsha.red').toString();
+const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://fastsha.red').toString();
 ---
 <!doctype html>
 <html lang="en">
@@ -90,7 +90,7 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://www.fastsha.red').toS
       applicationCategory: 'UtilitiesApplication',
       operatingSystem: 'iOS, iPadOS, macOS',
       description,
-      url: 'https://www.fastsha.red',
+      url: 'https://fastsha.red',
       offers: {
         '@type': 'Offer',
         price: '0',

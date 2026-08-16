@@ -103,7 +103,7 @@ expired) on an iPhone 15 Pro mock]`
 > Available today on the App Store for iPhone, iPad, and Mac.
 >
 > App Store → https://apps.apple.com/app/idXXXXXXXXX
-> Landing  → https://www.fastsha.red
+> Landing  → https://fastsha.red
 > TestFlight → https://testflight.apple.com/join/XXXXXX
 >
 > Shipped with care. Feedback welcome.
@@ -166,7 +166,7 @@ expired) on an iPhone 15 Pro mock]`
 >
 > https://apps.apple.com/app/idXXXXXXXXX
 >
-> Landing and full details at https://www.fastsha.red
+> Landing and full details at https://fastsha.red
 >
 > This is v1.0. The roadmap after this is resumable uploads, password-gated
 > links, and max-download counts — all still inside the ephemeral-by-default

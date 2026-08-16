@@ -5,7 +5,7 @@ import sitemap from '@astrojs/sitemap';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://www.fastsha.red',
+  site: 'https://fastsha.red',
   trailingSlash: 'never',
   output: 'static',
   integrations: [

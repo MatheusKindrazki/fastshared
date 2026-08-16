@@ -1,7 +1,9 @@
 # FastShared — web
 
 Marketing landing page for FastShared. Astro + Tailwind + GSAP, deployed to
-Cloudflare Pages under `www.fastsha.red`.
+Cloudflare Pages and served publicly at the apex `fastsha.red` through the
+backend Worker (see "Deploy" below). `www.fastsha.red` does not exist — it has
+no DNS record and must never appear in canonical URLs, OG tags or metadata.
 
 ## Stack
 
@@ -46,9 +48,20 @@ CLOUDFLARE_ACCOUNT_ID=aad020260082c48f6370fa7954b72f81 \
   pnpm dlx wrangler pages deploy dist --project-name fastshared-web --branch main
 ```
 
-Then attach the custom domain `www.fastsha.red` in the Cloudflare Pages
-project settings. The apex `fastsha.red` is reserved for short-link
-redirects served by the backend Worker — do NOT point the apex at Pages.
+No custom domain is attached to the Pages project, and none should be. The
+apex `fastsha.red` is a **Worker** custom domain (`backend/wrangler.toml`
+`[[routes]]`), and `backend/src/index.ts` `routeRequest()` proxies every
+non-app path through to `fastshared-web.pages.dev`. That is how this site is
+reached in production — deploying to Pages is enough, the apex picks it up.
+
+Do NOT point the apex at Pages directly. `routeRequest()` proxies to Pages only
+what `isAppPath()` rejects; the paths it keeps on the Worker are `/s`, `/b`,
+`/v1`, `/.well-known`, `/og-image.png` and `/brand`. Hand the apex to Pages and
+short links and the Apple app-site-association handoff break.
+
+(`api.fastsha.red` is the same Worker on a second custom domain. The host check
+in `routeRequest()` only matches `fastsha.red`, so on `api` nothing is proxied
+and every path — `/v1` included — is served by the Worker app.)
 
 ## Open threads
 
