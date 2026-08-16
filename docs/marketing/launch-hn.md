@@ -55,7 +55,7 @@ Tokens are 22 chars of base62 (~131 bits). The link is the credential;
 there are no accounts. Resolve route signs a 60 s R2 GET and 302-redirects;
 noindex + no-referrer + no-store on every response.
 
-Landing (with the architecture writeup): https://www.fastsha.red
+Landing (with the architecture writeup): https://fastsha.red
 App Store: https://apps.apple.com/app/idXXXXXXXXX
 
 Feedback welcome. Repo is private for now; will open once I clean up the

@@ -27,10 +27,10 @@ References verified on 2026-04-24:
 | Distribution | Public App Store |
 | Release | Manual release after approval |
 | Copyright | `2026 Matheus Kindrazki` |
-| Marketing URL | `https://www.fastsha.red` |
-| Support URL | `https://www.fastsha.red/support` |
-| Privacy Policy URL | `https://www.fastsha.red/privacy` |
-| Terms URL | `https://www.fastsha.red/terms` |
+| Marketing URL | `https://fastsha.red` |
+| Support URL | `https://fastsha.red/support` |
+| Privacy Policy URL | `https://fastsha.red/privacy` |
+| Terms URL | `https://fastsha.red/terms` |
 
 For macOS, the Xcode plist category is already
 `public.app-category.productivity`, so the App Store Connect primary category
@@ -161,7 +161,7 @@ FASTSHARED_SCREENSHOT_MAC_EXPORT_TIMEOUT=120 make appstore-screenshots
 
 ## App Privacy answers
 
-Set the privacy policy URL first: `https://www.fastsha.red/privacy`.
+Set the privacy policy URL first: `https://fastsha.red/privacy`.
 
 Tracking:
 
@@ -229,5 +229,5 @@ Server-to-server notifications v2:
 - [ ] Pro IAP products are Ready to Submit with review screenshots.
 - [ ] Server notification test reaches the production backend.
 - [ ] Review contact fields are filled in `apple/.env.appstore.local`.
-- [ ] Support page is live at `https://www.fastsha.red/support`.
+- [ ] Support page is live at `https://fastsha.red/support`.
 - [ ] Submit with `FASTSHARED_SUBMIT_FOR_REVIEW=YES make appstore-submit`.
