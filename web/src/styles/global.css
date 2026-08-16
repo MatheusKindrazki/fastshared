@@ -38,6 +38,13 @@
   --sky: #5ac8fa;
   --night: #0b061b;
 
+  /* Accent SURFACE — pairs with --charcoal, so it must invert in lockstep with
+     it. --charcoal is dark here and light in the dark theme; the accent surface
+     has to move the same way, otherwise a button whose background animates from
+     --charcoal to the accent flips text legibility mid-transition. Light theme:
+     deep violet (same value as `violet.DEFAULT` in tailwind.config.mjs). */
+  --accent-surface: #3b1f86;
+
   --warning: #ff9f47;
   --amber: #ff9f47;
   --ember: #ffc487;
@@ -77,6 +84,10 @@
 
   --ink: var(--cream);
   --milk: var(--charcoal);
+
+  /* Inverts with --charcoal: here the resting surface is light, so the accent
+     surface must stay light too and keep taking dark text. */
+  --accent-surface: #9d7aff;
 
   --rule: rgba(255, 255, 255, 0.06);
   --rule-soft: rgba(255, 255, 255, 0.03);
@@ -206,7 +217,10 @@
     gap: 10px;
     padding: 14px 20px;
     background: var(--charcoal);
-    color: #ffffff;
+    /* --cream is the inverse of --charcoal (they are the body pair). A literal
+       here does not invert: in the dark theme the background becomes #f0f0f5
+       and #ffffff on it is 1.14:1 — the CTA disappears. */
+    color: var(--cream);
     font-family: var(--mono);
     font-weight: 600;
     font-size: 13px;
@@ -219,7 +233,12 @@
 
   .btn-primary:hover {
     transform: translateY(-1px);
-    background: var(--violet-hot);
+    /* Must invert with --charcoal, not be a fixed violet: --violet-hot is light,
+       so in the light theme it would take the surface from dark (#1d1d1f) to
+       light while the text stays light — 2.97:1 at rest, and the animated ramp
+       crosses the text color on the way. --accent-surface keeps both ends of the
+       ramp on the same side of the luminance divide in each theme. */
+    background: var(--accent-surface);
   }
 
   .btn-ghost {
