@@ -337,9 +337,10 @@ import Footer from '../components/Footer.astro';
       </p>
       <p>
         The landing page at <code class="font-mono text-[14px] text-violet-hot">fastsha.red</code>
-        is static HTML served from Cloudflare Pages and does not set any
-        cookies or load any third-party scripts beyond the Google Fonts CDN
-        for the Bricolage Grotesque and JetBrains Mono typefaces.
+        is static HTML. Requests reach our Cloudflare Worker, which serves the
+        page from Cloudflare Pages as its origin. It does not set any cookies
+        or load any third-party scripts beyond the Google Fonts CDN for the
+        Bricolage Grotesque and JetBrains Mono typefaces.
       </p>
 
       <h2 class="font-display font-semibold text-milk text-[26px] md:text-[30px] pt-6" style="letter-spacing: -0.02em;">

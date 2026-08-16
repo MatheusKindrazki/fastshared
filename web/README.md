@@ -54,9 +54,14 @@ apex `fastsha.red` is a **Worker** custom domain (`backend/wrangler.toml`
 non-app path through to `fastshared-web.pages.dev`. That is how this site is
 reached in production — deploying to Pages is enough, the apex picks it up.
 
-Do NOT point the apex at Pages directly: the Worker must keep serving the app
-paths itself (`/s`, `/b`, `/v1`, `/.well-known`, `/og-image.png`, `/brand`),
-or short links and the Apple app-site-association handoff break.
+Do NOT point the apex at Pages directly. `routeRequest()` proxies to Pages only
+what `isAppPath()` rejects; the paths it keeps on the Worker are `/s`, `/b`,
+`/v1`, `/.well-known`, `/og-image.png` and `/brand`. Hand the apex to Pages and
+short links and the Apple app-site-association handoff break.
+
+(`api.fastsha.red` is the same Worker on a second custom domain. The host check
+in `routeRequest()` only matches `fastsha.red`, so on `api` nothing is proxied
+and every path — `/v1` included — is served by the Worker app.)
 
 ## Open threads
 
