@@ -6,7 +6,11 @@ import sitemap from '@astrojs/sitemap';
 // https://astro.build/config
 export default defineConfig({
   site: 'https://fastsha.red',
-  trailingSlash: 'never',
+  // 'always' matches what Cloudflare Pages actually serves: the build emits
+  // dist/<page>/index.html and the platform 308s /<page> to /<page>/. With 'never',
+  // rel=canonical and every sitemap <loc> named the redirecting form, so five of six
+  // pages pointed their canonical at a URL that redirects to themselves.
+  trailingSlash: 'always',
   output: 'static',
   integrations: [
     tailwind({ applyBaseStyles: false }),
