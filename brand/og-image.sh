@@ -114,3 +114,18 @@ fi
 cp "$OUT" ./og-image.png
 cp "$OUT" ../web/public/og-image.png
 echo "installed -> brand/og-image.png and web/public/og-image.png"
+cat <<'NOTE'
+
+NOT LIVE YET. Committing and deploying is not enough for this asset.
+/og-image.png is in APP_PATH_PREFIXES, so the apex is served by the Worker out of
+caches.default with max-age=86400, immutable — a new card stays invisible at
+fastsha.red for up to 24h per edge, and `immutable` stops scrapers revalidating.
+
+  # origin gets it immediately:
+  curl -s https://fastshared-web.pages.dev/og-image.png | shasum -a 256
+  # apex may still be cached — compare, and read the headers:
+  curl -sI https://fastsha.red/og-image.png | grep -iE 'cf-cache-status|age|content-length'
+
+If they differ, purge that URL in Cloudflare, then re-scrape in the platform's own
+card validator (unfurlers cache separately). See web/README.md.
+NOTE
