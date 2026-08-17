@@ -9,9 +9,25 @@ export interface Props {
   noindex?: boolean;
 }
 
+/*
+ * App Store facts — verified against Apple's public lookup API:
+ *   itunes.apple.com/lookup?bundleId=dev.kindrazki.fastshared
+ * Keep these in sync with the store listing; nothing here is inferred.
+ */
+const APP_STORE_ID = '6762569167';
+const APP_STORE_URL = `https://apps.apple.com/app/id${APP_STORE_ID}`;
+const APP_BUNDLE_ID = 'dev.kindrazki.fastshared';
+const APP_VERSION = '1.0.3';
+const APP_RELEASE_DATE = '2026-06-15';
+
+/* The app's own description, independent of whichever page is rendering.
+   Doubles as the default page description so the two can never drift. */
+const APP_DESCRIPTION =
+  'Share anything. Get a link. Watch it vanish. FastShared creates temporary file links for iPhone, iPad, and Mac.';
+
 const {
   title = 'FastShared — temporary file links for Apple devices.',
-  description = 'Share anything. Get a link. Watch it vanish. FastShared creates temporary file links for iPhone, iPad, and Mac.',
+  description = APP_DESCRIPTION,
   canonical,
   ogImage = '/og-image.png',
   noindex = false,
@@ -52,6 +68,10 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://fastsha.red').toStrin
     <meta name="theme-color" content="#fbf8f1" />
     <meta name="author" content="Matheus Kindrazki" />
 
+    {/* Smart App Banner — Safari on iOS/iPadOS offers the app directly.
+        No app-argument: there is no verified deep-link scheme to hand over. */}
+    <meta name="apple-itunes-app" content={`app-id=${APP_STORE_ID}`} />
+
     {/* Favicon + app icons */}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/appicon-1024.png" />
@@ -82,19 +102,41 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? 'https://fastsha.red').toStrin
       rel="stylesheet"
     />
 
-    {/* Structured data — SoftwareApplication */}
+    {/* Structured data — SoftwareApplication.
+        No aggregateRating: one review is not a rating signal, and publishing it
+        would be self-promotional markup Google treats as spammy. */}
     <script is:inline type="application/ld+json" set:html={JSON.stringify({
       '@context': 'https://schema.org',
       '@type': 'SoftwareApplication',
       name: 'FastShared',
-      applicationCategory: 'UtilitiesApplication',
-      operatingSystem: 'iOS, iPadOS, macOS',
-      description,
+      description: APP_DESCRIPTION,
       url: 'https://fastsha.red',
+      /* installUrl: "URL at which the app may be installed, if different from the
+         URL of the item." The store page is where installation happens — unlike
+         downloadUrl, which schema.org defines as a URL to download the binary. */
+      installUrl: APP_STORE_URL,
+      /* sameAs: "URL of a reference Web page that unambiguously indicates the
+         item's identity." The App Store listing is that authoritative page. */
+      sameAs: APP_STORE_URL,
+      identifier: [
+        { '@type': 'PropertyValue', propertyID: 'appStoreId', value: APP_STORE_ID },
+        { '@type': 'PropertyValue', propertyID: 'bundleId', value: APP_BUNDLE_ID },
+      ],
+      /* Free text (schema.org publishes no enumeration for this property), so it
+         carries the App Store's primary category verbatim. */
+      applicationCategory: 'Productivity',
+      /* minimumOsVersion 17.0 + iosUniversal (iPhone/iPad); Mac is in
+         supportedDevices, but Apple reports no minimum macOS version. */
+      operatingSystem: 'iOS 17.0, iPadOS 17.0, macOS',
+      softwareVersion: APP_VERSION,
+      datePublished: APP_RELEASE_DATE,
+      /* The download itself is free; Pro is sold as in-app purchase, and no
+         verified IAP price belongs in this node. */
       offers: {
         '@type': 'Offer',
         price: '0',
         priceCurrency: 'USD',
+        url: APP_STORE_URL,
       },
     })} />
 

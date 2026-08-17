@@ -10,7 +10,10 @@ export default defineConfig({
   output: 'static',
   integrations: [
     tailwind({ applyBaseStyles: false }),
-    sitemap(),
+    // lastmod = build time, evaluated when this config loads. Truthful for a
+    // static site: every deploy regenerates every page, so the build stamp is
+    // the last time the served HTML for a URL actually changed.
+    sitemap({ lastmod: new Date() }),
   ],
   build: {
     inlineStylesheets: 'auto',
