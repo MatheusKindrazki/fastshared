@@ -11,15 +11,21 @@ interface Swatch {
   onLight?: boolean;
 }
 
+/* The shipped palette, not the pre-redesign one. This table is the version a
+   journalist quotes, so it lists only tokens with measured consumers in src/ —
+   the old entries (ink #070318, nightshade, milk #fafaff, violet-soft, warning)
+   were retired with the neutral two-pole system and have zero uses today.
+   The grounds and text tiers invert between poles, so both values are published;
+   violet-hot is the one colour that is the same in both. */
 const palette: Swatch[] = [
-  { name: 'ink',         hex: '#070318', role: 'ground' },
-  { name: 'nightshade',  hex: '#1d0d4b', role: 'surface 1' },
-  { name: 'violet',      hex: '#3b1f86', role: 'surface 2' },
-  { name: 'violet-hot',  hex: '#9d7aff', role: 'pulse (primary)', onLight: true },
-  { name: 'violet-soft', hex: '#c1a9ff', role: 'pulse (soft)',    onLight: true },
-  { name: 'warning',     hex: '#ff9f47', role: 'urgency (<1h)',   onLight: true },
-  { name: 'coral',       hex: '#ff4e7c', role: 'farewell (fade)' },
-  { name: 'milk',        hex: '#fafaff', role: 'typography',      onLight: true },
+  { name: 'cream / light',    hex: '#fbf8f1', role: 'ground — light pole (default)', onLight: true },
+  { name: 'cream / dark',     hex: '#0f0f12', role: 'ground — dark pole' },
+  { name: 'charcoal / light', hex: '#1d1d1f', role: 'text on the light ground' },
+  { name: 'charcoal / dark',  hex: '#f0f0f5', role: 'text on the dark ground',       onLight: true },
+  { name: 'silver',           hex: '#6e6e73', role: 'labels, mono, secondary text' },
+  { name: 'violet-hot',       hex: '#9d7aff', role: 'the accent — same in both poles', onLight: true },
+  { name: 'accent-surface',   hex: '#3b1f86', role: 'accent as a surface (light pole)' },
+  { name: 'coral',            hex: '#ff4e7c', role: 'endings — expiry, deletion' },
 ];
 
 interface Asset {
@@ -127,7 +133,6 @@ const assets: Asset[] = [
           <dt class="font-mono text-[11px] tracking-[0.14em] uppercase text-milk/45 mb-2">Press contact</dt>
           <dd class="text-milk/85 text-[17px]">
             <a href="mailto:press@fastsha.red" class="text-violet-hot hover:underline">press@fastsha.red</a>
-            <span class="font-mono text-[11px] text-milk/40 ml-2">&lt;-- TODO confirm inbox</span>
           </dd>
         </div>
         <div>

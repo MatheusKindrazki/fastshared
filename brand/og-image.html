@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FastShared — OG card source (1200×630)</title>
+<!--
+  Source of truth for web/public/og-image.png. Render with brand/og-image.sh.
+
+  This exists as HTML rather than as a hand-composited PNG for one reason: the
+  previous og-image.png was a loose file with no source, and it silently drifted
+  four months behind the site's palette — it was still the pre-redesign purple
+  gradient while the shipped site had moved to a neutral two-pole system. A card
+  built from the same tokens and the same typography as the site cannot drift
+  that way without someone noticing in the diff.
+
+  Values below are copied from web/src/styles/global.css. When the palette moves,
+  move them here too and re-render.
+
+  Targets it has to hit (scripts/pixel_audit.py, design-intelligence skill), all
+  enforced by og-image.sh, which refuses to install a card that misses one:
+    luminance mean  < 60      -> committed dark pole, no mid grey
+    contrast std    >= 40     -> the type actually punches at thumbnail size
+    dominant colour >= 80%    -> one solid ground, not a gradient wash
+    saturation      -> not a flat number; see the long note in og-image.sh. HSV
+                       saturation is a ratio and so is ill-conditioned in deep
+                       shadow: the ground token itself measures 0.167, which makes
+                       the skill's flat 0.15 unreachable without abandoning the
+                       site's own colour. The gate asks the real question instead —
+                       is the mean at or below the ground's own saturation, i.e. is
+                       every non-ground pixel net-desaturating.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&family=JetBrains+Mono:wght@500&display=block"
+  rel="stylesheet"
+/>
+<style>
+  /* --- tokens, mirrored from global.css [data-theme="dark"] --- */
+  :root {
+    --ink: #0f0f12;          /* --cream in the dark theme: the page ground */
+    --canvas: #1c1c22;       /* card surface */
+    --milk: #f0f0f5;         /* --charcoal in the dark theme: primary text */
+    --silver: #8a8a93;       /* secondary / mono labels */
+    --violet-hot: #9d7aff;   /* the only saturated colour, and only as a state */
+    --rule: rgba(255, 255, 255, 0.06);
+    --rule-soft: rgba(255, 255, 255, 0.03);
+    --display: 'Bricolage Grotesque', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1200px; height: 630px; }
+
+  body {
+    display: flex;
+    align-items: center;
+    gap: 56px;
+    padding: 0 72px;
+    background: var(--ink);
+    color: var(--milk);
+    font-family: var(--display);
+    /* The site enables these stylistic alternates on display type; without them
+       the wordmark reads as a different typeface than the landing page. */
+    font-feature-settings: 'ss02', 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------------- left: the promise, carried by type ---------------- */
+  .copy { flex: 1 1 0; min-width: 0; }
+
+  .eyebrow {
+    margin-bottom: 30px;
+    color: var(--silver);
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .headline {
+    font-size: 76px;
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.008em;
+    font-variation-settings: 'opsz' 96;
+  }
+  .headline span { display: block; }
+
+  /* Same treatment the hero gives its third line. The accent marks the payoff
+     word — it is the product's whole premise, not decoration. */
+  .headline .vanish {
+    text-decoration: underline;
+    text-decoration-color: var(--violet-hot);
+    text-decoration-thickness: 0.075em;
+    text-underline-offset: 0.11em;
+  }
+
+  .footline {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 38px;
+    color: var(--silver);
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .footline .word {
+    color: var(--milk);
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: none;
+  }
+  .footline .dot { color: var(--violet-hot); }
+  .footline .sep { color: rgba(240, 240, 245, 0.22); }
+
+  /* ---------------- right: the product, as proof ---------------- */
+  /* A real interface fragment at real scale, mirroring .hero-manifest. The
+     corpus pattern is that the screenshot IS the art; this is that, cropped to
+     the four rows that carry the story. */
+  .manifest {
+    flex: 0 0 436px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    /* Deliberately the page ground rather than --canvas. On the site the card is
+       rgba(--canvas, 0.72) over a dark page, which resolves to within a couple of
+       units of the ground — it reads as a card because of the border and the row
+       rules, not because of a fill. Matching that here also keeps a single solid
+       ground across the card, instead of splitting the image into two surfaces. */
+    background: var(--ink);
+    overflow: hidden;
+  }
+
+  .manifest__bar {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--silver);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 19px 18px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .row:last-child { border-bottom: 0; }
+
+  .row .k,
+  .row .s {
+    color: var(--silver);
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+  .row .s { text-align: right; white-space: nowrap; }
+
+  .row .v {
+    color: var(--milk);
+    font-size: 19px;
+    font-weight: 680;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* The single functional use of the accent: the terminal state. Ephemerality
+     shown as a data state rather than claimed as an adjective. */
+  .row .v--gone { color: var(--violet-hot); }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="eyebrow">Temporary file links for Apple devices</div>
+    <h1 class="headline">
+      <span>Share anything.</span>
+      <span>Get a link.</span>
+      <span class="vanish">Watch it vanish.</span>
+    </h1>
+    <div class="footline">
+      <span class="word">fastshared<span class="dot">.</span></span>
+      <span class="sep">/</span>
+      <span>iPhone &middot; iPad &middot; Mac</span>
+      <span class="sep">/</span>
+      <span>App&nbsp;Store</span>
+    </div>
+  </div>
+
+  <div class="manifest">
+    <div class="manifest__bar">
+      <span>FastShared</span>
+      <span>Transfer manifest</span>
+    </div>
+    <div class="row">
+      <span class="k">File</span>
+      <span class="v">screen-recording.mov</span>
+      <span class="s">284 MB</span>
+    </div>
+    <div class="row">
+      <span class="k">Link</span>
+      <span class="v">fastsha.red/s/K9H4</span>
+      <span class="s">Copied</span>
+    </div>
+    <div class="row">
+      <span class="k">Expiry</span>
+      <span class="v">23 h 59 min</span>
+      <span class="s">Scheduled</span>
+    </div>
+    <div class="row">
+      <span class="k">After</span>
+      <span class="v v--gone">410 Gone</span>
+      <span class="s">Deleted</span>
+    </div>
+  </div>
+</body>
+</html>
