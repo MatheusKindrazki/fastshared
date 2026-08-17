@@ -63,14 +63,51 @@ short links and the Apple app-site-association handoff break.
 in `routeRequest()` only matches `fastsha.red`, so on `api` nothing is proxied
 and every path — `/v1` included — is served by the Worker app.)
 
+## Search & discovery
+
+The app is live on the App Store (`6762569167`, shipped 2026-06-15). Every
+conversion CTA points at the locale-neutral listing
+`https://apps.apple.com/app/id6762569167` — Apple 301s that to the visitor's
+own storefront, which is why the neutral form is the one to use. The store
+facts live in one place, `src/layouts/Base.astro`, and are verified against
+`itunes.apple.com/lookup?bundleId=dev.kindrazki.fastshared`; keep them in sync
+with the listing rather than inferring them.
+
+**IndexNow** is wired: the key file is `public/7ebbe106f7954aa7985775397f9d185d.txt`,
+served at the apex because the Worker does not claim `.txt` paths. One
+submission to `api.indexnow.org` fans out to Bing (and ChatGPT via Bing),
+Yandex, Naver, Seznam and Yep. Google does not participate in IndexNow — for
+Google, discovery comes from `rel=canonical` plus the `Sitemap:` directive in
+`public/robots.txt`, both of which pointed at a non-resolving host until
+2026-08-16 (see `.design-audit-2026-08-16.md`).
+
+Turning on **Crawler Hints** in Cloudflare (Caching → Configuration) makes
+IndexNow submissions automatic on content change, which is preferable to
+running the submit by hand.
+
+Structured data: `SoftwareApplication` in `Base.astro`, `Product` + `Offer` in
+`pricing.astro`, and `FAQPage` emitted by `FAQ.astro` from the same array that
+renders the visible FAQ — they cannot drift, and the FAQPage must stay scoped
+to the home page, because a FAQPage on a page with no FAQ is a Google policy
+violation. There is deliberately no `aggregateRating`: one review is not a
+rating signal.
+
 ## Open threads
 
 - Brand assets are generated from `brand/source-mark.png` via
-  `brand/export.sh`; `public/og-image.png` is now the v2 social card.
-- TestFlight URL — currently `#testflight`. Replace when the TestFlight
-  build is live on App Store Connect.
+  `brand/export.sh`; `public/og-image.png` is now the v2 social card — but it
+  is still the pre-redesign purple card and diverges from the shipped neutral
+  palette. Regenerating it is the highest-value open item.
+- Google Search Console and Bing Webmaster Tools are **not** set up. Both need
+  an owner login; once a verification token exists it can be committed to
+  `public/` and it verifies on the next deploy.
 - `/privacy` and `/terms` — placeholder copy. Final versions land before
   the public beta.
+- `press.astro` ships a visible `<-- TODO confirm inbox` next to
+  `press@fastsha.red`. Journalists can see it.
+- `data-testid="nav-testflight"` in `Nav.astro` now labels an App Store link.
+  Nothing in the repo consumes it, so the rename is safe whenever someone
+  wants it.
 
 ## Layout
 
