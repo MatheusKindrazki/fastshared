@@ -1,0 +1,4 @@
+# @astrojs/sitemap emits sitemap-index.xml + sitemap-0.xml, never sitemap.xml.
+# Unmatched paths fall back to the homepage HTML at HTTP 200 on Cloudflare Pages,
+# so /sitemap.xml was serving the landing page to crawlers instead of a sitemap.
+/sitemap.xml /sitemap-index.xml 301

@@ -1,0 +1,48 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base
+  title="Page not found - FastShared"
+  description="That page does not exist on fastsha.red. Expired FastShared links return 410 Gone, not 404."
+  noindex
+>
+  <Nav />
+  <main class="frame pt-16 pb-24 max-w-[760px]">
+    <h1
+      class="font-display font-bold text-milk mb-8"
+      style="font-size: clamp(44px, 7vw, 96px); line-height: 0.95; letter-spacing: -0.04em;"
+    >
+      Nothing here.
+    </h1>
+
+    <p class="font-mono text-[12px] tracking-[0.1em] uppercase text-silver mb-10">
+      404 - page not found
+    </p>
+
+    <div class="space-y-8 text-milk/75 text-[17px] leading-[1.8]">
+      <p>
+        This address does not exist on fastsha.red. If you were following a
+        FastShared share link that stopped working, that is a different signal:
+        expired and revoked links answer with
+        <span class="font-mono text-[15px] text-milk">410 Gone</span>, and the
+        file behind them is already queued for deletion.
+      </p>
+
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3 pt-2">
+        <a href="/" class="btn-primary">
+          Back to home
+          <span aria-hidden="true">-&gt;</span>
+        </a>
+        <a href="/pricing/" class="btn-ghost">
+          Pricing
+        </a>
+        <a href="/support/" class="btn-ghost">
+          Support
+        </a>
+      </div>
+    </div>
+  </main>
+  <Footer />
+</Base>
