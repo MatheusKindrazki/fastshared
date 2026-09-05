@@ -169,8 +169,8 @@ struct ShareRootView: View {
 
     // MARK: - Theme helpers
 
-    private var groundColor: Color     { FriendlyPalette.ground(colorScheme) }
-    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
+    private var groundColor: Color     { FriendlyPalette.neutralGround }
+    private var textColor: Color       { FriendlyPalette.neutralText }
     private var accentHot: Color       { FriendlyPalette.accentHot }
 }
 
@@ -248,7 +248,7 @@ private struct SheetBrandLockup: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color { FriendlyPalette.text(colorScheme) }
+    private var textColor: Color { FriendlyPalette.neutralText }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -275,7 +275,7 @@ private struct SheetFileIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
+    private var bg: Color { FriendlyPalette.neutralWell }
 
     var body: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -304,7 +304,7 @@ private struct SheetBundleStackIcon: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var bg: Color { FriendlyPalette.surface0(colorScheme) }
+    private var bg: Color { FriendlyPalette.neutralWell }
 
     var body: some View {
         ZStack {
@@ -330,7 +330,7 @@ private struct SheetProgressBar: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var trackColor: Color { FriendlyPalette.line(colorScheme) }
+    private var trackColor: Color { FriendlyPalette.neutralLine }
 
     var body: some View {
         GeometryReader { geo in
@@ -355,7 +355,7 @@ private struct SheetIndeterminateBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var animate = false
 
-    private var trackColor: Color { FriendlyPalette.line(colorScheme) }
+    private var trackColor: Color { FriendlyPalette.neutralLine }
 
     var body: some View {
         GeometryReader { geo in
@@ -432,13 +432,14 @@ private struct IdleStage: View {
     @Environment(\.colorScheme) private var colorScheme
 
     // MARK: Theme helpers
-    private var textColor: Color       { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color    { FriendlyPalette.textDim(colorScheme) }
-    private var canvasColor: Color     { FriendlyPalette.paper(colorScheme) }
-    private var lineColor: Color       { FriendlyPalette.line(colorScheme) }
-    private var activeChipText: Color {
-        colorScheme == .dark ? .white : FriendlyPalette.text(.light)
-    }
+    private var textColor: Color       { FriendlyPalette.neutralText }
+    private var textDimColor: Color    { FriendlyPalette.neutralTextDim }
+    private var canvasColor: Color     { FriendlyPalette.neutralCard }
+    private var lineColor: Color       { FriendlyPalette.neutralLine }
+    /// Text on a *selected* (violet-filled) chip. Ink in both appearances, like
+    /// every accent-filled control in this sheet: on #9d7aff the ink is ~5.2:1
+    /// and white is ~3.0:1, which fails AA at this 13pt size.
+    private var activeChipText: Color { FriendlyPalette.text(.light) }
 
     private var isUploading: Bool { uploadProgress != nil }
     private var isPreparing: Bool { prepareKind != nil }
@@ -745,10 +746,10 @@ private struct SuccessStage: View {
     @State private var copied: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
-    private var canvasColor: Color  { FriendlyPalette.paper(colorScheme) }
-    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
+    private var textColor: Color    { FriendlyPalette.neutralText }
+    private var textDimColor: Color { FriendlyPalette.neutralTextDim }
+    private var canvasColor: Color  { FriendlyPalette.neutralCard }
+    private var lineColor: Color    { FriendlyPalette.neutralLine }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -943,10 +944,10 @@ private struct BundleSuccessStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
-    private var canvasColor: Color  { FriendlyPalette.paper(colorScheme) }
-    private var lineColor: Color    { FriendlyPalette.line(colorScheme) }
+    private var textColor: Color    { FriendlyPalette.neutralText }
+    private var textDimColor: Color { FriendlyPalette.neutralTextDim }
+    private var canvasColor: Color  { FriendlyPalette.neutralCard }
+    private var lineColor: Color    { FriendlyPalette.neutralLine }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1058,9 +1059,9 @@ struct SharePaywallSheet: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color    { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color { FriendlyPalette.textDim(colorScheme) }
-    private var groundColor: Color  { FriendlyPalette.ground(colorScheme) }
+    private var textColor: Color    { FriendlyPalette.neutralText }
+    private var textDimColor: Color { FriendlyPalette.neutralTextDim }
+    private var groundColor: Color  { FriendlyPalette.neutralGround }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -1089,7 +1090,9 @@ struct SharePaywallSheet: View {
                 Text("OPEN FASTSHARED PRO")
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .tracking(1.6)
-                    .foregroundStyle(colorScheme == .dark ? FriendlyPalette.text(.light) : .white)
+                    // Ink-on-violet in both themes, like every other accent CTA in
+                    // this sheet: white on #9d7aff is ~3.0:1, the ink is ~5.2:1.
+                    .foregroundStyle(FriendlyPalette.text(.light))
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(FriendlyPalette.accentHot, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -1141,11 +1144,11 @@ private struct FailureStage: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private var textColor: Color      { FriendlyPalette.text(colorScheme) }
-    private var textDimColor: Color   { FriendlyPalette.textDim(colorScheme) }
-    private var textFaintColor: Color { FriendlyPalette.textFaint(colorScheme) }
-    private var canvasColor: Color    { FriendlyPalette.paper(colorScheme) }
-    private var lineColor: Color      { FriendlyPalette.line(colorScheme) }
+    private var textColor: Color      { FriendlyPalette.neutralText }
+    private var textDimColor: Color   { FriendlyPalette.neutralTextDim }
+    private var textFaintColor: Color { FriendlyPalette.neutralTextFaint }
+    private var canvasColor: Color    { FriendlyPalette.neutralCard }
+    private var lineColor: Color      { FriendlyPalette.neutralLine }
 
     var body: some View {
         VStack(spacing: 16) {
