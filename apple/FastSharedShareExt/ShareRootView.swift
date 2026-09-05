@@ -468,9 +468,20 @@ private struct IdleStage: View {
             retentionSection
                 .padding(.top, 18)
 
-            // Notify toggle
+            // Notify toggle — iOS only.
+            // WHY: the notification is delivered to the device that CREATED the
+            // link (`redirect.ts` passes `ownerDeviceId` to `findDeviceById`,
+            // then pushes to that one device's apnsToken). The macOS target
+            // never registers for APNs — `requestAuthorization` and
+            // `registerForRemoteNotifications` live inside `#if canImport(UIKit)`
+            // in FastSharedApp.swift, and MacAppDelegate has no notification
+            // path — so a Mac-created link has no token to push to and there is
+            // no fan-out to the owner's other devices. Showing the toggle there
+            // offers something the platform cannot do.
+            #if os(iOS)
             notifyRow
                 .padding(.top, 12)
+            #endif
 
             // CTA
             ctaButton
