@@ -1,7 +1,7 @@
-What's new in 1.0.3
+What's new in 1.1.0
 
-• On Mac, FastShared now starts automatically at login and waits quietly in the menu bar, ready the moment you need to share. You can turn this off anytime in Settings.
-• The sidebar now lists all of your iCloud devices, so it's clearer where your links and uploads are coming from.
-• Reliability fixes for iCloud sync and Settings, plus general polish.
+• Know when your link is opened. Turn on "Notify me on open" while you share, and FastShared pings you the moment someone views it — every time, not just the first.
+• The share sheet now fills the screen, and its colors match the rest of the app in both light and dark.
+• On Mac, Settings opens from the menu bar at a usable size and stops collapsing when you resize it.
 
 As always: share anything from any app, choose how long the link lives, and the short URL is on your clipboard before the upload even finishes. Every file is temporary on purpose — links expire on schedule and the media is deleted automatically.

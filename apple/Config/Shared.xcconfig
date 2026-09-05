@@ -15,7 +15,7 @@ SWIFT_VERSION = 5.10
 // MARKETING_VERSION: human-readable release version (CFBundleShortVersionString).
 // Bumped on each public release following semver; CI may override for TestFlight
 // pre-releases.
-MARKETING_VERSION = 1.0.3
+MARKETING_VERSION = 1.1.0
 
 // CURRENT_PROJECT_VERSION: build number (CFBundleVersion). Must be monotonically
 // increasing for every archive uploaded to App Store Connect under the same
