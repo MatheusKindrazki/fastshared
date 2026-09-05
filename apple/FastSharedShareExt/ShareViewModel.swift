@@ -68,7 +68,14 @@ final class ShareViewModel {
         let defaults = UserDefaults(suiteName: AppGroupPaths.groupIdentifier)
         let stored = defaults?.string(forKey: "default_retention_policy")
         self.retentionPolicy = stored.flatMap(RetentionPolicy.init(rawValue:)) ?? .default
+        // iOS only: the push is delivered to the device that created the link,
+        // and the macOS target never registers for APNs. Sending `true` from a
+        // Mac would persist a promise on the link that nothing can ever keep.
+        #if os(iOS)
         self.notifyOnOpen = SettingsPreferences.notifyOnOpenEnabled()
+        #else
+        self.notifyOnOpen = false
+        #endif
     }
 
     /// Mirrors a `UploadPreparePhase` emission from UploadService into the UI.

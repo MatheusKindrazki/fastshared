@@ -1,7 +1,7 @@
 What's new in 1.1.0
 
-• Know when your link is opened. Turn on "Notify me on open" while you share, and FastShared pings you the moment someone views it — every time, not just the first.
-• The share sheet now fills the screen, and its colors match the rest of the app in both light and dark.
+• Know when your link is opened. On iPhone and iPad, FastShared notifies you every time someone views a link you shared — not just the first time. Don't want it for a particular link? Switch it off in the share sheet before you send.
+• The share sheet got a fresh coat of paint: its colors now follow the rest of the app in both light and dark, and on iPhone and iPad it fills the screen.
 • On Mac, Settings opens from the menu bar at a usable size and stops collapsing when you resize it.
 
 As always: share anything from any app, choose how long the link lives, and the short URL is on your clipboard before the upload even finishes. Every file is temporary on purpose — links expire on schedule and the media is deleted automatically.

@@ -10,7 +10,10 @@ public enum SettingsKeys {
     /// manually from the history row. Read by `UploadOrchestrator`.
     public static let copyLinkAuto = "copy_link_auto_v1"
     /// Bool. When true (default), newly-created share links request a push
-    /// notification the first time the recipient opens the link.
+    /// notification **every time** the recipient opens the link — not just the
+    /// first (changed in 4237139; `redirect.ts` dropped the first-access guard).
+    /// iOS only: the push targets the device that created the link, and the
+    /// macOS target never registers for APNs.
     public static let notifyOnOpen = "notify_on_open_v1"
     /// Legacy beta key used by the first share-extension UI. Read once so the
     /// preference survives the migration to the versioned key.
