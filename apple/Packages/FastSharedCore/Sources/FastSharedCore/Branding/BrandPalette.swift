@@ -1,6 +1,12 @@
 import Foundation
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
 /// FastShared brand palette — v2 "warm amber on ink".
 ///
 /// Ported 1:1 from `project/design/tokens.js` (the Claude Design handoff):
@@ -279,6 +285,107 @@ public enum FriendlyPalette {
         public static let lg:   CGFloat = 20
         public static let xl:   CGFloat = 28
         public static let pill: CGFloat = 999
+    }
+
+    // MARK: Neutral chrome (the system ramp the app actually ships)
+    //
+    // The Friendly *dark* tokens above are a deep navy-purple (#0d0625 ground,
+    // #1a0f4a paper). As app chrome they make every dark surface read as "a
+    // purple app" — violet is the brand ACCENT, not the ground. That leak has
+    // already been reported once by users and fixed once: see the comment on
+    // `FastSharedApp/Scenes/HistoryView.swift:45-48` — "users reclamaram que a
+    // Home ficava roxa no dark mode" — which resolved it by moving chrome onto
+    // the platform's semantic ramp in BOTH appearances.
+    //
+    // The share extension had the same ramp, file-privately, until commit
+    // 61b9667 ("fix: make share extension link screen full screen", 2026-06-15)
+    // deleted the helpers and reverted every call site to
+    // `FriendlyPalette.*(colorScheme)` — a palette regression riding on a layout
+    // commit. These accessors are that ramp restored, and hoisted into Core so
+    // it has one home instead of being re-declared per target: the extension
+    // compiles only `FastSharedShareExt` plus this package (`project.yml:194-202`),
+    // and `Color.sysBackground` & friends are `internal` to the app module
+    // (`BrandPalette+Redesign.swift:78`), so the extension could never have
+    // reached them. MASTER.md principle 5, "one token source".
+    //
+    // These are deliberately NOT `(ColorScheme) -> Color`: the underlying
+    // platform colors are already dynamic, so a scheme argument would invite a
+    // caller to pin one appearance. Views that genuinely want a literal Friendly
+    // token still call `ground(_:)` / `paper(_:)` / `text(_:)`.
+    //
+    // Platform colors are wrapped explicitly (`Color(uiColor:)` / `Color(nsColor:)`).
+    // Never write `var sysBackground: Color { sysBackground }` — that shape shipped
+    // once and crashed the extension with infinite recursion (7f2ab52, "Fix share
+    // extension color recursion crash").
+    //
+    // ⚠️ Measured, and NOT a bug: inside the modally-presented share sheet these
+    // render one step lighter than on a base screen — dark ground #1c1c1e, cards
+    // #2c2c2e, not #000000/#1c1c1e. That is UIKit's `elevated` background set,
+    // which iOS applies to modal content in dark mode so a sheet reads as raised
+    // above its host. Do not "correct" it by hardcoding the base values; that
+    // would flatten the sheet against the host app.
+
+    /// Full-bleed background of a hand-composed screen.
+    public static var neutralGround: Color {
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(uiColor: .systemBackground)
+        #endif
+    }
+
+    /// Cards and wells sitting on `neutralGround`.
+    public static var neutralCard: Color {
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color(uiColor: .secondarySystemBackground)
+        #endif
+    }
+
+    /// Subtle fill nested *inside* a card (icon tiles).
+    public static var neutralWell: Color {
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color(uiColor: .tertiarySystemBackground)
+        #endif
+    }
+
+    /// Primary text.
+    public static var neutralText: Color {
+        #if os(macOS)
+        Color(nsColor: .labelColor)
+        #else
+        Color(uiColor: .label)
+        #endif
+    }
+
+    /// Secondary text.
+    public static var neutralTextDim: Color {
+        #if os(macOS)
+        Color(nsColor: .secondaryLabelColor)
+        #else
+        Color(uiColor: .secondaryLabel)
+        #endif
+    }
+
+    /// Tertiary / metadata text.
+    public static var neutralTextFaint: Color {
+        #if os(macOS)
+        Color(nsColor: .tertiaryLabelColor)
+        #else
+        Color(uiColor: .tertiaryLabel)
+        #endif
+    }
+
+    /// Hairline borders and progress tracks.
+    public static var neutralLine: Color {
+        #if os(macOS)
+        Color(nsColor: .separatorColor)
+        #else
+        Color(uiColor: .separator)
+        #endif
     }
 
     // MARK: Underlying constants

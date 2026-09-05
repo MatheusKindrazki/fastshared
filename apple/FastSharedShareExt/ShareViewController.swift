@@ -30,7 +30,7 @@ final class ShareViewController: PlatformViewController {
 
     private func embed(_ root: some View) {
         let host = UIHostingController(rootView: root)
-        let backgroundColor = shareExtensionBackgroundColor(for: traitCollection)
+        let backgroundColor = shareExtensionBackgroundColor
         view.backgroundColor = backgroundColor
         host.view.backgroundColor = backgroundColor
         addChild(host)
@@ -45,10 +45,17 @@ final class ShareViewController: PlatformViewController {
         host.didMove(toParent: self)
     }
 
-    private func shareExtensionBackgroundColor(for traitCollection: UITraitCollection) -> UIColor {
-        let scheme: ColorScheme = traitCollection.userInterfaceStyle == .dark ? .dark : .light
-        return UIColor(FriendlyPalette.ground(scheme))
-    }
+    /// Backing color behind the hosting view.
+    ///
+    /// 61b9667 set this (it was `.clear`) to make the sheet full-screen — that
+    /// part stays. What it must NOT do is paint `FriendlyPalette.ground`, whose
+    /// dark value is #0d0625: that is the second, easy-to-miss layer of the
+    /// purple, and it shows around/behind the SwiftUI canvas.
+    ///
+    /// `.systemBackground` is already appearance-dynamic, so this needs no trait
+    /// read and — unlike the resolved-once value it replaces — it follows a
+    /// light/dark switch while the sheet is open.
+    private var shareExtensionBackgroundColor: UIColor { .systemBackground }
     #elseif canImport(AppKit)
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 440))
