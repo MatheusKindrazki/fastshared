@@ -1135,6 +1135,10 @@
   .tier-card.tier-lifetime:hover { border-color: rgba(255, 78, 124, 0.3); }
 
   .tier-head { margin-bottom: 20px; }
+  @media (min-width: 1024px) {
+    .tier-head { min-height: 172px; display: flex; flex-direction: column; }
+    .tier-blurb { margin-top: auto; padding-top: 10px; }
+  }
   .tier-name {
     font-family: var(--mono);
     font-size: 12px;
@@ -1167,7 +1171,15 @@
     color: var(--silver);
   }
 
-  .tier-cta { align-self: flex-start; margin-bottom: 24px; }
+  .tier-cta { align-self: stretch; justify-content: center; margin-bottom: 24px; text-align: center; }
+  .tier-cta.btn-ghost {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .tier-cta.btn-ghost:hover {
+    border-color: var(--violet-hot);
+  }
 
   .tier-features {
     list-style: none;
@@ -1186,7 +1198,7 @@
     letter-spacing: 0.03em;
   }
   .ft-k { color: var(--tin); }
-  .ft-v { color: var(--charcoal); text-align: right; }
+  .ft-v { color: var(--charcoal); text-align: right; white-space: nowrap; }
   .ft-v.ft-on { color: var(--violet-hot); }
   .ft-v.ft-off { color: var(--tin); }
 
