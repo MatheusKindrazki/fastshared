@@ -118,14 +118,18 @@ struct FastSharedApp: App {
         // WHY: Manual NSStatusItem instead of SwiftUI MenuBarExtra so we can
         // implement NSDraggingDestination on the tray icon (opens popover on
         // drag) and draw a live progress badge while uploads are in flight.
+        let coordinator = paywallCoordinator
         let menuBarRootView = MacMenuBarView()
             .environment(\.apiClient, apiClient)
             .environment(\.uploadService, uploadService)
             .environment(\.uploadOrchestrator, orchestrator)
             .environment(\.clipboard, clipboard)
             .environment(\.subscriptionStore, subscriptionStore)
+            .environment(\.paywallCoordinator, coordinator)
             .modelContainer(store.modelContainer)
-        TrayManager.shared.configure(with: menuBarRootView, uploadService: uploadService)
+        TrayManager.shared.configure(with: menuBarRootView,
+                                     uploadService: uploadService,
+                                     paywallCoordinator: coordinator)
 
         // Auto-start: enable "Open at login" by default on the first run. This
         // runs once (App Group flag) and never overrides a later opt-out — see
@@ -197,6 +201,9 @@ struct FastSharedApp: App {
                 .environment(\.paywallCoordinator, paywallCoordinator)
                 .modelContainer(store.modelContainer)
                 .background(MacMainWindowBinder())
+                .onOpenURL { url in
+                    processPendingShareUploads(trigger: url, service: uploadService, paywallCoordinator: paywallCoordinator)
+                }
                 .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
                     if let window = notification.object as? NSWindow {
                         window.titleVisibility = .hidden
@@ -375,7 +382,34 @@ private func processPendingShareUploads(
     service: UploadServiceProtocol,
     paywallCoordinator: PaywallCoordinator
 ) {
-    if let trigger, trigger.scheme != "fastshared" { return }
+    if let trigger {
+        guard trigger.scheme == "fastshared" || trigger.scheme == "fastsharedapp" else { return }
+        if trigger.host == "paywall" {
+            let queryItems = URLComponents(url: trigger, resolvingAgainstBaseURL: false)?.queryItems
+            let reason = queryItems?.first(where: { $0.name == "trigger" })?.value
+            let context: PaywallTriggerContext = {
+                switch reason {
+                case "daily_cap":
+                    return .dailyCapReached(used: 3, cap: 3)
+                case "long_retention":
+                    return .longRetentionRequested(policy: .oneWeek)
+                case "large_file":
+                    return .largeFileRequested(sizeBytes: 150 * 1024 * 1024)
+                case "server_forced":
+                    return .serverForced(errorCode: "payment_required")
+                default:
+                    return .cloudSyncRequested
+                }
+            }()
+            Task { @MainActor in
+                #if os(macOS)
+                MacLaunchAtLoginController.showMainWindow()
+                #endif
+                paywallCoordinator.present(context)
+            }
+            return
+        }
+    }
     let pending = PendingShareUploadQueue.drain()
     guard !pending.isEmpty else { return }
     Task.detached { [paywallCoordinator] in

@@ -24,6 +24,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>fastshared</string>
+				<string>fastsharedapp</string>
 			</array>
 		</dict>
 	</array>

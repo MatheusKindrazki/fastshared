@@ -122,6 +122,10 @@ struct PaywallTierCard: View {
         }
     }
 
+    private var ctaLabel: String {
+        tier == .lifetime ? "Unlock Lifetime" : "Subscribe"
+    }
+
     private var ctaButton: some View {
         Button(action: onPurchase) {
             HStack(spacing: 8) {
@@ -130,7 +134,7 @@ struct PaywallTierCard: View {
                         .controlSize(.small)
                 }
                 // TODO(i18n)
-                Text(isLoading ? "Processing…" : "Subscribe")
+                Text(isLoading ? "Processing…" : ctaLabel)
                     .font(.system(size: 15, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
@@ -180,7 +184,7 @@ struct PaywallTierCard: View {
             parts.append(badgeText(badge).replacingOccurrences(of: "·", with: ","))
         }
         parts.append(contentsOf: features)
-        parts.append("Double tap to subscribe.")
+        parts.append(tier == .lifetime ? "Double tap to purchase once." : "Double tap to subscribe.")
         return parts.joined(separator: ". ")
     }
 }

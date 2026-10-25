@@ -1,18 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { FREE_CAPS, PRO_CAPS, toWireCaps } from '~/lib/tierCaps';
 
-describe('launch tier caps', () => {
-  it('keeps Free upload usage unlimited for launch without enabling Cloud Sync', () => {
-    expect(FREE_CAPS.uploadsPerDay).toBe(-1);
-    expect(FREE_CAPS.maxFileSizeMB).toBe(PRO_CAPS.maxFileSizeMB);
-    expect(FREE_CAPS.maxRetentionHours).toBe(PRO_CAPS.maxRetentionHours);
-    expect(FREE_CAPS.allowsCloudSync).toBe(false);
+describe('tier caps', () => {
+  it('differentiates Free (3/day, 100 MB, 24h) from Pro (unlimited, 2 GB, 30d, Cloud Sync)', () => {
+    expect(FREE_CAPS).toEqual({
+      uploadsPerDay: 3,
+      maxFileSizeMB: 100,
+      maxRetentionHours: 24,
+      allowsCloudSync: false,
+    });
+    expect(PRO_CAPS).toEqual({
+      uploadsPerDay: -1,
+      maxFileSizeMB: 2048,
+      maxRetentionHours: 720,
+      allowsCloudSync: true,
+    });
 
     expect(toWireCaps(FREE_CAPS)).toEqual({
+      dailyUploadLimit: 3,
+      maxFileSizeBytes: 100 * 1024 * 1024,
+      maxRetentionSeconds: 24 * 60 * 60,
+      allowsCloudSync: false,
+    });
+    expect(toWireCaps(PRO_CAPS)).toEqual({
       dailyUploadLimit: null,
       maxFileSizeBytes: 2 * 1024 * 1024 * 1024,
       maxRetentionSeconds: 30 * 24 * 60 * 60,
-      allowsCloudSync: false,
+      allowsCloudSync: true,
     });
   });
 });

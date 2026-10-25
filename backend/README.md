@@ -254,9 +254,8 @@ Response:
 }
 ```
 
-Each file in the batch counts as one event when a daily cap is configured.
-Launch Free uses the unlimited sentinel, so the KV counter is skipped. If caps
-are tightened later, over-cap batches fail fast with `429` before any DB
+Each file in the batch counts as one event against the daily cap (free tier
+= 3/day) — an over-cap batch from a free user fails fast with `429` before any DB
 insert. Junction-table idempotency is keyed on `(share_link_id,
 upload_job_id)`: re-completing the same `uploadId` is a no-op. Two slots
 that dedup to the same R2 asset still occupy two distinct junction rows

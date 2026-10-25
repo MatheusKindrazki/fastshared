@@ -133,8 +133,15 @@ struct SettingsView: View {
                         .sheet(isPresented: $showRetentionPicker) {
                             RetentionPickerSheet(
                                 selected: $defaultRetention,
+                                maxRetentionSeconds: snapshot.caps.maxRetentionSeconds,
                                 onSave: { policy in
                                     appGroupDefaults?.set(policy.rawValue, forKey: retentionKey)
+                                },
+                                onGatedSelect: { policy in
+                                    showRetentionPicker = false
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                        paywallCoordinator.present(.longRetentionRequested(policy: policy))
+                                    }
                                 }
                             )
                         }
@@ -246,8 +253,10 @@ struct SettingsView: View {
             refreshOpenAtLogin()
             #endif
             snapshot = await subscriptionStore.currentSnapshot()
+            clampDefaultRetentionIfNeeded(for: snapshot)
             for await next in subscriptionStore.snapshotStream {
                 snapshot = next
+                clampDefaultRetentionIfNeeded(for: next)
             }
         }
         .task {
@@ -796,6 +805,13 @@ struct SettingsView: View {
         }
     }
 
+    private func clampDefaultRetentionIfNeeded(for snap: SubscriptionSnapshot) {
+        if defaultRetention.ttlSeconds > snap.caps.maxRetentionSeconds {
+            defaultRetention = .default
+            appGroupDefaults?.set(RetentionPolicy.default.rawValue, forKey: retentionKey)
+        }
+    }
+
     private func loadCloudSync() {
         if let stored = appGroupDefaults?.object(forKey: cloudSyncKey) as? Bool {
             cloudSyncOn = stored
@@ -845,7 +861,9 @@ struct SettingsView: View {
 
 private struct RetentionPickerSheet: View {
     @Binding var selected: RetentionPolicy
+    let maxRetentionSeconds: TimeInterval
     let onSave: (RetentionPolicy) -> Void
+    let onGatedSelect: (RetentionPolicy) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -853,13 +871,19 @@ private struct RetentionPickerSheet: View {
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(Array(RetentionPolicy.shareable.enumerated()), id: \.offset) { _, policy in
+                        let isGated = policy.ttlSeconds > maxRetentionSeconds
                         RetentionPickerRow(
                             policy: policy,
                             isSelected: policy == selected,
+                            isGated: isGated,
                             onTap: {
-                                selected = policy
-                                onSave(policy)
-                                dismiss()
+                                if isGated {
+                                    onGatedSelect(policy)
+                                } else {
+                                    selected = policy
+                                    onSave(policy)
+                                    dismiss()
+                                }
                             }
                         )
                     }
@@ -882,12 +906,18 @@ private struct RetentionPickerSheet: View {
 private struct RetentionPickerRow: View {
     let policy: RetentionPolicy
     let isSelected: Bool
+    let isGated: Bool
     let onTap: () -> Void
 
     var body: some View {
         HStack {
             Text(policy.displayName)
                 .font(.body)
+            if isGated {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.sysSecondaryLabel)
+            }
             Spacer()
             if isSelected {
                 Image(systemName: "checkmark")
@@ -899,6 +929,7 @@ private struct RetentionPickerRow: View {
         .padding(.vertical, 14)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .accessibilityLabel(isGated ? "\(policy.displayName), Pro only" : policy.displayName)
     }
 }
 

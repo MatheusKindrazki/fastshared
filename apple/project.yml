@@ -93,6 +93,7 @@ targets:
           - CFBundleURLName: dev.kindrazki.fastshared
             CFBundleURLSchemes:
               - fastshared
+              - fastsharedapp
         # WHY: CKSyncEngine relies on CloudKit silent pushes to wake the app and
         # pull cross-device changes. Declaring remote-notification lets iOS launch
         # us in the background on those pushes; without it, sync only runs while

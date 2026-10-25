@@ -51,12 +51,13 @@ Every link expires. Every file is deleted. By design.
 
 | Tier | File size | Retention | Uploads | Sync |
 | ---- | --------- | --------- | ------- | ---- |
-| Free launch access | 2 GB per file | Up to 30 days | Unlimited | Local history |
+| Free | 100 MB per file | Up to 24 hours | 3 per day | Local history |
 | Pro | 2 GB per file | Up to 30 days | Unlimited | iCloud metadata sync |
 
-The backend is the source of truth for caps and retention. For launch, Free
-uses Pro upload ceilings while keeping account-level sync features (`allowsCloudSync`)
-and Lifetime Family Sharing gated behind an active StoreKit 2 Pro entitlement (`PRO_FOR_ALL_USERS="false"`).
+The backend is the source of truth for caps and retention. Free users receive
+3 uploads per day, up to 100 MB per file, and up to 24-hour retention; Pro
+unlocks unlimited uploads, 2 GB files, up to 30-day retention, iCloud metadata
+sync (`allowsCloudSync`), and Lifetime Family Sharing via StoreKit 2 (`PRO_FOR_ALL_USERS="false"`).
 
 ## How it works
 

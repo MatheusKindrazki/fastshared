@@ -67,12 +67,12 @@ final class UsageTrackerTests: XCTestCase {
         XCTAssertEqual(newDay, 0)
     }
 
-    func test_remaining_forLaunchFree_returnsUnlimitedSentinel() async {
+    func test_remaining_forFree_cappedAt3() async {
         let tracker = UsageTracker(clock: FakeClock("2026-04-19"), defaults: isolatedDefaults())
         _ = await tracker.increment()
         _ = await tracker.increment()
         let remaining = await tracker.remaining(for: .free)
-        XCTAssertEqual(remaining, UsageUnlimited)
+        XCTAssertEqual(remaining, 1)
     }
 
     func test_remaining_forPro_returnsUnlimitedSentinel() async {

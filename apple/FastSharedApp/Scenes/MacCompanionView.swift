@@ -510,6 +510,30 @@ struct MacCompanionView: View {
                     bundleCard = nil
                 }
             }
+        } catch let gate as SubscriptionGate {
+            switch gate {
+            case .dailyCapReached(let used, let cap):
+                paywallCoordinator.present(.dailyCapReached(used: used, cap: cap))
+            case .fileTooLarge(let size, _):
+                paywallCoordinator.present(.largeFileRequested(sizeBytes: size))
+            case .retentionTooLong(let seconds, _):
+                let policy: RetentionPolicy = {
+                    switch seconds {
+                    case 0...60: return .oneMinute
+                    case 0...3600: return .oneHour
+                    case 0...86_400: return .oneDay
+                    case 0...604_800: return .oneWeek
+                    default: return .oneMonth
+                    }
+                }()
+                paywallCoordinator.present(.longRetentionRequested(policy: policy))
+            case .cloudSyncRequiresPro:
+                paywallCoordinator.present(.cloudSyncRequested)
+            }
+        } catch let error as APIError {
+            if case .paymentRequired(let code, _) = error {
+                paywallCoordinator.present(.serverForced(errorCode: code))
+            }
         } catch {
             // Errors surface via the orchestrator's per-job failure markers;
             // we don't have a dedicated bundle error toast in this iteration.
