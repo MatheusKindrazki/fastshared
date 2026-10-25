@@ -18,6 +18,10 @@ vi.mock('~/lib/appStoreServerApi', async () => {
   const actual = await vi.importActual<typeof import('~/lib/appStoreServerApi')>(
     '~/lib/appStoreServerApi',
   );
+  const purchaseDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const expiresIn30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const expiresIn60Days = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+
   return {
     ...actual,
     createAppStoreServerApi: () => ({
@@ -30,8 +34,8 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             transactionId: 'TX-1',
             originalTransactionId: 'OTX-1',
             productId: 'red.fastsha.pro.monthly',
-            purchaseDate: new Date('2026-04-01T00:00:00Z'),
-            expiresDate: new Date('2026-05-01T00:00:00Z'),
+            purchaseDate,
+            expiresDate: expiresIn30Days,
             environment: 'Production' as const,
             bundleId: 'red.fastsha.FastShared',
             raw: {},
@@ -42,7 +46,7 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             transactionId: 'TX-LT',
             originalTransactionId: 'OTX-LT',
             productId: 'red.fastsha.pro.lifetime',
-            purchaseDate: new Date('2026-04-01T00:00:00Z'),
+            purchaseDate,
             expiresDate: null,
             environment: 'Production' as const,
             bundleId: 'red.fastsha.FastShared',
@@ -54,8 +58,8 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             transactionId: 'TX-UP',
             originalTransactionId: 'OTX-UP',
             productId: 'red.fastsha.pro.not-a-product',
-            purchaseDate: new Date('2026-04-01T00:00:00Z'),
-            expiresDate: new Date('2026-05-01T00:00:00Z'),
+            purchaseDate,
+            expiresDate: expiresIn30Days,
             environment: 'Production' as const,
             bundleId: 'red.fastsha.FastShared',
             raw: {},
@@ -66,8 +70,8 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             transactionId: 'TX-SB',
             originalTransactionId: 'OTX-SB',
             productId: 'red.fastsha.pro.monthly',
-            purchaseDate: new Date('2026-04-01T00:00:00Z'),
-            expiresDate: new Date('2026-05-01T00:00:00Z'),
+            purchaseDate,
+            expiresDate: expiresIn30Days,
             environment: 'Sandbox' as const,
             bundleId: 'red.fastsha.FastShared',
             raw: {},
@@ -78,8 +82,8 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             transactionId: 'TX-1B',
             originalTransactionId: 'OTX-1',
             productId: 'red.fastsha.pro.monthly',
-            purchaseDate: new Date('2026-04-01T00:00:00Z'),
-            expiresDate: new Date('2026-06-01T00:00:00Z'),
+            purchaseDate,
+            expiresDate: expiresIn60Days,
             environment: 'Production' as const,
             bundleId: 'red.fastsha.FastShared',
             raw: {},
@@ -90,7 +94,7 @@ vi.mock('~/lib/appStoreServerApi', async () => {
             transactionId: 'TX-GRACE',
             originalTransactionId: 'OTX-GRACE',
             productId: 'red.fastsha.pro.monthly',
-            purchaseDate: new Date('2026-04-01T00:00:00Z'),
+            purchaseDate,
             expiresDate: new Date(Date.now() + 7 * 86_400 * 1000),
             environment: 'Production' as const,
             bundleId: 'red.fastsha.FastShared',
@@ -112,7 +116,7 @@ vi.mock('~/lib/appStoreServerApi', async () => {
         return {
           status: 0,
           tier: 'monthly' as const,
-          expiresDate: new Date('2026-05-01T00:00:00Z'),
+          expiresDate: expiresIn30Days,
           autoRenewStatus: true,
           latestTransactionId: 'TX-1',
           originalTransactionId: 'OTX-1',
