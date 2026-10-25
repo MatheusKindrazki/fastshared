@@ -399,6 +399,7 @@ private struct LibrarySidebar: View {
     let lineColor: Color
     let surfaceColor: Color
     let devices: [DeviceEntity]
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
     @State private var showSettings = false
 
     private let deviceVisibilityWindow: TimeInterval = 30 * 24 * 60 * 60  // 30 days
