@@ -346,6 +346,10 @@ struct LibraryView: View {
                 _ = try await service.enqueueDrop(urls: urls)
             } catch let gate as SubscriptionGate {
                 await MainActor.run { routePaywall(for: gate) }
+            } catch let error as APIError {
+                if case .paymentRequired(let code, _) = error {
+                    await MainActor.run { paywallCoordinator.present(.serverForced(errorCode: code)) }
+                }
             } catch {
                 Logger(subsystem: "dev.kindrazki.fastshared", category: "upload")
                     .error("LibraryView drop failed: \(String(describing: error), privacy: .public)")
@@ -395,6 +399,7 @@ private struct LibrarySidebar: View {
     let lineColor: Color
     let surfaceColor: Color
     let devices: [DeviceEntity]
+    @Environment(\.paywallCoordinator) private var paywallCoordinator
     @State private var showSettings = false
 
     private let deviceVisibilityWindow: TimeInterval = 30 * 24 * 60 * 60  // 30 days
@@ -480,6 +485,11 @@ private struct LibrarySidebar: View {
                 #if os(macOS)
                 .frame(minWidth: 520, minHeight: 640)
                 #endif
+        }
+        .onChange(of: paywallCoordinator.pending) { _, pending in
+            if pending != nil && showSettings {
+                showSettings = false
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("dev.kindrazki.fastshared.openSettings"))) { _ in
             showSettings = true

@@ -476,6 +476,7 @@ final class TrayManager: NSObject {
     private var popover: NSPopover?
     private var trayView: TrayIconView?
     private var uploadService: UploadServiceProtocol?
+    private var paywallCoordinator: PaywallCoordinator?
 
     /// Non-zero while a drag is in flight — prevents the popover from
     /// snapping shut when the cursor leaves the tiny tray button on its
@@ -494,8 +495,11 @@ final class TrayManager: NSObject {
 
     // MARK: - Setup
 
-    func configure(with rootView: some View, uploadService: UploadServiceProtocol?) {
+    func configure(with rootView: some View,
+                   uploadService: UploadServiceProtocol?,
+                   paywallCoordinator: PaywallCoordinator? = nil) {
         self.uploadService = uploadService
+        self.paywallCoordinator = paywallCoordinator
         createStatusItem()
         createPopover(with: rootView)
         startProgressPolling()
@@ -640,6 +644,27 @@ final class TrayManager: NSObject {
                         )
                     }
                     self.refreshIcon()
+                    if let gate = error as? SubscriptionGate, let coordinator = self.paywallCoordinator {
+                        self.closePopover()
+                        MacLaunchAtLoginController.showMainWindow()
+                        switch gate {
+                        case .dailyCapReached(let used, let cap):
+                            coordinator.present(.dailyCapReached(used: used, cap: cap))
+                        case .fileTooLarge(let size, _):
+                            coordinator.present(.largeFileRequested(sizeBytes: size))
+                        case .retentionTooLong(let seconds, _):
+                            let policy: RetentionPolicy = seconds <= 86_400 ? .oneDay : (seconds <= 604_800 ? .oneWeek : .oneMonth)
+                            coordinator.present(.longRetentionRequested(policy: policy))
+                        case .cloudSyncRequiresPro:
+                            coordinator.present(.cloudSyncRequested)
+                        }
+                    } else if let apiError = error as? APIError,
+                              case .paymentRequired(let code, _) = apiError,
+                              let coordinator = self.paywallCoordinator {
+                        self.closePopover()
+                        MacLaunchAtLoginController.showMainWindow()
+                        coordinator.present(.serverForced(errorCode: code))
+                    }
                 }
                 log.error("Tray drop upload failed: \(error.localizedDescription, privacy: .public)")
             }

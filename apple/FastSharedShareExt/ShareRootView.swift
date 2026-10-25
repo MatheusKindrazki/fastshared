@@ -491,8 +491,14 @@ private struct IdleStage: View {
             if let store = try? await SubscriptionStoreLocator.shared.current() {
                 let snap = await store.currentSnapshot()
                 tier = snap.isPro ? .pro(snap.tier ?? .monthly) : .free
+                if viewModel.retentionPolicy.ttlSeconds > tier.caps.maxRetentionSeconds {
+                    viewModel.retentionPolicy = .default
+                }
                 for await next in store.snapshotStream {
                     tier = next.isPro ? .pro(next.tier ?? .monthly) : .free
+                    if viewModel.retentionPolicy.ttlSeconds > tier.caps.maxRetentionSeconds {
+                        viewModel.retentionPolicy = .default
+                    }
                 }
             }
         }
@@ -1093,7 +1099,7 @@ struct SharePaywallSheet: View {
                 .padding(.horizontal, 24)
             Spacer()
             Button {
-                if let url = URL(string: "fastsharedapp://paywall") {
+                if let url = paywallDeepLinkURL {
                     openURL(url)
                 }
                 onDismiss()
@@ -1123,6 +1129,18 @@ struct SharePaywallSheet: View {
             .padding(.bottom, 12)
         }
         .background(groundColor.ignoresSafeArea())
+    }
+
+    private var paywallDeepLinkURL: URL? {
+        let reason: String
+        switch trigger {
+        case .dailyCapReached: reason = "daily_cap"
+        case .cloudSyncRequested: reason = "cloud_sync"
+        case .longRetentionRequested: reason = "long_retention"
+        case .largeFileRequested: reason = "large_file"
+        case .serverForced: reason = "server_forced"
+        }
+        return URL(string: "fastshared://paywall?trigger=\(reason)")
     }
 
     private var headline: String {

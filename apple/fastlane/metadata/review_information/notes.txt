@@ -21,6 +21,6 @@ Steps to locate In-App Purchases in the app:
 6. Tap "View Pro plans". This opens the FastShared Pro paywall.
 7. The paywall shows the Monthly, Annual, and Lifetime purchase options. Tap any plan to start the Apple sandbox purchase flow, or tap "Restore purchases" to test restore.
 
-For launch, the basic upload flow is intentionally unlimited: users can upload without a daily cap, use files up to 2 GB, and choose retention up to 30 days. The "View Pro plans" row remains available in Settings so App Review can open the paywall and test the sandbox purchases directly.
+Free users receive 3 uploads per day, up to 100 MB per file, and up to 24-hour retention. Pro unlocks unlimited uploads, 2 GB files, up to 30-day retention, iCloud history sync, priority support, and Family Sharing on Lifetime. You can trigger the paywall by tapping "View Pro plans" in Settings, tapping a locked 7d/30d retention chip, or exceeding the Free limits.
 
 User-generated content is limited to private bearer links created by the reviewer during testing. There is no public feed, user search, follower graph, chat, comments, or permanent hosting. Uploaded files are private, revocable, and automatically deleted after their retention window. The public report endpoint for abuse is /v1/report/:token.

@@ -26,16 +26,20 @@ YOUR FILES, YOUR RULES
 - Bearer links with high-entropy tokens. The link is the credential. Revoke any time.
 - noindex, no-referrer, no-store on every resolve so tokens stay out of search engines, referrer chains, and caches.
 
-LAUNCH ACCESS
+FREE TIER
+- 3 uploads per day.
+- Files up to 100 MB.
+- Link retention up to 24 hours.
+- Local history and instant link revocation.
+
+FASTSHARED PRO
 - Unlimited uploads per day.
 - Files up to 2 GB.
 - Link retention up to 30 days.
-
-FASTSHARED PRO
 - iCloud history sync across iPhone, iPad, and Mac.
-- Family Sharing on Lifetime.
+- Family Sharing on Lifetime (up to 6 family members).
 - Priority support.
-- Monthly, annual, or lifetime purchase.
+- Available as Monthly, Annual, or one-time Lifetime purchase.
 
 NOT INCLUDED - ON PURPOSE
 - No permanent hosting. Every file has a deletion deadline.

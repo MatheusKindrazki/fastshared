@@ -312,6 +312,11 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
             throw APIError.paymentRequired(errorCode: problem?.code ?? "payment_required",
                                            problem: problem)
         case 429:
+            let problem = try? decoder.decode(Problem.self, from: data)
+            if problem?.code == "free_tier_daily_exceeded" {
+                throw APIError.paymentRequired(errorCode: "free_tier_daily_exceeded",
+                                               problem: problem)
+            }
             let retryAfter = response.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
             throw APIError.ratelimited(retryAfter: retryAfter)
         default:
