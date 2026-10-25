@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
 # WHY: one-off diagnostic — pulls the real submission state from App Store
 # Connect (versions, builds, IAPs, agreement) so we can decide what's needed
 # to resubmit after a rejection. Read-only. No mutations.
@@ -8,7 +9,7 @@ require "spaceship"
 key_id    = ENV.fetch("APPSTORE_CONNECT_API_KEY_ID")
 issuer_id = ENV.fetch("APPSTORE_CONNECT_API_KEY_ISSUER_ID")
 key_path  = ENV.fetch("APPSTORE_CONNECT_API_KEY_PATH")
-bundle_id = ENV["APPSTORE_BUNDLE_ID"] || "red.fastsha.fastshared"
+bundle_id = ENV["APPSTORE_BUNDLE_ID"] || "dev.kindrazki.fastshared"
 
 token = Spaceship::ConnectAPI::Token.create(
   key_id: key_id,
@@ -69,13 +70,11 @@ end
 
 puts "=== Latest builds (any platform, last 5) ==="
 begin
-  builds = Spaceship::ConnectAPI::Build.all(
-    app_id: app.id,
-    sort: "-uploadedDate",
-    limit: 5
-  )
-  builds.each do |b|
-    puts "  • v#{b.version} processing=#{b.processing_state} uploaded=#{b.uploaded_date} expired=#{b.expired}"
+  client = Spaceship::ConnectAPI.tunes_request_client
+  res_builds = client.get("v1/builds", filter: { app: app.id }, sort: "-uploadedDate", limit: 5).body
+  Array(res_builds["data"]).first(5).each do |b|
+    attr = b["attributes"] || {}
+    puts "  • v#{attr["version"]} processing=#{attr["processingState"]} uploaded=#{attr["uploadedDate"]} expired=#{attr["expired"]}"
   end
 rescue => e
   puts "  error: #{e.message}"
@@ -84,20 +83,11 @@ puts
 
 puts "=== In-App Purchases ==="
 begin
-  iaps = Spaceship::ConnectAPI::AppStoreVersion # placeholder
-  # IAPs live under app.get_in_app_purchases on newer spaceship; fall back if missing
-  if app.respond_to?(:get_in_app_purchases_v2)
-    iaps = app.get_in_app_purchases_v2
-    iaps.each do |iap|
-      puts "  • #{iap.product_id} — state: #{iap.state} (#{iap.in_app_purchase_type})"
-    end
-  elsif app.respond_to?(:get_in_app_purchases)
-    iaps = app.get_in_app_purchases
-    iaps.each do |iap|
-      puts "  • #{iap.product_id} — state: #{iap.state}"
-    end
-  else
-    puts "  (Spaceship version too old to enumerate IAPs)"
+  client = Spaceship::ConnectAPI.tunes_request_client
+  res_iap = client.get("v1/apps/#{app.id}/inAppPurchasesV2").body
+  Array(res_iap["data"]).each do |iap|
+    attr = iap["attributes"] || {}
+    puts "  • #{attr["productId"]} — state: #{attr["state"]} (#{attr["inAppPurchaseType"]})"
   end
 rescue => e
   puts "  error: #{e.message}"
@@ -106,12 +96,15 @@ puts
 
 puts "=== Subscriptions ==="
 begin
-  groups = app.get_subscription_groups
-  groups.each do |grp|
-    puts "Group: #{grp.reference_name}"
-    subs = grp.get_subscriptions
-    subs.each do |s|
-      puts "  • #{s.product_id} — state=#{s.state} (#{s.subscription_period || '—'})"
+  client = Spaceship::ConnectAPI.tunes_request_client
+  res_grp = client.get("v1/apps/#{app.id}/subscriptionGroups").body
+  Array(res_grp["data"]).each do |grp|
+    gattr = grp["attributes"] || {}
+    puts "Group: #{gattr["referenceName"]}"
+    res_sub = client.get("v1/subscriptionGroups/#{grp["id"]}/subscriptions").body
+    Array(res_sub["data"]).each do |s|
+      sattr = s["attributes"] || {}
+      puts "  • #{sattr["productId"]} — state=#{sattr["state"]} (#{sattr["subscriptionPeriod"] || '—'})"
     end
   end
 rescue => e
