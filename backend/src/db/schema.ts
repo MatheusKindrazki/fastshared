@@ -150,6 +150,22 @@ export const shareLink = pgTable(
   }),
 );
 
+export const abuseReport = pgTable(
+  'abuse_report',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    shareLinkId: uuid('share_link_id')
+      .notNull()
+      .references(() => shareLink.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (t) => ({ linkIdx: index('abuse_report_share_link_idx').on(t.shareLinkId) }),
+);
+
 // Junction between a bundle share_link and the assets it groups. displayOrder
 // is the stable render order (UNIQUE per link in SQL). Cascading delete on
 // share_link mirrors how single links die when their share row is dropped.

@@ -71,6 +71,13 @@ export interface BundleAssetRow {
   displayOrder: number;
   createdAt: Date;
 }
+export interface AbuseReportRow {
+  id: string;
+  shareLinkId: string;
+  reason: string;
+  createdAt: Date;
+  resolvedAt: Date | null;
+}
 export interface UploadJobRow {
   id: string;
   deviceId: string;
@@ -115,6 +122,7 @@ export interface Store {
   deletionJobs: DeletionJobRow[];
   subscriptions: SubscriptionRow[];
   bundleAssets: BundleAssetRow[];
+  abuseReports: AbuseReportRow[];
 }
 
 export const store: Store = emptyStore();
@@ -129,6 +137,7 @@ function emptyStore(): Store {
     deletionJobs: [],
     subscriptions: [],
     bundleAssets: [],
+    abuseReports: [],
   };
 }
 
@@ -141,6 +150,7 @@ export function resetStore(): void {
   store.deletionJobs.length = 0;
   store.subscriptions.length = 0;
   store.bundleAssets.length = 0;
+  store.abuseReports.length = 0;
 }
 
 export const TEST_ENV: Env = {
@@ -361,6 +371,13 @@ export function installDrizzleFake(): void {
                   },
                 );
               }
+              if (name === 'abuse_report') {
+                return chain<AbuseReportRow>(
+                  () => store.abuseReports,
+                  (r, conds) =>
+                    conds.length === 0 || conds.includes(r.id) || conds.includes(r.shareLinkId),
+                );
+              }
               if (name === 'subscription') {
                 return chain<SubscriptionRow>(
                   () => store.subscriptions,
@@ -469,6 +486,16 @@ export function installDrizzleFake(): void {
                       createdAt: new Date(),
                     };
                     store.bundleAssets.push(row);
+                    out.push(row);
+                  } else if (name === 'abuse_report') {
+                    const row: AbuseReportRow = {
+                      id: crypto.randomUUID(),
+                      shareLinkId: v.shareLinkId as string,
+                      reason: v.reason as string,
+                      createdAt: new Date(),
+                      resolvedAt: null,
+                    };
+                    store.abuseReports.push(row);
                     out.push(row);
                   } else if (name === 'upload_job') {
                     const matchIdx = store.uploadJobs.findIndex(
@@ -645,6 +672,7 @@ export function installDrizzleFake(): void {
                   };
                   if (name === 'asset') applyAll(store.assets);
                   if (name === 'share_link') applyAll(store.shareLinks);
+                  if (name === 'abuse_report') applyAll(store.abuseReports);
                   if (name === 'upload_job') applyAll(store.uploadJobs);
                   if (name === 'deletion_job') applyAll(store.deletionJobs);
                   if (name === 'device') applyAll(store.devices);

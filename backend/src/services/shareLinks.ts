@@ -82,6 +82,15 @@ export async function revokeByToken(
   return { status: 'ok', link: updated ?? null };
 }
 
+export async function revokeByTokenAsAdmin(db: Db, token: string): Promise<ShareLink | null> {
+  const [updated] = await db
+    .update(shareLink)
+    .set({ linkStatus: 'revoked', revokedAt: new Date() })
+    .where(and(eq(shareLink.token, token), inArray(shareLink.linkStatus, ['active', 'pending'])))
+    .returning();
+  return updated ?? null;
+}
+
 export async function markExpiredByAssetId(db: Db, assetId: string): Promise<void> {
   await db
     .update(shareLink)
