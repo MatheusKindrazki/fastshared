@@ -105,11 +105,12 @@ function decodeBase64(value: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-function notificationBody(filename?: string | null): string {
-  const clean = filename?.trim();
-  if (!clean) return 'Your shared link was opened.';
-  const clipped = clean.length > 80 ? `${clean.slice(0, 77)}...` : clean;
-  return `"${clipped}" was opened.`;
+export function linkOpenedAlertBody(): string {
+  return 'Opened in a browser';
+}
+
+function notificationBody(_filename?: string | null): string {
+  return linkOpenedAlertBody();
 }
 
 async function safeText(response: Response): Promise<string> {
