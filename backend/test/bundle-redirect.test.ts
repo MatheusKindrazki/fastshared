@@ -186,9 +186,28 @@ describe('bundle redirect (M2)', () => {
   beforeEach(() => {
     resetStore();
     resetKv();
+    TEST_ENV.USER_CONTENT_HOST = '';
     installR2Fake();
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  it('sandboxes bundle HTML and redirects its preview to the dedicated origin when configured', async () => {
+    const seeded = seedBundle({
+      itemCount: 1,
+      perAsset: [{ contentType: 'text/html', sizeBytes: 4 }],
+    });
+    const target = seeded.assets[0]!;
+    await putR2Bytes(target.storageKey, new Uint8Array([1, 2, 3, 4]));
+    const local = await get(`/b/${seeded.token}/p/${target.assetId}`);
+    expect(local.status).toBe(200);
+    expect(local.headers.get('Content-Security-Policy')).toContain('sandbox;');
+    TEST_ENV.USER_CONTENT_HOST = 'https://usercontent.example';
+    const redirected = await get(`/b/${seeded.token}/p/${target.assetId}`);
+    expect(redirected.status).toBe(302);
+    expect(redirected.headers.get('Location')).toBe(
+      `https://usercontent.example/b/${seeded.token}/p/${target.assetId}`,
+    );
   });
 
   it('GET /b/:token on an active bundle returns 200 HTML listing each asset', async () => {

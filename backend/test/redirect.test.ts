@@ -157,11 +157,81 @@ describe('redirect proxy', () => {
   beforeEach(() => {
     resetStore();
     resetKv();
+    TEST_ENV.USER_CONTENT_HOST = '';
     installR2Fake();
     // Silence `log` noise from Hono's logger middleware.
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     apnsMocks.sendLinkOpenedNotification.mockClear();
+  });
+
+  it.each([
+    ['text/html; charset=utf-8', true],
+    ['application/xhtml+xml', true],
+    ['image/svg+xml', true],
+    ['text/xml', true],
+    ['application/xml', true],
+    ['application/atom+xml', true],
+    ['text/plain', true],
+    ['image/png', false],
+    ['application/pdf', false],
+  ])('raw %s has active-content sandbox: %s', async (contentType, active) => {
+    const { token, storageKey } = seedLinkAndAsset({ contentType, sizeBytes: 4 });
+    await putR2Bytes(storageKey, new Uint8Array([1, 2, 3, 4]));
+    const res = await get(`/s/${token}/raw`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Disposition')).toMatch(/^inline/);
+    const csp = res.headers.get('Content-Security-Policy');
+    if (active) {
+      expect(csp).toContain('sandbox;');
+      expect(csp).not.toMatch(/allow-scripts|allow-forms|allow-same-origin/);
+    } else {
+      expect(csp).toBeNull();
+    }
+  });
+
+  it('redirects active raw bytes to the dedicated origin and keeps inert bytes local', async () => {
+    TEST_ENV.USER_CONTENT_HOST = 'https://usercontent.example';
+    const html = seedLinkAndAsset({ contentType: 'text/html', sizeBytes: 4 });
+    await putR2Bytes(html.storageKey, new Uint8Array([1, 2, 3, 4]));
+    const redirect = await get(`/s/${html.token}/raw`);
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.get('Location')).toBe(
+      `https://usercontent.example/s/${html.token}/raw`,
+    );
+    const isolated = await worker.fetch(
+      new Request(redirect.headers.get('Location')!),
+      TEST_ENV,
+      ctx,
+    );
+    expect(isolated.status).toBe(200);
+    expect(isolated.headers.get('Content-Security-Policy')).toContain('sandbox;');
+    expect(await isolated.arrayBuffer()).toHaveProperty('byteLength', 4);
+    const blocked = await worker.fetch(
+      new Request('https://usercontent.example/v1/health'),
+      TEST_ENV,
+      ctx,
+    );
+    expect(blocked.status).toBe(404);
+
+    const png = seedLinkAndAsset({
+      token: 'pngTokenAAAAAAAAAAAAAA',
+      contentType: 'image/png',
+      sizeBytes: 4,
+    });
+    await putR2Bytes(png.storageKey, new Uint8Array([1, 2, 3, 4]));
+    expect((await get(`/s/${png.token}/raw`)).status).toBe(200);
+  });
+
+  it('keeps the sandbox on partial and attachment responses for active content', async () => {
+    const { token, storageKey } = seedLinkAndAsset({ contentType: 'image/svg+xml', sizeBytes: 4 });
+    await putR2Bytes(storageKey, new Uint8Array([1, 2, 3, 4]));
+    const partial = await get(`/s/${token}/raw`, { range: 'bytes=0-1' });
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get('Content-Security-Policy')).toContain('sandbox;');
+    const download = await get(`/s/${token}/download`);
+    expect(download.headers.get('Content-Disposition')).toMatch(/^attachment/);
+    expect(download.headers.get('Content-Security-Policy')).toContain('sandbox;');
   });
 
   it('HTML Accept returns 200 with preview page + OG tags', async () => {

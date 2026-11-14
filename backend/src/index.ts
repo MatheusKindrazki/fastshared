@@ -12,6 +12,7 @@ import { historyRoutes } from '~/routes/history';
 import { assetRoutes } from '~/routes/assets';
 import { bundleRedirectRoutes, redirectRoutes } from '~/routes/redirect';
 import { revokeRoutes } from '~/routes/revoke';
+import { abuseRoutes } from '~/routes/abuse';
 import { wellKnownRoutes } from '~/routes/wellKnown';
 import { assetsPublicRoutes } from '~/routes/assetsPublic';
 import { iapRoutes } from '~/routes/iap';
@@ -58,6 +59,7 @@ app.route('/v1/uploads', uploadRoutes);
 app.route('/v1/history', historyRoutes);
 app.route('/v1/assets', assetRoutes);
 app.route('/v1/links', revokeRoutes);
+app.route('/v1/abuse-reports', abuseRoutes);
 app.route('/v1/iap', iapRoutes);
 app.route('/v1/me', meRoutes);
 app.route('/v1/account', accountRoutes);
@@ -100,6 +102,14 @@ function isAppPath(pathname: string): boolean {
 
 async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(req.url);
+  if (env.USER_CONTENT_HOST && url.host === new URL(env.USER_CONTENT_HOST).host) {
+    // The dedicated origin has no app, admin, preview chrome, or Pages surface.
+    const raw = /^\/s\/[^/]+\/raw$/.test(url.pathname);
+    const bundlePreview = /^\/b\/[^/]+\/p\/[^/]+$/.test(url.pathname);
+    if ((req.method !== 'GET' && req.method !== 'HEAD') || (!raw && !bundlePreview)) {
+      return new Response('Not Found', { status: 404 });
+    }
+  }
   if (url.hostname === 'fastsha.red' && !isAppPath(url.pathname)) {
     const target = new URL(url.pathname + url.search, PAGES_ORIGIN);
     const proxied = new Request(target.toString(), req);
