@@ -7,19 +7,20 @@ import type { Env } from '~/env';
 const TEST_ENV: Env = {
   DATABASE_URL: 'postgres://test',
   R2: {} as unknown as R2Bucket,
+  PUBLICATIONS: {} as unknown as R2Bucket,
   RATE_LIMIT: {} as unknown as KVNamespace,
   R2_ACCOUNT_ID: 'acc',
   R2_ACCESS_KEY_ID: 'k',
   R2_SECRET_ACCESS_KEY: 's',
   R2_BUCKET_NAME: 'fastshared-test',
+  PUBLICATION_BUCKET_NAME: 'fastshared-publications-test',
   SHORT_LINK_HOST: 'https://fastsha.red',
   PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',
   APP_ENV: 'test',
   APP_STORE_CONNECT_KEY_ID: 'TESTKEYID0',
   APP_STORE_CONNECT_ISSUER_ID: '00000000-0000-0000-0000-000000000000',
-  APP_STORE_CONNECT_P8_KEY_BASE64:
-    'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
+  APP_STORE_CONNECT_P8_KEY_BASE64: 'dGVzdC1wOC1wbGFjZWhvbGRlci1iYXNlNjQtZm9yLWVudi12YWxpZGF0aW9u',
   APPLE_BUNDLE_ID: 'red.fastsha.FastShared',
 };
 

@@ -44,3 +44,19 @@ export const PRO_CAPS: TierCaps = {
   maxRetentionHours: 720,
   allowsCloudSync: true,
 };
+
+export const PUBLICATION_FREE_CAPS = {
+  activePublications: 1,
+  maxUploadBytes: 25 * 1024 * 1024,
+  maxStorageBytes: 25 * 1024 * 1024,
+  lifetimeDays: 7,
+  openAlerts: 3,
+} as const;
+
+export const PUBLICATION_PRO_CAPS = {
+  activePublications: Number.POSITIVE_INFINITY,
+  maxUploadBytes: 250 * 1024 * 1024,
+  maxStorageBytes: 2 * 1024 * 1024 * 1024,
+  lifetimeDays: null,
+  openAlerts: Number.POSITIVE_INFINITY,
+} as const;

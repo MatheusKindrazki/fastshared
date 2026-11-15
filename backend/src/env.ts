@@ -3,14 +3,17 @@ import { z } from 'zod';
 export interface Env {
   DATABASE_URL: string;
   R2: R2Bucket;
+  PUBLICATIONS: R2Bucket;
   RATE_LIMIT: KVNamespace;
   R2_ACCOUNT_ID: string;
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
+  PUBLICATION_BUCKET_NAME: string;
   SHORT_LINK_HOST: string;
   // Optional dedicated origin for raw user bytes. Configure its Worker route separately.
   USER_CONTENT_HOST?: string;
+  PUBLICATION_HOST_SUFFIX?: string;
   // Secret for abuse takedown; provision only with wrangler secret put.
   ADMIN_TOKEN?: string;
   PUBLIC_API_HOST: string;
@@ -60,8 +63,10 @@ export const envSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_BUCKET_NAME: z.string().min(1),
+  PUBLICATION_BUCKET_NAME: z.string().min(1),
   SHORT_LINK_HOST: z.string().url(),
   USER_CONTENT_HOST: z.union([z.literal(''), z.string().url()]).optional(),
+  PUBLICATION_HOST_SUFFIX: z.string().optional(),
   PUBLIC_API_HOST: z.string().url(),
   DEVICE_TOKEN_PEPPER: z.string().min(16, 'DEVICE_TOKEN_PEPPER must be at least 16 chars'),
   APP_ENV: z.string().min(1),

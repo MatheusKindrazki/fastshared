@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -320,6 +321,161 @@ export const subscription = pgTable(
   }),
 );
 
+export const publication = pgTable(
+  'publication',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    slug: text('slug').notNull().unique(),
+    ownerUserId: uuid('owner_user_id').references(() => user.id, { onDelete: 'set null' }),
+    ownerDeviceId: uuid('owner_device_id')
+      .notNull()
+      .references(() => device.id),
+    title: text('title').notNull(),
+    status: text('status').notNull().default('active'),
+    // Circular reference is declared by the SQL migration after publication_version.
+    currentVersionId: uuid('current_version_id'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    notifyOnOpen: boolean('notify_on_open').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (t) => ({
+    ownerIdx: index('publication_owner_user_idx').on(t.ownerUserId),
+    deviceIdx: index('publication_owner_device_idx').on(t.ownerDeviceId),
+    expiryIdx: index('publication_expiry_idx').on(t.status, t.expiresAt),
+  }),
+);
+
+export const publicationVersion = pgTable(
+  'publication_version',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    publicationId: uuid('publication_id')
+      .notNull()
+      .references(() => publication.id, { onDelete: 'cascade' }),
+    number: integer('number').notNull(),
+    kind: text('kind').notNull(),
+    entryPath: text('entry_path'),
+    fileCount: integer('file_count').notNull().default(0),
+    totalBytes: bigint('total_bytes', { mode: 'number' }).notNull().default(0),
+    uploadKey: text('upload_key').notNull(),
+    uploadSizeBytes: bigint('upload_size_bytes', { mode: 'number' }).notNull(),
+    uploadContentType: text('upload_content_type').notNull(),
+    // pending | ready | failed; the SQL migration enforces the vocabulary.
+    state: text('state').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    numberUnique: uniqueIndex('publication_version_number_unique').on(t.publicationId, t.number),
+  }),
+);
+
+export const publicationFile = pgTable(
+  'publication_file',
+  {
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => publicationVersion.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    storageKey: text('storage_key').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: 'publication_file_version_path_pk', columns: [t.versionId, t.path] }),
+  }),
+);
+
+export const publicationOpen = pgTable(
+  'publication_open',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    publicationId: uuid('publication_id')
+      .notNull()
+      .references(() => publication.id, { onDelete: 'cascade' }),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => publicationVersion.id, { onDelete: 'cascade' }),
+    visitorHash: text('visitor_hash').notNull(),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    dedupeIdx: index('publication_open_dedupe_idx').on(
+      t.publicationId,
+      t.versionId,
+      t.visitorHash,
+      t.openedAt,
+    ),
+  }),
+);
+
+export const publicationOpenClaim = pgTable(
+  'publication_open_claim',
+  {
+    publicationId: uuid('publication_id')
+      .notNull()
+      .references(() => publication.id, { onDelete: 'cascade' }),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => publicationVersion.id, { onDelete: 'cascade' }),
+    visitorHash: text('visitor_hash').notNull(),
+    lastOpenedAt: timestamp('last_opened_at', { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({
+      name: 'publication_open_claim_pk',
+      columns: [t.publicationId, t.versionId, t.visitorHash],
+    }),
+  }),
+);
+
+export const publicationAbuseReport = pgTable(
+  'publication_abuse_report',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    publicationId: uuid('publication_id')
+      .notNull()
+      .references(() => publication.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    ipHash: text('ip_hash'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    recentIdx: index('publication_abuse_report_recent_idx').on(t.publicationId, t.createdAt),
+  }),
+);
+
+export const entitlement = pgTable(
+  'entitlement',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    source: text('source').notNull(),
+    externalId: text('external_id').notNull(),
+    status: text('status').notNull(),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    externalUnique: uniqueIndex('entitlement_source_external_unique').on(t.source, t.externalId),
+    userIdx: index('entitlement_user_idx').on(t.userId),
+  }),
+);
+
 export type User = InferSelectModel<typeof user>;
 export type NewUser = InferInsertModel<typeof user>;
 export type Device = InferSelectModel<typeof device>;
@@ -335,4 +491,5 @@ export type NewDeletionJob = InferInsertModel<typeof deletionJob>;
 export type Subscription = InferSelectModel<typeof subscription>;
 export type NewSubscription = InferInsertModel<typeof subscription>;
 export type BundleAsset = InferSelectModel<typeof bundleAsset>;
+export type Publication = InferSelectModel<typeof publication>;
 export type NewBundleAsset = InferInsertModel<typeof bundleAsset>;

@@ -2,6 +2,7 @@ import { and, eq, ne, sql } from 'drizzle-orm';
 import type { Db } from '~/db/client';
 import {
   device,
+  entitlement,
   subscription,
   user,
   type Subscription,
@@ -20,6 +21,20 @@ export async function findActiveByDeviceId(db: Db, deviceId: string): Promise<Su
   const rows = await db.select().from(subscription).where(eq(subscription.deviceId, deviceId));
   const now = new Date();
   return rows.find((row) => isSubscriptionEntitled(row, now)) ?? null;
+}
+
+export async function findActiveEntitlementForDevice(db: Db, deviceId: string): Promise<boolean> {
+  const [owner] = await db
+    .select({ userId: device.userId })
+    .from(device)
+    .where(eq(device.id, deviceId))
+    .limit(1);
+  if (!owner?.userId) return false;
+  const rows = await db
+    .select()
+    .from(entitlement)
+    .where(and(eq(entitlement.userId, owner.userId), eq(entitlement.status, 'active')));
+  return rows.length > 0;
 }
 
 // Pro-override check for developer/internal accounts. Resolves the device's
