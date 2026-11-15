@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
-import { detectMime, stageInputs } from '../src/stage.js';
+import { detectMime, stageArchiveFiles, stageInputs } from '../src/stage.js';
 
 describe('stageInputs', () => {
   it('stages a regular file with sha256 and mime detection', async () => {
@@ -46,6 +46,22 @@ describe('stageInputs', () => {
     expect(staged.contentType).toBe('application/zip');
     expect(staged.sourceKind).toBe('zip');
     expect((await readFile(staged.filePath)).subarray(0, 4).toString('hex')).toBe('504b0304');
+    await staged.cleanup();
+  });
+});
+
+describe('stageArchiveFiles', () => {
+  it('stores a single HTML file under index.html', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fastshared-stage-html-'));
+    const file = join(dir, 'page.html');
+    await writeFile(file, '<h1>Hi</h1>');
+
+    const staged = await stageArchiveFiles([{ fsPath: file, archivePath: 'index.html' }], 'page.zip');
+    const bytes = await readFile(staged.filePath);
+    expect(staged.filename).toBe('page.zip');
+    expect(staged.contentType).toBe('application/zip');
+    expect(bytes.includes(Buffer.from('index.html'))).toBe(true);
+    expect(bytes.includes(Buffer.from('<h1>Hi</h1>'))).toBe(true);
     await staged.cleanup();
   });
 });

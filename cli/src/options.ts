@@ -141,21 +141,222 @@ export function parseArgs(argv: string[]): ParsedArgs {
   };
 }
 
+export interface CommandFlags {
+  outputJson: boolean;
+  quiet: boolean;
+  help: boolean;
+  version: boolean;
+  apiUrl?: string;
+  configPath?: string;
+}
+
+export type ParsedCommand =
+  | ({ command: 'upload' } & ParsedArgs)
+  | ({
+      command: 'publish';
+      path?: string;
+      title?: string;
+      update?: string;
+    } & CommandFlags)
+  | ({
+      command: 'publications';
+      action?: 'list' | 'revoke' | 'opens';
+      target?: string;
+    } & CommandFlags)
+  | ({ command: 'mcp' } & CommandFlags);
+
+const SUBCOMMANDS = new Set(['publish', 'publications', 'mcp']);
+
+export function parseCommand(argv: string[]): ParsedCommand {
+  const { consumed, rest } = peelLeadingGlobals(argv);
+  const head = rest[0];
+  if (head && SUBCOMMANDS.has(head)) {
+    const flags = consumeFlags([...consumed, ...rest.slice(1)], {
+      title: head === 'publish',
+      update: head === 'publish',
+    });
+    return buildSubcommand(head, flags);
+  }
+  return { command: 'upload', ...parseArgs(argv) };
+}
+
 export function usage(): string {
   return `Usage: fastshared [options] <file|directory|-> [...]
+       fastshared publish <file|directory> [--title <text>] [--update <id|slug>]
+       fastshared publications list
+       fastshared publications revoke <id|slug>
+       fastshared publications opens <id|slug>
+       fastshared mcp
 
 Uploads a file to FastShared and prints the temporary URL.
+publish, publications, and mcp require the publications API.
 
 Options:
-  --ttl 60s|1h|1d|1w|30d  Link lifetime (default: 1h)
-  --json                  Print structured JSON instead of the URL only
+  --ttl 60s|1h|1d|1w|30d  Link lifetime for temporary uploads (default: 1h)
+  --json                  Print structured JSON instead of text
   --quiet                 Suppress progress logs on stderr
   --api-url <url>          Override API URL (default: ${DEFAULT_API_URL})
   --config <path>          Override config path
   --name <filename>        Filename for stdin or generated archive
+  --title <text>           Title for a publication
+  --update <id|slug>       Replace a publication and keep its URL
   --version               Print CLI version
   -h, --help              Show this help
 `;
+}
+
+interface FlagState extends CommandFlags {
+  title?: string;
+  update?: string;
+  positionals: string[];
+}
+
+function peelLeadingGlobals(argv: string[]): { consumed: string[]; rest: string[] } {
+  const consumed: string[] = [];
+  let index = 0;
+  while (index < argv.length) {
+    const arg = argv[index]!;
+    if (arg === '--json' || arg === '--quiet' || arg === '--help' || arg === '-h' || arg === '--version') {
+      consumed.push(arg);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--api-url=') || arg.startsWith('--config=')) {
+      consumed.push(arg);
+      index += 1;
+      continue;
+    }
+    if (arg === '--api-url' || arg === '--config') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) break;
+      consumed.push(arg, value);
+      index += 2;
+      continue;
+    }
+    break;
+  }
+  return { consumed, rest: argv.slice(index) };
+}
+
+function consumeFlags(args: string[], allowed: { title: boolean; update: boolean }): FlagState {
+  const state: FlagState = {
+    outputJson: false,
+    quiet: false,
+    help: false,
+    version: false,
+    positionals: [],
+  };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]!;
+    if (arg === '--') {
+      state.positionals.push(...args.slice(index + 1));
+      break;
+    }
+    if (arg === '--json') {
+      state.outputJson = true;
+      continue;
+    }
+    if (arg === '--quiet') {
+      state.quiet = true;
+      continue;
+    }
+    if (arg === '-h' || arg === '--help') {
+      state.help = true;
+      continue;
+    }
+    if (arg === '--version') {
+      state.version = true;
+      continue;
+    }
+    if (arg === '--api-url' || arg.startsWith('--api-url=')) {
+      state.apiUrl = stripTrailingSlash(flagValue(arg, args, index, '--api-url'));
+      if (arg === '--api-url') index += 1;
+      continue;
+    }
+    if (arg === '--config' || arg.startsWith('--config=')) {
+      state.configPath = flagValue(arg, args, index, '--config');
+      if (arg === '--config') index += 1;
+      continue;
+    }
+    if (allowed.title && (arg === '--title' || arg.startsWith('--title='))) {
+      state.title = flagValue(arg, args, index, '--title');
+      if (arg === '--title') index += 1;
+      continue;
+    }
+    if (allowed.update && (arg === '--update' || arg.startsWith('--update='))) {
+      state.update = flagValue(arg, args, index, '--update');
+      if (arg === '--update') index += 1;
+      continue;
+    }
+    if (arg.startsWith('--')) throw new UsageError(`unknown option: ${arg}`);
+    state.positionals.push(arg);
+  }
+  return state;
+}
+
+function buildSubcommand(head: string, state: FlagState): ParsedCommand {
+  const flags = commandFlags(state);
+  if (head === 'mcp') {
+    if (!state.help && !state.version && state.positionals.length > 0) {
+      throw new UsageError('mcp does not take a path. Usage: fastshared mcp');
+    }
+    return { command: 'mcp', ...flags };
+  }
+  if (head === 'publish') {
+    const pathArg = state.positionals[0];
+    if (!state.help && !state.version) {
+      if (state.positionals.length !== 1) throw new UsageError('publish expects one file or directory.');
+      if (pathArg === '-') throw new UsageError('publish reads a file or directory, not stdin.');
+    }
+    if (state.update && (state.update.includes('/') || state.update.includes('\\'))) {
+      throw new UsageError('publication id or slug cannot contain a slash.');
+    }
+    return {
+      command: 'publish',
+      ...flags,
+      ...(pathArg && pathArg !== '-' ? { path: pathArg } : {}),
+      ...(state.title ? { title: state.title } : {}),
+      ...(state.update ? { update: state.update } : {}),
+    };
+  }
+  const action = state.positionals[0];
+  const target = state.positionals[1];
+  if (!state.help && !state.version) {
+    if (action !== 'list' && action !== 'revoke' && action !== 'opens') {
+      throw new UsageError('publications expects list, revoke <id|slug>, or opens <id|slug>.');
+    }
+    if (action === 'list' && state.positionals.length !== 1) {
+      throw new UsageError('publications list does not take an id.');
+    }
+    if ((action === 'revoke' || action === 'opens') && state.positionals.length !== 2) {
+      throw new UsageError(`publications ${action} expects one id or slug.`);
+    }
+    if (target && (target.includes('/') || target.includes('\\'))) {
+      throw new UsageError('publication id or slug cannot contain a slash.');
+    }
+  }
+  return {
+    command: 'publications',
+    ...flags,
+    ...(action === 'list' || action === 'revoke' || action === 'opens' ? { action } : {}),
+    ...(target ? { target } : {}),
+  };
+}
+
+function commandFlags(state: FlagState): CommandFlags {
+  return {
+    outputJson: state.outputJson,
+    quiet: state.quiet,
+    help: state.help,
+    version: state.version,
+    ...(state.apiUrl ? { apiUrl: state.apiUrl } : {}),
+    ...(state.configPath ? { configPath: state.configPath } : {}),
+  };
+}
+
+function flagValue(arg: string, args: string[], index: number, flag: string): string {
+  if (arg.startsWith(`${flag}=`)) return arg.slice(flag.length + 1);
+  return readValue(args, index + 1, flag);
 }
 
 function readValue(args: string[], index: number, flag: string): string {

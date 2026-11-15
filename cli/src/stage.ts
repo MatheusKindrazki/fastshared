@@ -160,13 +160,46 @@ export async function sha256File(filePath: string): Promise<string> {
   return hash.digest('hex');
 }
 
+export async function stageArchiveFiles(
+  files: Array<{ fsPath: string; archivePath: string }>,
+  filename: string,
+): Promise<StagedUpload> {
+  const tempDir = await mkdtemp(join(tmpdir(), 'fastshared-'));
+  const safeName = filename.toLowerCase().endsWith('.zip') ? filename : `${filename}.zip`;
+  const filePath = join(tempDir, basename(safeName));
+  try {
+    await writeArchive(files, filePath);
+  } catch (err) {
+    await rm(tempDir, { recursive: true, force: true });
+    throw err;
+  }
+  const st = await stat(filePath);
+  return {
+    filePath,
+    filename: basename(safeName),
+    contentType: 'application/zip',
+    sizeBytes: st.size,
+    sha256: await sha256File(filePath),
+    sourceKind: 'zip',
+    cleanup: async () => {
+      await rm(tempDir, { recursive: true, force: true });
+    },
+  };
+}
+
 async function createZipArchive(
   inputs: string[],
   stats: Array<Awaited<ReturnType<typeof lstat>>>,
   cwd: string,
   outputPath: string,
 ): Promise<void> {
-  const files = await collectFiles(inputs, stats, cwd);
+  await writeArchive(await collectFiles(inputs, stats, cwd), outputPath);
+}
+
+async function writeArchive(
+  files: Array<{ fsPath: string; archivePath: string }>,
+  outputPath: string,
+): Promise<void> {
   if (files.length === 0) throw new Error('no files found to archive');
 
   const entries: ZipEntry[] = [];
