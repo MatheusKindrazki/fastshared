@@ -4,7 +4,7 @@ import { installDrizzleFake, resetStore, resetKv, store, TEST_ENV, ctx } from '.
 installDrizzleFake();
 
 const apnsMocks = vi.hoisted(() => ({
-  sendLinkOpenedNotification: vi.fn(async () => undefined),
+  sendLinkOpenedNotification: vi.fn(async () => true),
 }));
 
 vi.mock('~/services/apns', () => ({
@@ -190,7 +190,8 @@ describe('open alert', () => {
       expect(res.status).toBe(200);
       expect(res.headers.get('Content-Type')).toMatch(/text\/html/);
       const html = await res.text();
-      expect(html).toContain(`/s/${token}/opened`);
+      expect(html).toContain(`"/s/${token}/opened"`);
+      expect(html).not.toContain(`https://fastsha.red/s/${token}/opened`);
       expect(html).toContain('localStorage');
       expect(html).toContain('visibilityState');
       expect(html).toContain('1500');
@@ -255,7 +256,8 @@ describe('open alert', () => {
     const page = await fetchPath(`/b/${token}`, { headers: { accept: 'text/html' } });
     expect(page.status).toBe(200);
     const html = await page.text();
-    expect(html).toContain(`/s/${token}/opened`);
+    expect(html).toContain(`"/s/${token}/opened"`);
+    expect(html).not.toContain(`https://fastsha.red/s/${token}/opened`);
     expect(html).toContain('visibilityState');
     expect(html).toContain('localStorage');
     await vi.waitFor(() => {

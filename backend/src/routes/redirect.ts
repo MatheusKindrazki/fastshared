@@ -171,7 +171,7 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
     previewUrl: `${c.env.SHORT_LINK_HOST}/s/${token}/raw`,
     canonicalUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
     ogImageUrl: `${c.env.SHORT_LINK_HOST}/og-image.png`,
-    openedUrl: `${c.env.SHORT_LINK_HOST}/s/${token}/opened`,
+    openedUrl: `/s/${token}/opened`,
     ...(textPreview !== undefined ? { textPreview, textTruncated } : {}),
   });
 }
@@ -506,23 +506,49 @@ async function openedHandler(c: Context<AppBindings>): Promise<Response> {
   if (!claimed) return noContent();
 
   c.executionCtx.waitUntil(
-    sendLinkOpenedNotification({
-      env: c.env,
-      db,
+    deliverOpenAlert(c, db, {
       deviceId: target.ownerDeviceId,
       token,
+      visitor,
       filename: target.filename,
       shortUrl: target.shortUrl,
-    }).catch((err) => {
-      log.warn({
-        msg: 'open_alert_failed',
-        requestId: c.get('requestId'),
-        token,
-        error: err instanceof Error ? err.message : String(err),
-      });
     }),
   );
   return noContent();
+}
+
+interface DeliverOpenAlertArgs {
+  deviceId: string;
+  token: string;
+  visitor: string;
+  filename: string;
+  shortUrl: string;
+}
+
+async function deliverOpenAlert(
+  c: Context<AppBindings>,
+  db: Db,
+  args: DeliverOpenAlertArgs,
+): Promise<void> {
+  try {
+    const delivered = await sendLinkOpenedNotification({
+      env: c.env,
+      db,
+      deviceId: args.deviceId,
+      token: args.token,
+      filename: args.filename,
+      shortUrl: args.shortUrl,
+    });
+    if (!delivered) await releaseOpenVisitor(c, args.token, args.visitor);
+  } catch (err) {
+    await releaseOpenVisitor(c, args.token, args.visitor).catch(() => undefined);
+    log.warn({
+      msg: 'open_alert_failed',
+      requestId: c.get('requestId'),
+      token: args.token,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 interface OpenTarget {
@@ -634,18 +660,34 @@ async function consumeOpenedRateLimit(
   return null;
 }
 
+async function openVisitorKey(
+  c: Context<AppBindings>,
+  token: string,
+  visitor: string,
+): Promise<string> {
+  const tokenKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, token)).slice(0, 32);
+  const visitorKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, visitor)).slice(0, 32);
+  return `open:${tokenKey}:${visitorKey}`;
+}
+
 async function claimOpenVisitor(
   c: Context<AppBindings>,
   token: string,
   visitor: string,
 ): Promise<boolean> {
-  const tokenKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, token)).slice(0, 32);
-  const visitorKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, visitor)).slice(0, 32);
-  const key = `open:${tokenKey}:${visitorKey}`;
+  const key = await openVisitorKey(c, token, visitor);
   const existing = await c.env.RATE_LIMIT.get(key);
   if (existing) return false;
   await c.env.RATE_LIMIT.put(key, '1', { expirationTtl: OPENED_VISITOR_TTL_SECONDS });
   return true;
+}
+
+async function releaseOpenVisitor(
+  c: Context<AppBindings>,
+  token: string,
+  visitor: string,
+): Promise<void> {
+  await c.env.RATE_LIMIT.delete(await openVisitorKey(c, token, visitor));
 }
 
 // ---------------------------------------------------------------------------
@@ -745,7 +787,7 @@ async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> 
     expiresAt: loaded.link.expiresAt,
     canonicalUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
     ogImageUrl: `${c.env.SHORT_LINK_HOST}/og-image.png`,
-    openedUrl: `${c.env.SHORT_LINK_HOST}/s/${token}/opened`,
+    openedUrl: `/s/${token}/opened`,
     items: loaded.assets.map((row) => ({
       assetId: row.asset.id,
       filename: row.asset.originalFilename ?? 'download',
