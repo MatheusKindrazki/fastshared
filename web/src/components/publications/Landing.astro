@@ -1,0 +1,353 @@
+---
+import Frame from './Frame.astro';
+
+const benefits = [
+  {
+    title: 'Instant publication for AI deliverables',
+    body: 'Drop the HTML, PDF, or ZIP your assistant produced. FastShared unpacks it on an isolated origin and returns a stable link. No terminal, no repository, no server to configure.',
+  },
+  {
+    title: 'Open alerts on your iPhone',
+    body: 'When the link is opened in a real browser, your iPhone gets a quiet alert: opened in a browser. Link previews from Slack, WhatsApp, and iMessage do not count.',
+  },
+  {
+    title: 'Control without keeping it forever',
+    body: 'Revoke a link when the engagement closes. Free publications expire after seven days. Pro publications stay up while the membership is current, and a new version keeps the same URL. Opens are kept per version.',
+  },
+];
+
+const steps = [
+  {
+    n: '01',
+    title: 'Stage the file',
+    body: 'Drag an HTML file, a PDF, a ZIP, or a folder into the browser. From the terminal, the same publication is fastshared publish ./dist.',
+  },
+  {
+    n: '02',
+    title: 'Send the link',
+    body: 'Copy the short link and paste it into email, Slack, or a message. The recipient does not create an account.',
+  },
+  {
+    n: '03',
+    title: 'Hear when it opens',
+    body: 'Your iPhone alerts you when the page is opened in a real browser. Link previews do not count.',
+  },
+];
+
+const products = [
+  {
+    name: 'sharable.link',
+    rows: [
+      ['Price', 'Free'],
+      ['Format', 'Static files and links'],
+      ['Open alerts', 'No notification system'],
+      ['Interactive HTML', 'Limited preview'],
+      ['Host isolation', 'Shared domain'],
+      ['Link updates', 'Version history included'],
+    ],
+  },
+  {
+    name: 'tiiny.host',
+    rows: [
+      ['Price', 'Free to US$18 a month'],
+      ['Format', 'Static pages and PDFs'],
+      ['Open alerts', 'Solo tier only'],
+      ['Interactive HTML', 'Yes'],
+      ['Host isolation', 'Shared or custom subdomain'],
+      ['Link updates', 'Re-upload replaces the content'],
+    ],
+  },
+  {
+    name: 'DocSend',
+    rows: [
+      ['Price', 'US$15 a month'],
+      ['Format', 'PDF decks, docs, spreadsheets'],
+      ['Open alerts', 'Email and dashboard alerts'],
+      ['Interactive HTML', 'No. It converts to slides or PDF'],
+      ['Host isolation', 'Proprietary viewer'],
+      ['Link updates', 'File replacement'],
+    ],
+  },
+  {
+    name: 'FastShared',
+    rows: [
+      ['Price', 'Free, or US$15 a month (US$144 a year)'],
+      ['Format', 'HTML, ZIP bundles, PDFs'],
+      ['Open alerts', 'iPhone alerts on every tier'],
+      ['Interactive HTML', 'Full browser execution'],
+      ['Host isolation', 'Isolated origin per publication'],
+      ['Link updates', 'Same URL on Pro'],
+    ],
+  },
+];
+
+const faqs = [
+  {
+    q: 'How does FastShared know the link was opened in a browser?',
+    a: 'When the page renders, a first-party beacon confirms that real DOM rendering happened. The alert says opened in a browser. It does not name the person.',
+  },
+  {
+    q: 'Will Slack, WhatsApp, or iMessage trigger a false alert?',
+    a: 'No. Those apps fetch a preview with an automated agent. FastShared serves the preview and does not count it as an open. The phone alerts when a real browser renders the page.',
+  },
+  {
+    q: 'Can I share a multi-file HTML bundle?',
+    a: 'Yes. Drop the folder, or a ZIP with index.html at the root. A single top-level folder that contains index.html is unwrapped. Relative links to styles, scripts, and media stay intact.',
+  },
+  {
+    q: 'How does expiration work?',
+    a: 'Free publications expire after seven days. Pro publications stay online while the subscription is active. Cancel Pro and you get 30 days to export before the files are removed. You can revoke any link immediately.',
+  },
+  {
+    q: 'Does the client need an account or an app?',
+    a: 'No. The recipient opens the link in a browser. The link is the credential. Only the sender needs an account to manage publications and receive alerts.',
+  },
+  {
+    q: 'Can I replace the file without sending a new link?',
+    a: 'On Pro, yes. Publish again and the same URL serves the new version. Each version keeps its own opens. Password protection is coming soon.',
+  },
+  {
+    q: 'Where is the content hosted?',
+    a: 'Each publication is served from its own origin, p- and then a slug, on fastsha.red. That keeps it off the marketing site and away from other publications.',
+  },
+];
+---
+
+<Frame
+  title="Publications — FastShared"
+  description="Publish the report, proposal, or prototype your AI made as a live link. Your iPhone tells you when a browser opens it."
+>
+  <section class="hero" aria-labelledby="pub-hero">
+    <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-violet-hot mb-6">Publications</p>
+    <h1 id="pub-hero">
+      <span class="block">Send the link.</span>
+      <span class="block">Your iPhone tells you when the client opens it.</span>
+    </h1>
+    <p class="lede">
+      Publish the report, proposal, or prototype your AI made as a live link. Revoke it whenever you want.
+    </p>
+    <div class="actions">
+      <a class="btn-primary" href="/publish/">Publish a link</a>
+      <a class="btn-ghost" href="#how">See how it works</a>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="benefits-heading">
+    <header class="section-head">
+      <p class="section-num">01 / why</p>
+      <h2 id="benefits-heading" class="section-title">A link for the work, and a knock when it is opened.</h2>
+    </header>
+    <div class="cards">
+      {
+        benefits.map((item) => (
+          <article>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="block" id="how" aria-labelledby="how-heading">
+    <header class="section-head">
+      <p class="section-num">02 / how</p>
+      <h2 id="how-heading" class="section-title">Three steps. Then you wait for the knock.</h2>
+    </header>
+    <ol class="steps">
+      {
+        steps.map((step) => (
+          <li>
+            <p class="section-num">{step.n}</p>
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+          </li>
+        ))
+      }
+    </ol>
+    <div class="commands">
+      <p class="section-num">Terminal</p>
+      <pre><code>fastshared publish ./dist
+fastshared mcp</code></pre>
+      <p>On Pro, publishing again keeps the same link. <code>fastshared mcp</code> runs the local MCP server for that account.</p>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="compare-heading">
+    <header class="section-head">
+      <p class="section-num">03 / comparison</p>
+      <h2 id="compare-heading" class="section-title">Honest comparison.</h2>
+    </header>
+    <p class="note">Competitor details checked 14 November 2026. On Pro, a new version keeps the URL. Password protection is coming soon.</p>
+    <div class="compare">
+      {
+        products.map((product) => (
+          <article>
+            <h3>{product.name}</h3>
+            <dl>
+              {product.rows.map(([label, value]) => (
+                <div>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+        ))
+      }
+    </div>
+    <div class="notes">
+      <p>
+        sharable.link is a free utility with passwords, versions, and revocation. It does not notify the sender when a link is visited.
+      </p>
+      <p>
+        tiiny.host hosts simple static sites. Real-time open alerts sit on its Solo plan. FastShared is built for client delivery and includes phone alerts in the workflow.
+      </p>
+      <p>
+        DocSend is built for PDF decks. It does not host the interactive HTML packages that coding assistants produce. FastShared does.
+      </p>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="faq-heading">
+    <header class="section-head">
+      <p class="section-num">04 / questions</p>
+      <h2 id="faq-heading" class="section-title">Questions, answered plainly.</h2>
+    </header>
+    <div>
+      {
+        faqs.map((item) => (
+          <details class="faq-item">
+            <summary>{item.q}</summary>
+            <div class="faq-body">{item.a}</div>
+          </details>
+        ))
+      }
+    </div>
+  </section>
+</Frame>
+
+<style>
+  .hero h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(40px, 7vw, 84px);
+    line-height: 0.96;
+    letter-spacing: -0.045em;
+    color: var(--charcoal);
+    max-width: 16ch;
+  }
+  .lede {
+    margin-top: 28px;
+    max-width: 38rem;
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--silver);
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  .block {
+    padding-top: 88px;
+  }
+  .cards,
+  .steps,
+  .compare {
+    display: grid;
+    gap: 16px;
+  }
+  .cards article,
+  .steps li,
+  .compare article {
+    min-width: 0;
+    padding: 24px;
+    background: var(--canvas);
+    border: 1px solid var(--rule);
+    border-radius: 20px;
+  }
+  .cards h3,
+  .steps h3,
+  .compare h3 {
+    font-family: var(--display);
+    font-size: 22px;
+    letter-spacing: -0.03em;
+    color: var(--charcoal);
+  }
+  .cards p,
+  .steps p,
+  .notes p {
+    margin-top: 10px;
+    color: var(--silver);
+    line-height: 1.6;
+  }
+  .steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .commands {
+    margin-top: 16px;
+    min-width: 0;
+    padding: 24px;
+    background: var(--canvas);
+    border: 1px solid var(--rule);
+    border-radius: 20px;
+  }
+  .commands pre {
+    margin: 12px 0 0;
+    max-width: 100%;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--charcoal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .commands code {
+    font-family: var(--mono);
+  }
+  .note,
+  .notes {
+    margin-top: 18px;
+    color: var(--silver);
+    line-height: 1.6;
+  }
+  .compare dl {
+    margin-top: 16px;
+  }
+  .compare dl div {
+    display: grid;
+    grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .compare dt {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  .compare dd {
+    margin: 0;
+    color: var(--charcoal);
+  }
+  @media (min-width: 800px) {
+    .cards,
+    .steps {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .compare {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 420px) {
+    .compare dl div {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

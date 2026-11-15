@@ -2,7 +2,15 @@
 import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import { publicationsEnabled } from '../lib/flag';
+
+const enabled = publicationsEnabled();
+const PublicationsLegal = enabled
+  ? (await import('../components/publications/Legal.astro')).default
+  : null;
 ---
+{PublicationsLegal && <PublicationsLegal kind="privacy" />}
+{!enabled && (
 <Base
   title="Privacy — FastShared"
   description="How FastShared handles your files, tokens, optional Apple sign-in, and subscriptions. No tracking, no analytics, no advertising IDs."
@@ -375,3 +383,4 @@ import Footer from '../components/Footer.astro';
   </main>
   <Footer />
 </Base>
+)}

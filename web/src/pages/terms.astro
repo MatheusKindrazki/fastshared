@@ -2,7 +2,15 @@
 import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
+import { publicationsEnabled } from '../lib/flag';
+
+const enabled = publicationsEnabled();
+const PublicationsLegal = enabled
+  ? (await import('../components/publications/Legal.astro')).default
+  : null;
 ---
+{PublicationsLegal && <PublicationsLegal kind="terms" />}
+{!enabled && (
 <Base
   title="Terms — FastShared"
   description="The rules for using FastShared. Ephemeral by design, optional Apple sign-in, and what you can and cannot upload."
@@ -333,3 +341,4 @@ import Footer from '../components/Footer.astro';
   </main>
   <Footer />
 </Base>
+)}

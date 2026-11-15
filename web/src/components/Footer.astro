@@ -1,6 +1,11 @@
 ---
-// Minimal footer — brand on the left, plain links on the right.
 import BrandLockup from './BrandLockup.astro';
+
+interface Props {
+  publications?: boolean;
+}
+
+const { publications = false } = Astro.props;
 ---
 <footer class="frame pt-20 pb-12 mt-12 border-t border-charcoal/[0.06]">
   <div class="flex flex-col md:flex-row gap-8 md:gap-4 items-start md:items-center justify-between">
@@ -11,6 +16,20 @@ import BrandLockup from './BrandLockup.astro';
       </span>
     </div>
 
+    {publications ? (
+      <nav class="flex flex-wrap items-center gap-6 text-[13px]" aria-label="Footer">
+        <a href="/publications/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">publications</a>
+        <a href="/publish/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">publish</a>
+        <a href="/account/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">account</a>
+        <a href="/pricing/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">pricing</a>
+        <a href="/press/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">press</a>
+        <a href="/support/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">support</a>
+        <a href="/privacy/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">privacy</a>
+        <a href="/terms/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">terms</a>
+        <a href="/refund/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">refund</a>
+        <a href="https://github.com/MatheusKindrazki/fastshared" rel="noopener noreferrer" target="_blank" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">github ↗</a>
+      </nav>
+    ) : (
     <nav class="flex flex-wrap items-center gap-6 text-[13px]" aria-label="Footer">
       <a href="/pricing/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">pricing</a>
       <a href="/press/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">press</a>
@@ -19,5 +38,6 @@ import BrandLockup from './BrandLockup.astro';
       <a href="/terms/" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">terms</a>
       <a href="https://github.com/MatheusKindrazki/fastshared" rel="noopener noreferrer" target="_blank" class="font-mono tracking-[0.06em] uppercase text-charcoal/40 hover:text-violet-hot transition-colors">github ↗</a>
     </nav>
+    )}
   </div>
 </footer>

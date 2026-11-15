@@ -1,7 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'selector',
-  content: ['./src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}'],
+  content: [
+    './src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}',
+    '!./src/components/publications/**',
+    '!./src/content/**',
+    '!./src/lib/**',
+    '!./src/scripts/publish-page.ts',
+    '!./src/scripts/account-page.ts',
+    '!./src/scripts/pricing-checkout.ts',
+    '!./src/scripts/session.ts',
+  ],
   theme: {
     extend: {
       colors: {

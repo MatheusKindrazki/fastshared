@@ -1,0 +1,52 @@
+---
+import Base from '../../layouts/Base.astro';
+import Nav from '../Nav.astro';
+import Footer from '../Footer.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  noindex?: boolean;
+  width?: 'prose' | 'wide' | 'frame';
+}
+
+const { title, description, noindex = false, width = 'frame' } = Astro.props;
+---
+
+<Base title={title} description={description} noindex={noindex}>
+  <a class="skip" href="#content">Skip to content</a>
+  <Nav publications />
+  <main id="content" class:list={['frame', 'pt-16', 'pb-24', width]}>
+    <slot />
+  </main>
+  <Footer publications />
+</Base>
+
+<style>
+  .skip {
+    position: absolute;
+    left: 16px;
+    top: -48px;
+    z-index: 80;
+    padding: 8px 12px;
+    background: var(--charcoal);
+    color: var(--cream);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .skip:focus {
+    top: 12px;
+  }
+  main {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  main.prose {
+    max-width: 760px;
+  }
+  main.wide {
+    max-width: 1080px;
+  }
+</style>

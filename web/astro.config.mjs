@@ -3,6 +3,9 @@ import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import sitemap from '@astrojs/sitemap';
 
+const publicationsOn = process.env.PUBLIC_PUBLICATIONS_ENABLED === 'true';
+const hiddenUntilLaunch = ['/publications/', '/publish/', '/account/', '/refund/'];
+
 // https://astro.build/config
 export default defineConfig({
   site: 'https://fastsha.red',
@@ -17,7 +20,17 @@ export default defineConfig({
     // lastmod = build time, evaluated when this config loads. Truthful for a
     // static site: every deploy regenerates every page, so the build stamp is
     // the last time the served HTML for a URL actually changed.
-    sitemap({ lastmod: new Date() }),
+    sitemap({
+      lastmod: new Date(),
+      filter: (page) => {
+        if (publicationsOn) return true;
+        try {
+          return !hiddenUntilLaunch.includes(new URL(page).pathname);
+        } catch {
+          return true;
+        }
+      },
+    }),
   ],
   build: {
     inlineStylesheets: 'auto',

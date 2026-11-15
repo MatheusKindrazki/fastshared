@@ -1,0 +1,143 @@
+---
+import Frame from './Frame.astro';
+---
+
+<Frame
+  title="Account — FastShared"
+  description="Sign in, see your publications, and manage billing."
+  noindex
+>
+  <div data-account-root>
+    <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-violet-hot mb-6">Account</p>
+    <h1>Your publications.</h1>
+
+    <section data-signed-out>
+      <p class="lede">Email a sign-in link. The link returns you here. We keep the session in this browser only.</p>
+      <form data-sign-in>
+        <label for="account-email">Email</label>
+        <input id="account-email" name="email" type="email" autocomplete="email" required maxlength="256" />
+        <button class="btn-primary" type="submit">Email me a sign-in link</button>
+      </form>
+      <p data-sign-in-status role="status"></p>
+    </section>
+
+    <section data-signed-in hidden>
+      <div class="toolbar">
+        <button type="button" class="btn-primary" data-billing>Manage billing</button>
+        <a class="btn-ghost" href="/publish/">Publish a link</a>
+        <button type="button" class="btn-ghost" data-sign-out>Sign out</button>
+      </div>
+      <p data-account-status role="status"></p>
+      <p data-empty hidden>No publications yet.</p>
+      <div data-list></div>
+    </section>
+  </div>
+</Frame>
+
+<script>
+  import '../../scripts/account-page.ts';
+</script>
+
+<style>
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(40px, 7vw, 80px);
+    line-height: 0.96;
+    letter-spacing: -0.045em;
+    color: var(--charcoal);
+  }
+  .lede {
+    margin-top: 20px;
+    max-width: 38rem;
+    color: var(--silver);
+    line-height: 1.6;
+  }
+  form,
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 28px;
+    max-width: 100%;
+  }
+  form {
+    display: grid;
+    justify-items: start;
+  }
+  label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--charcoal);
+  }
+  input[type='email'] {
+    width: min(100%, 24rem);
+    padding: 12px 14px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--canvas);
+    color: var(--charcoal);
+  }
+  [data-account-status],
+  [data-sign-in-status],
+  [data-empty] {
+    margin-top: 16px;
+    color: var(--silver);
+  }
+  [data-list] {
+    display: grid;
+    gap: 16px;
+    margin-top: 24px;
+  }
+  :global([data-list] .pub) {
+    min-width: 0;
+    display: grid;
+    gap: 10px;
+    padding: 20px;
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    background: var(--canvas);
+  }
+  :global([data-list] .pub h2) {
+    font-family: var(--display);
+    font-size: 24px;
+    letter-spacing: -0.03em;
+    color: var(--charcoal);
+    overflow-wrap: anywhere;
+  }
+  :global([data-list] .pub a) {
+    color: var(--charcoal);
+    text-decoration: underline;
+    overflow-wrap: anywhere;
+  }
+  :global([data-list] .meta) {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+  }
+  :global([data-list] .meta div) {
+    display: grid;
+    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+    gap: 8px;
+  }
+  :global([data-list] dt) {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  :global([data-list] dd) {
+    margin: 0;
+    color: var(--charcoal);
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 420px) {
+    :global([data-list] .meta div) {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

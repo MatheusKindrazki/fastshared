@@ -1,0 +1,52 @@
+---
+import Base from '../../layouts/Base.astro';
+import Nav from '../Nav.astro';
+import Footer from '../Footer.astro';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<Base title={`${title} — FastShared`} description="Coming soon." noindex>
+  <Nav />
+  <main class="frame soon">
+    <p class="kicker">Coming soon</p>
+    <h1>{title}</h1>
+    <p class="lede">This page is not open yet.</p>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .soon {
+    max-width: 760px;
+    padding-top: 4rem;
+    padding-bottom: 6rem;
+  }
+  .kicker {
+    margin-bottom: 1.5rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(44px, 8vw, 88px);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    color: var(--charcoal);
+  }
+  .lede {
+    margin-top: 2rem;
+    max-width: 36rem;
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--silver);
+  }
+</style>

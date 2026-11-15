@@ -1,0 +1,9 @@
+---
+import { publicationsEnabled } from '../lib/flag';
+import ComingSoon from '../components/publications/ComingSoon.astro';
+
+const enabled = publicationsEnabled();
+const Landing = enabled ? (await import('../components/publications/Landing.astro')).default : null;
+---
+
+{Landing ? <Landing /> : <ComingSoon title="Publications" />}
