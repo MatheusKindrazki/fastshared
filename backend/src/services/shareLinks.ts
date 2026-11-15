@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '~/db/client';
 import { asset, shareLink, type ShareLink, type NewShareLink } from '~/db/schema';
 import { generateToken, TOKEN_LENGTH } from '~/lib/tokens';
+import { scheduleDeletion } from '~/services/assets';
 
 export type Visibility = 'public' | 'signed' | 'password';
 
@@ -74,12 +75,29 @@ export async function revokeByToken(
   if (!found) return { status: 'not_found', link: null };
   if (found.ownerDeviceId !== deviceId) return { status: 'forbidden', link: null };
 
+  return { status: 'ok', link: await revokeLinkAndScheduleDeletion(db, found.id) };
+}
+
+export async function revokeByTokenAsAdmin(db: Db, token: string): Promise<ShareLink | null> {
+  const [found] = await db
+    .select({ id: shareLink.id })
+    .from(shareLink)
+    .where(eq(shareLink.token, token))
+    .limit(1);
+  if (!found) return null;
+  return revokeLinkAndScheduleDeletion(db, found.id);
+}
+
+async function revokeLinkAndScheduleDeletion(db: Db, linkId: string): Promise<ShareLink | null> {
   const [updated] = await db
     .update(shareLink)
-    .set({ linkStatus: 'revoked', revokedAt: sql`now()` })
-    .where(eq(shareLink.id, found.id))
+    .set({ linkStatus: 'revoked', revokedAt: new Date() })
+    .where(eq(shareLink.id, linkId))
     .returning();
-  return { status: 'ok', link: updated ?? null };
+  // Both owner and admin revocation take the same immediate deletion path.
+  // Pending links have no asset to schedule. The deletion job is idempotent.
+  if (updated?.assetId) await scheduleDeletion(db, updated.assetId, new Date());
+  return updated ?? null;
 }
 
 export async function markExpiredByAssetId(db: Db, assetId: string): Promise<void> {

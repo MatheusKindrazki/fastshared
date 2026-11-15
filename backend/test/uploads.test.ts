@@ -1315,7 +1315,7 @@ describe('revoke', () => {
   it('owner can revoke and subsequent redirect is 410', async () => {
     const { deviceId, token } = await seedDevice();
     const linkToken = 'ownedTokenAAAAAAAAAAAA';
-    await seedOwnedLink(deviceId, linkToken);
+    const { assetId } = await seedOwnedLink(deviceId, linkToken);
 
     const res = await post(
       `/v1/links/${linkToken}/revoke`,
@@ -1326,6 +1326,9 @@ describe('revoke', () => {
     const body = (await res.json()) as { ok: boolean; linkStatus: string };
     expect(body.ok).toBe(true);
     expect(body.linkStatus).toBe('revoked');
+    expect(store.deletionJobs).toContainEqual(
+      expect.objectContaining({ assetId, status: 'pending' }),
+    );
 
     const redirectRes = await get(`/s/${linkToken}`);
     expect(redirectRes.status).toBe(410);

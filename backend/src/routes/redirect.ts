@@ -18,6 +18,7 @@ import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { log } from '~/lib/logger';
 import { hmacSha256Hex } from '~/lib/hash';
+import { isActiveContentType } from '~/lib/activeContentType';
 
 export const redirectRoutes = new Hono<AppBindings>();
 export const bundleRedirectRoutes = new Hono<AppBindings>();
@@ -248,6 +249,19 @@ async function streamAssetBytes(
   onLeadingHit?: (offset: number) => void,
 ): Promise<Response> {
   const isHead = c.req.method === 'HEAD';
+  const active = isActiveContentType(a.contentType);
+  const isolatedOrigin = c.env.USER_CONTENT_HOST?.trim();
+  if (
+    mode === 'inline' &&
+    active &&
+    isolatedOrigin &&
+    new URL(c.req.url).host !== new URL(isolatedOrigin).host
+  ) {
+    const target = new URL(c.req.path + new URL(c.req.url).search, isolatedOrigin);
+    const headers = new Headers({ Location: target.toString() });
+    applySecurityHeaders(headers);
+    return new Response(null, { status: 302, headers });
+  }
   const totalSize = a.sizeBytes;
 
   const parsed = parseRangeHeader(c.req.header('range') ?? null, totalSize);
@@ -293,6 +307,12 @@ async function streamAssetBytes(
   headers.set('Content-Length', String(contentLength));
   if (contentRange) headers.set('Content-Range', contentRange);
   applySecurityHeaders(headers);
+  if (active) {
+    headers.set(
+      'Content-Security-Policy',
+      "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+    );
+  }
 
   if (isHead) {
     return new Response(null, { status, headers });

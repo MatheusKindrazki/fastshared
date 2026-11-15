@@ -9,6 +9,10 @@ export interface Env {
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
   SHORT_LINK_HOST: string;
+  // Optional dedicated origin for raw user bytes. Configure its Worker route separately.
+  USER_CONTENT_HOST?: string;
+  // Secret for abuse takedown; provision only with wrangler secret put.
+  ADMIN_TOKEN?: string;
   PUBLIC_API_HOST: string;
   DEVICE_TOKEN_PEPPER: string;
   APP_ENV: string;
@@ -57,6 +61,7 @@ export const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_BUCKET_NAME: z.string().min(1),
   SHORT_LINK_HOST: z.string().url(),
+  USER_CONTENT_HOST: z.union([z.literal(''), z.string().url()]).optional(),
   PUBLIC_API_HOST: z.string().url(),
   DEVICE_TOKEN_PEPPER: z.string().min(16, 'DEVICE_TOKEN_PEPPER must be at least 16 chars'),
   APP_ENV: z.string().min(1),
@@ -78,6 +83,18 @@ export function assertEnv(env: Env): ValidatedEnv {
         .map((i) => `${i.path.join('.')}: ${i.message}`)
         .join('; ')}`,
     );
+  }
+  if (parsed.data.USER_CONTENT_HOST) {
+    const isolated = new URL(parsed.data.USER_CONTENT_HOST);
+    const primary = new URL(parsed.data.SHORT_LINK_HOST);
+    const api = new URL(parsed.data.PUBLIC_API_HOST);
+    if (
+      isolated.protocol !== 'https:' ||
+      isolated.origin !== parsed.data.USER_CONTENT_HOST ||
+      [primary, api].some((host) => isolated.hostname === host.hostname)
+    ) {
+      throw new Error('USER_CONTENT_HOST must be a separate HTTPS origin');
+    }
   }
   return parsed.data;
 }

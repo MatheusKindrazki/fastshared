@@ -6,8 +6,6 @@ import { createDb } from '~/db/client';
 import { auth } from '~/middleware/auth';
 import { ratelimit } from '~/middleware/ratelimit';
 import { revokeByToken } from '~/services/shareLinks';
-import { scheduleDeletion } from '~/services/assets';
-import { log } from '~/lib/logger';
 
 export const revokeRoutes = new Hono<AppBindings>();
 
@@ -32,23 +30,6 @@ revokeRoutes.post('/:token/revoke', async (c) => {
 
   const link = result.link;
   if (!link) throw new Error('revokeByToken returned ok without link');
-
-  // Fast-path: collapse the grace window — the user explicitly asked us to
-  // forget this. scheduleDeletion is idempotent via the partial unique index.
-  // Pending links have no asset yet so there's nothing to deletion-schedule.
-  if (link.assetId) {
-    const assetIdForDeletion = link.assetId;
-    c.executionCtx.waitUntil(
-      scheduleDeletion(db, assetIdForDeletion, new Date()).catch((err) => {
-        log.warn({
-          msg: 'revoke_schedule_deletion_failed',
-          token,
-          assetId: assetIdForDeletion,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }),
-    );
-  }
 
   return c.json({
     ok: true,

@@ -53,9 +53,17 @@ pnpm dlx wrangler secret put APP_STORE_CONNECT_P8_KEY_BASE64
 `openssl rand -base64 48`). Losing it invalidates every device token.
 
 Public vars live in `wrangler.toml` under `[vars]` — `APP_ENV`,
-`SHORT_LINK_HOST`, `PUBLIC_API_HOST`, `R2_BUCKET_NAME`, `R2_ACCOUNT_ID`,
+`SHORT_LINK_HOST`, `USER_CONTENT_HOST`, `PUBLIC_API_HOST`, `R2_BUCKET_NAME`, `R2_ACCOUNT_ID`,
 `APPLE_BUNDLE_ID`. Update `R2_ACCOUNT_ID` and the KV namespace id before
 first deploy.
+
+`USER_CONTENT_HOST` defaults to empty. Set it to a separate HTTPS origin only
+after routing that host to this Worker; raw user content then resolves there.
+It may be a subdomain such as `https://u.fastsha.red`: that separates script
+origin from the main host, but does not separate domain reputation.
+The abuse takedown endpoint requires `ADMIN_TOKEN`, provisioned with
+`wrangler secret put ADMIN_TOKEN`. Apply `drizzle/0009_abuse_reports.sql` and
+`drizzle/0010_abuse_report_ip_hash.sql` before enabling abuse reports.
 
 ## Pro subscriptions setup
 
