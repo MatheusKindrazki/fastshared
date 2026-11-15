@@ -1,0 +1,9 @@
+---
+import { publicationsEnabled } from '../lib/flag';
+import ComingSoon from '../components/publications/ComingSoon.astro';
+
+const enabled = publicationsEnabled();
+const Legal = enabled ? (await import('../components/publications/Legal.astro')).default : null;
+---
+
+{Legal ? <Legal kind="refund" /> : <ComingSoon title="Refunds" />}

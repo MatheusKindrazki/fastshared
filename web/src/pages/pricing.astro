@@ -3,7 +3,15 @@ import Base from '../layouts/Base.astro';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import PlaneArc from '../components/PlaneArc.astro';
+import { publicationsEnabled } from '../lib/flag';
+
+const enabled = publicationsEnabled();
+const PublicationsPricing = enabled
+  ? (await import('../components/publications/Pricing.astro')).default
+  : null;
 ---
+{PublicationsPricing && <PublicationsPricing />}
+{!enabled && (
 <Base
   title="Pricing — FastShared"
   description="FastShared Pro unlocks unlimited uploads, 2 GB files, 30-day link retention, and iCloud history sync. Free stays free. Pro from $2.99/mo."
@@ -179,3 +187,4 @@ import PlaneArc from '../components/PlaneArc.astro';
   </main>
   <Footer />
 </Base>
+)}

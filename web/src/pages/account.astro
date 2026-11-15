@@ -1,0 +1,9 @@
+---
+import { publicationsEnabled } from '../lib/flag';
+import ComingSoon from '../components/publications/ComingSoon.astro';
+
+const enabled = publicationsEnabled();
+const ActivePage = enabled ? (await import('../components/publications/Account.astro')).default : null;
+---
+
+{ActivePage ? <ActivePage /> : <ComingSoon title="Account" />}
