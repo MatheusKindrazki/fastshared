@@ -60,15 +60,26 @@ describe('GET /v1/me', () => {
     const res = await get('/v1/me', { authorization: `Bearer ${token}` });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
+      userId: string | null;
       tier: string;
       expiresAt: string | null;
       caps: TierCapsWire;
       subscription: unknown;
     };
     expect(body.tier).toBe('free');
+    expect(body.userId).toBeNull();
     expect(body.expiresAt).toBeNull();
     expect(body.caps).toEqual(toWireCaps(FREE_CAPS));
     expect(body.subscription).toBeNull();
+  });
+
+  it('returns the linked userId for a Free account', async () => {
+    const { deviceId, token } = await seedDevice();
+    const userId = crypto.randomUUID();
+    store.devices.find((row) => row.id === deviceId)!.userId = userId;
+    const res = await get('/v1/me', { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ userId, isPro: false, tier: 'free' });
   });
 
   it('active user entitlement grants Pro without a device IAP row', async () => {
@@ -86,6 +97,7 @@ describe('GET /v1/me', () => {
     const res = await get('/v1/me', { authorization: `Bearer ${token}` });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
+      userId,
       isPro: true,
       tier: 'monthly',
       caps: toWireCaps(PRO_CAPS),

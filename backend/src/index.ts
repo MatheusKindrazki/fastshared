@@ -18,6 +18,8 @@ import { assetsPublicRoutes } from '~/routes/assetsPublic';
 import { iapRoutes } from '~/routes/iap';
 import { meRoutes } from '~/routes/me';
 import { authRoutes } from '~/routes/auth';
+import { emailAuthRoutes } from '~/routes/emailAuth';
+import { billingRoutes } from '~/routes/billing';
 import { accountRoutes } from '~/routes/account';
 import { runDueDeletionJobs } from '~/services/deletion';
 import { runReconciliation } from '~/services/reconciliation';
@@ -58,6 +60,8 @@ app.use('*', async (c, next) => {
 app.route('/v1/health', healthRoutes);
 app.route('/v1/devices', deviceRoutes);
 app.route('/v1/auth', authRoutes);
+app.route('/v1/auth/email', emailAuthRoutes);
+app.route('/v1/billing', billingRoutes);
 app.route('/v1/uploads', uploadRoutes);
 app.route('/v1/history', historyRoutes);
 app.route('/v1/assets', assetRoutes);

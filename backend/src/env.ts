@@ -43,6 +43,16 @@ export interface Env {
   APNS_TEAM_ID?: string;
   APNS_P8_KEY_BASE64?: string;
   APNS_TOPIC?: string;
+  WEB_APP_ORIGIN?: string;
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
+  EMAIL_SENDER?: string;
+  PADDLE_WEBHOOK_SECRET?: string;
+  PADDLE_API_KEY?: string;
+  PADDLE_ENV?: string;
+  PADDLE_CLIENT_TOKEN?: string;
+  PADDLE_PRICE_MONTHLY?: string;
+  PADDLE_PRICE_ANNUAL?: string;
 }
 
 export interface AppVars {
@@ -76,6 +86,8 @@ export const envSchema = z.object({
     .string()
     .min(20, 'APP_STORE_CONNECT_P8_KEY_BASE64 must be a base64 PKCS8 private key'),
   APPLE_BUNDLE_ID: z.string().min(1),
+  WEB_APP_ORIGIN: z.union([z.literal(''), z.string().url()]).optional(),
+  PADDLE_ENV: z.enum(['sandbox', 'production', '']).optional(),
 });
 
 export type ValidatedEnv = z.infer<typeof envSchema>;
@@ -99,6 +111,12 @@ export function assertEnv(env: Env): ValidatedEnv {
       [primary, api].some((host) => isolated.hostname === host.hostname)
     ) {
       throw new Error('USER_CONTENT_HOST must be a separate HTTPS origin');
+    }
+  }
+  if (parsed.data.WEB_APP_ORIGIN) {
+    const web = new URL(parsed.data.WEB_APP_ORIGIN);
+    if (web.protocol !== 'https:' || web.origin !== parsed.data.WEB_APP_ORIGIN) {
+      throw new Error('WEB_APP_ORIGIN must be an HTTPS origin');
     }
   }
   return parsed.data;
