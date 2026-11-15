@@ -6,13 +6,18 @@ import worker from '~/index';
 
 const token = 'abuseTokenAAAAAAAAAAAA';
 
-async function post(path: string, body?: unknown, authorization?: string): Promise<Response> {
+async function post(
+  path: string,
+  body?: unknown,
+  authorization?: string,
+  ip = '203.0.113.4',
+): Promise<Response> {
   return worker.fetch(
     new Request(`https://api.fastsha.red${path}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'cf-connecting-ip': '203.0.113.4',
+        'cf-connecting-ip': ip,
         ...(authorization ? { authorization } : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -56,6 +61,18 @@ describe('abuse reports and admin takedown', () => {
       shareLinkId: store.shareLinks[0]!.id,
       reason: 'phishing',
     });
+    expect(store.abuseReports[0]!.ipHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(store.abuseReports)).not.toContain('203.0.113.4');
+    const receivedLog = vi
+      .mocked(console.log)
+      .mock.calls.map(([line]) => String(line))
+      .find((line) => line.includes('"msg":"abuse_report_received"'));
+    expect(JSON.parse(receivedLog!)).toMatchObject({
+      msg: 'abuse_report_received',
+      token,
+      reason: 'phishing',
+    });
+    expect(receivedLog).not.toContain('203.0.113.4');
     expect(store.shareLinks[0]!.linkStatus).toBe('active');
     const limited = await post('/v1/abuse-reports', { token, reason: 'phishing' });
     expect(limited.status).toBe(429);
@@ -75,6 +92,9 @@ describe('abuse reports and admin takedown', () => {
     const revoked = await post(path, undefined, 'Bearer test-admin-secret');
     expect(revoked.status).toBe(200);
     expect(store.shareLinks[0]!.linkStatus).toBe('revoked');
+    expect(store.deletionJobs).toContainEqual(
+      expect.objectContaining({ assetId: store.shareLinks[0]!.assetId, status: 'pending' }),
+    );
     expect(store.abuseReports[0]!.resolvedAt).toBeInstanceOf(Date);
     const after = await worker.fetch(
       new Request(`https://fastsha.red/s/${token}/raw`),
@@ -82,5 +102,59 @@ describe('abuse reports and admin takedown', () => {
       ctx,
     );
     expect(after.status).toBe(410);
+  });
+
+  it('revokes after three distinct reporter IPs within 24 hours', async () => {
+    const body = { token, reason: 'phishing' };
+    expect((await post('/v1/abuse-reports', body, undefined, '203.0.113.1')).status).toBe(201);
+    store.abuseReports[0]!.createdAt = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    expect((await post('/v1/abuse-reports', body, undefined, '203.0.113.2')).status).toBe(201);
+    expect((await post('/v1/abuse-reports', body, undefined, '203.0.113.3')).status).toBe(201);
+    expect(store.shareLinks[0]!.linkStatus).toBe('active');
+    expect((await post('/v1/abuse-reports', body, undefined, '203.0.113.4')).status).toBe(201);
+    expect(store.shareLinks[0]!.linkStatus).toBe('revoked');
+    expect(store.deletionJobs).toContainEqual(
+      expect.objectContaining({ assetId: store.shareLinks[0]!.assetId, status: 'pending' }),
+    );
+    const after = await worker.fetch(
+      new Request(`https://fastsha.red/s/${token}/raw`),
+      TEST_ENV,
+      ctx,
+    );
+    expect(after.status).toBe(410);
+  });
+
+  it('counts reports separately for each link', async () => {
+    const otherToken = 'otherAbuseTokenAAAAAAAA';
+    store.shareLinks.push({
+      ...store.shareLinks[0]!,
+      id: crypto.randomUUID(),
+      token: otherToken,
+      assetId: crypto.randomUUID(),
+    });
+    expect(
+      (await post('/v1/abuse-reports', { token, reason: 'spam' }, undefined, '203.0.113.1')).status,
+    ).toBe(201);
+    expect(
+      (
+        await post(
+          '/v1/abuse-reports',
+          { token: otherToken, reason: 'spam' },
+          undefined,
+          '203.0.113.2',
+        )
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await post(
+          '/v1/abuse-reports',
+          { token: otherToken, reason: 'spam' },
+          undefined,
+          '203.0.113.3',
+        )
+      ).status,
+    ).toBe(201);
+    expect(store.shareLinks.every((link) => link.linkStatus === 'active')).toBe(true);
   });
 });

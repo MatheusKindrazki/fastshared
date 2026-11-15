@@ -1,7 +1,12 @@
 type Fields = Record<string, unknown>;
 
 function emit(level: 'info' | 'warn' | 'error' | 'debug', fields: Fields): void {
-  const line = { level, ts: new Date().toISOString(), ...(redact(fields) as Fields) };
+  const safeFields = redact(fields) as Fields;
+  // Abuse intake explicitly needs this one reported-link token for investigation.
+  if (fields.msg === 'abuse_report_received' && typeof fields.token === 'string') {
+    safeFields.token = fields.token;
+  }
+  const line = { level, ts: new Date().toISOString(), ...safeFields };
   const serialized = JSON.stringify(line);
   if (level === 'error') console.error(serialized);
   else if (level === 'warn') console.warn(serialized);

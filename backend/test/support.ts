@@ -75,6 +75,7 @@ export interface AbuseReportRow {
   id: string;
   shareLinkId: string;
   reason: string;
+  ipHash: string | null;
   createdAt: Date;
   resolvedAt: Date | null;
 }
@@ -492,6 +493,7 @@ export function installDrizzleFake(): void {
                       id: crypto.randomUUID(),
                       shareLinkId: v.shareLinkId as string,
                       reason: v.reason as string,
+                      ipHash: (v.ipHash as string | null) ?? null,
                       createdAt: new Date(),
                       resolvedAt: null,
                     };

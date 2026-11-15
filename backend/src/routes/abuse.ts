@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AppBindings } from '~/env';
 import { createDb } from '~/db/client';
@@ -7,6 +7,8 @@ import { abuseReport, shareLink } from '~/db/schema';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { findByToken, revokeByTokenAsAdmin } from '~/services/shareLinks';
+import { hmacSha256Hex } from '~/lib/hash';
+import { log } from '~/lib/logger';
 
 export const abuseRoutes = new Hono<AppBindings>();
 
@@ -26,11 +28,32 @@ abuseRoutes.post(
     const db = createDb(c.env.DATABASE_URL);
     const link = await findByToken(db, parsed.data.token);
     if (!link) return problem(c, 404, 'not_found', 'Not Found', 'share link not found');
+    const ip = c.req.header('cf-connecting-ip');
+    const ipHash = ip
+      ? await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, `abuse-report-ip:${ip}`)
+      : null;
     const [report] = await db
       .insert(abuseReport)
-      .values({ shareLinkId: link.id, reason: parsed.data.reason })
+      .values({ shareLinkId: link.id, reason: parsed.data.reason, ipHash })
       .returning({ id: abuseReport.id });
     if (!report) throw new Error('abuse report insert returned no row');
+    log.info({
+      msg: 'abuse_report_received',
+      token: parsed.data.token,
+      reason: parsed.data.reason,
+    });
+
+    if (ipHash && (link.linkStatus === 'active' || link.linkStatus === 'pending')) {
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recent = await db
+        .select({ ipHash: abuseReport.ipHash, createdAt: abuseReport.createdAt })
+        .from(abuseReport)
+        .where(and(eq(abuseReport.shareLinkId, link.id), gte(abuseReport.createdAt, cutoff)));
+      const distinctIps = new Set(
+        recent.filter((row) => row.createdAt >= cutoff && row.ipHash).map((row) => row.ipHash),
+      );
+      if (distinctIps.size >= 3) await revokeByTokenAsAdmin(db, parsed.data.token);
+    }
     return c.json({ id: report.id, status: 'received' }, 201);
   },
 );

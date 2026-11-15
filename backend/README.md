@@ -59,9 +59,11 @@ first deploy.
 
 `USER_CONTENT_HOST` defaults to empty. Set it to a separate HTTPS origin only
 after routing that host to this Worker; raw user content then resolves there.
+It may be a subdomain such as `https://u.fastsha.red`: that separates script
+origin from the main host, but does not separate domain reputation.
 The abuse takedown endpoint requires `ADMIN_TOKEN`, provisioned with
-`wrangler secret put ADMIN_TOKEN`. Apply `drizzle/0009_abuse_reports.sql` before
-enabling abuse reports.
+`wrangler secret put ADMIN_TOKEN`. Apply `drizzle/0009_abuse_reports.sql` and
+`drizzle/0010_abuse_report_ip_hash.sql` before enabling abuse reports.
 
 ## Pro subscriptions setup
 

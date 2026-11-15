@@ -160,10 +160,15 @@ export const abuseReport = pgTable(
       .notNull()
       .references(() => shareLink.id, { onDelete: 'cascade' }),
     reason: text('reason').notNull(),
+    // Nullable for reports recorded before the IP-hash migration.
+    ipHash: text('ip_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   },
-  (t) => ({ linkIdx: index('abuse_report_share_link_idx').on(t.shareLinkId) }),
+  (t) => ({
+    linkIdx: index('abuse_report_share_link_idx').on(t.shareLinkId),
+    recentIdx: index('abuse_report_link_created_idx').on(t.shareLinkId, t.createdAt),
+  }),
 );
 
 // Junction between a bundle share_link and the assets it groups. displayOrder
