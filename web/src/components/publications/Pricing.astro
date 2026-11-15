@@ -7,12 +7,7 @@ const shared = [
   ['Revoke', 'Included'],
 ];
 
-const soon = [
-  'Same-URL version updates',
-  'Password protection',
-  'Per-version view analytics',
-  'MCP server integration',
-];
+const soon = ['Password protection'];
 ---
 
 <Frame
@@ -67,6 +62,9 @@ const soon = [
           <li><span class="ft-k">Open alerts</span><span class="ft-v">Unlimited</span></li>
           <li><span class="ft-k">Upload</span><span class="ft-v">250 MB</span></li>
           <li><span class="ft-k">Badge</span><span class="ft-v">None</span></li>
+          <li><span class="ft-k">Same-URL updates</span><span class="ft-v">Included</span></li>
+          <li><span class="ft-k">Opens per version</span><span class="ft-v">Included</span></li>
+          <li><span class="ft-k">MCP server</span><span class="ft-v">fastshared mcp</span></li>
           {shared.map(([label, value]) => (
             <li><span class="ft-k">{label}</span><span class="ft-v">{value}</span></li>
           ))}
@@ -100,6 +98,10 @@ const soon = [
       <details class="faq-item">
         <summary>Can I revoke a link before it expires?</summary>
         <div class="faq-body">Yes. Free and Pro can both revoke a publication immediately. The link stops serving.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Can I update a file without a new link?</summary>
+        <div class="faq-body">On Pro, yes. A new version keeps the same URL, and each version keeps its own opens. The terminal commands are fastshared publish ./dist and fastshared mcp. Password protection is coming soon.</div>
       </details>
       <details class="faq-item">
         <summary>Is there a team plan?</summary>

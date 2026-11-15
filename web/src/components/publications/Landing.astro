@@ -12,7 +12,7 @@ const benefits = [
   },
   {
     title: 'Control without keeping it forever',
-    body: 'Revoke a link when the engagement closes. Free publications expire after seven days. Pro publications stay up while the membership is current. Updating a link without changing the URL is coming soon.',
+    body: 'Revoke a link when the engagement closes. Free publications expire after seven days. Pro publications stay up while the membership is current, and a new version keeps the same URL. Opens are kept per version.',
   },
 ];
 
@@ -20,7 +20,7 @@ const steps = [
   {
     n: '01',
     title: 'Stage the file',
-    body: 'Drag an HTML file, a PDF, a ZIP, or a folder into the browser. The command-line path uses the same publication.',
+    body: 'Drag an HTML file, a PDF, a ZIP, or a folder into the browser. From the terminal, the same publication is fastshared publish ./dist.',
   },
   {
     n: '02',
@@ -76,7 +76,7 @@ const products = [
       ['Open alerts', 'iPhone alerts on every tier'],
       ['Interactive HTML', 'Full browser execution'],
       ['Host isolation', 'Isolated origin per publication'],
-      ['Link updates', 'Coming soon'],
+      ['Link updates', 'Same URL on Pro'],
     ],
   },
 ];
@@ -101,6 +101,10 @@ const faqs = [
   {
     q: 'Does the client need an account or an app?',
     a: 'No. The recipient opens the link in a browser. The link is the credential. Only the sender needs an account to manage publications and receive alerts.',
+  },
+  {
+    q: 'Can I replace the file without sending a new link?',
+    a: 'On Pro, yes. Publish again and the same URL serves the new version. Each version keeps its own opens. Password protection is coming soon.',
   },
   {
     q: 'Where is the content hosted?',
@@ -161,6 +165,12 @@ const faqs = [
         ))
       }
     </ol>
+    <div class="commands">
+      <p class="section-num">Terminal</p>
+      <pre><code>fastshared publish ./dist
+fastshared mcp</code></pre>
+      <p>On Pro, publishing again keeps the same link. <code>fastshared mcp</code> runs the local MCP server for that account.</p>
+    </div>
   </section>
 
   <section class="block" aria-labelledby="compare-heading">
@@ -168,7 +178,7 @@ const faqs = [
       <p class="section-num">03 / comparison</p>
       <h2 id="compare-heading" class="section-title">Honest comparison.</h2>
     </header>
-    <p class="note">Competitor details checked 14 November 2026. FastShared same-URL updates are marked coming soon.</p>
+    <p class="note">Competitor details checked 14 November 2026. On Pro, a new version keeps the URL. Password protection is coming soon.</p>
     <div class="compare">
       {
         products.map((product) => (
@@ -277,6 +287,27 @@ const faqs = [
     list-style: none;
     padding: 0;
     margin: 0;
+  }
+  .commands {
+    margin-top: 16px;
+    min-width: 0;
+    padding: 24px;
+    background: var(--canvas);
+    border: 1px solid var(--rule);
+    border-radius: 20px;
+  }
+  .commands pre {
+    margin: 12px 0 0;
+    max-width: 100%;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--charcoal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .commands code {
+    font-family: var(--mono);
   }
   .note,
   .notes {

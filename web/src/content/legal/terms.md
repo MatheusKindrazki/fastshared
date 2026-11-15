@@ -96,7 +96,9 @@ Refund policies differ based on your purchasing channel:
 - **Storage Quota:** Up to 2 GB total active storage across all publications.
 - **Upload Size:** Up to 250 MB per individual upload.
 - **Retention Period:** Publications remain active indefinitely for as long as your Pro subscription remains active and in good standing.
-- **Same-URL Updates:** Ability to publish new versions under the same static publication URL (`p-<slug>.fastsha.red`).
+- **Same-URL Updates:** Ability to publish new versions under the same static publication URL (`p-<slug>.fastsha.red`) via `POST /v1/publications/:id/versions`.
+- **Opens by version:** Each published version keeps its own open records. The owner can read them with `GET /v1/publications/:id/opens`.
+- **MCP server:** Pro includes the local MCP server started with `fastshared mcp`.
 - **Open Alerts:** Unlimited real-browser open notifications.
 - **No Badge:** Removal of the FastShared attribution footer badge.
 
@@ -106,12 +108,16 @@ If your FastShared Pro subscription is canceled, fails to renew, or expires:
 2. **Notification:** You will receive email notifications reminding you to export or download your publication contents before deletion.
 3. **Permanent Deletion:** Upon the expiration of the 30-day notice window, publications transition to an expired status (returning HTTP 410 Gone) and all underlying files in object storage are permanently deleted within 24 hours. Deleted files cannot be recovered.
 
+### 5.4. Not yet available
+- **Password protection:** A publication cannot be gated with a passphrase. That control is not part of Free or Pro today.
+
 ---
 
 ## 6. Open Notification Beacon
 
 Publications hosted on FastShared automatically include a lightweight open-detection script:
 - **Purpose:** To notify the publication owner (via push notification on Apple devices or CLI/API) when their client or recipient opens and renders the publication in a genuine web browser.
+- **Per version:** Opens are stored against the publication version that was rendered. On Pro, the owner can read them per version.
 - **Data Processed:** The beacon transmits a cryptographically hashed visitor identifier (salted SHA-256) and a timestamp (`opened_at`) to record opens deduplicated per 24-hour window.
 - **No Cross-Site Tracking:** The beacon operates strictly on the specific publication's isolated origin (`p-<slug>.fastsha.red`). It does not track users across external domains, does not read or set third-party advertising cookies, and ignores preview bots/link unfurlers (such as Slack, WhatsApp, iMessage, and Twitter bots).
 - **PDF Deliverables:** For inline PDF views where JavaScript execution is not available, opens are recorded using server-side document request headers with IP hashing.
