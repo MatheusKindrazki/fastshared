@@ -12,6 +12,7 @@ vi.mock('~/services/apns', () => ({
 }));
 
 import worker from '~/index';
+import { assertEnv } from '~/env';
 
 // Default user-agent mimics Safari so content negotiation flows through
 // Accept header as tests expect. Tests that want to simulate curl / bots
@@ -191,14 +192,13 @@ describe('redirect proxy', () => {
   });
 
   it('redirects active raw bytes to the dedicated origin and keeps inert bytes local', async () => {
-    TEST_ENV.USER_CONTENT_HOST = 'https://usercontent.example';
+    TEST_ENV.USER_CONTENT_HOST = 'https://u.fastsha.red';
+    expect(assertEnv(TEST_ENV).USER_CONTENT_HOST).toBe('https://u.fastsha.red');
     const html = seedLinkAndAsset({ contentType: 'text/html', sizeBytes: 4 });
     await putR2Bytes(html.storageKey, new Uint8Array([1, 2, 3, 4]));
     const redirect = await get(`/s/${html.token}/raw`);
     expect(redirect.status).toBe(302);
-    expect(redirect.headers.get('Location')).toBe(
-      `https://usercontent.example/s/${html.token}/raw`,
-    );
+    expect(redirect.headers.get('Location')).toBe(`https://u.fastsha.red/s/${html.token}/raw`);
     const isolated = await worker.fetch(
       new Request(redirect.headers.get('Location')!),
       TEST_ENV,
@@ -208,7 +208,7 @@ describe('redirect proxy', () => {
     expect(isolated.headers.get('Content-Security-Policy')).toContain('sandbox;');
     expect(await isolated.arrayBuffer()).toHaveProperty('byteLength', 4);
     const blocked = await worker.fetch(
-      new Request('https://usercontent.example/v1/health'),
+      new Request('https://u.fastsha.red/v1/health'),
       TEST_ENV,
       ctx,
     );
@@ -221,6 +221,17 @@ describe('redirect proxy', () => {
     });
     await putR2Bytes(png.storageKey, new Uint8Array([1, 2, 3, 4]));
     expect((await get(`/s/${png.token}/raw`)).status).toBe(200);
+  });
+
+  it('rejects an identical or unclean user-content origin', () => {
+    for (const host of [
+      'https://fastsha.red',
+      'https://api.fastsha.red',
+      'http://u.fastsha.red',
+      'https://u.fastsha.red/path',
+    ]) {
+      expect(() => assertEnv({ ...TEST_ENV, USER_CONTENT_HOST: host })).toThrow();
+    }
   });
 
   it('keeps the sandbox on partial and attachment responses for active content', async () => {

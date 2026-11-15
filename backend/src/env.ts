@@ -91,10 +91,7 @@ export function assertEnv(env: Env): ValidatedEnv {
     if (
       isolated.protocol !== 'https:' ||
       isolated.origin !== parsed.data.USER_CONTENT_HOST ||
-      [primary, api].some(
-        (host) =>
-          isolated.hostname === host.hostname || isolated.hostname.endsWith(`.${host.hostname}`),
-      )
+      [primary, api].some((host) => isolated.hostname === host.hostname)
     ) {
       throw new Error('USER_CONTENT_HOST must be a separate HTTPS origin');
     }
