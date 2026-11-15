@@ -307,3 +307,28 @@ pnpm test
 - History returns tombstones (expired/revoked/deleted) so the client renders a
   full 30-day list with badges; server-side `effectiveLinkStatus` reconciles
   rows whose expiry has slipped past the last reconciler pass.
+# Web sign-in and Paddle Billing
+
+The web account flow uses `POST /v1/auth/email/start` and a 15-minute email link.
+`GET /v1/auth/email/verify` only displays a confirmation form so email link
+scanners that only make GET requests cannot consume the token. The form sends
+`POST /v1/auth/email/verify`,
+which consumes it once and redirects to `/account#token=...` on the web origin.
+Authenticated `GET /v1/me` includes `userId` (null for anonymous devices) for
+the checkout's `customData.userId`.
+Configure `WEB_APP_ORIGIN` as the HTTPS origin of the web app and `EMAIL_FROM`
+as a verified sender address. Set `RESEND_API_KEY` with `wrangler secret put`.
+`EMAIL_SENDER=log` is available only in `APP_ENV=dev` or `test`; it writes the
+link to the development log. Production and staging use Resend.
+
+Paddle checkout reads `GET /v1/billing/config`. Set `PADDLE_ENV` to `sandbox`
+or `production`, `PADDLE_CLIENT_TOKEN`, `PADDLE_PRICE_MONTHLY`, and
+`PADDLE_PRICE_ANNUAL` as public Wrangler variables. Set `PADDLE_API_KEY` and
+`PADDLE_WEBHOOK_SECRET` only with `wrangler secret put`. Configure the Paddle
+notification destination for `subscription.created`, `subscription.updated`,
+`subscription.activated`, `subscription.canceled`, `subscription.past_due`, and
+`transaction.completed` at `POST /v1/billing/paddle/webhook`. The customer
+portal API key needs Customer portal session write permission.
+
+Migration `drizzle/0012_billing_email.sql` creates the email token and billing
+event tables and extends entitlement. Apply it before enabling these routes.

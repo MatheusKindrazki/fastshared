@@ -17,6 +17,7 @@ account_id = "aad020260082c48f6370fa7954b72f81"
 #   ADMIN_TOKEN (optional, required for abuse takedown)
 # Optional for "Notify me on open" APNs delivery:
 #   APNS_KEY_ID, APNS_TEAM_ID, APNS_P8_KEY_BASE64
+#   RESEND_API_KEY, PADDLE_WEBHOOK_SECRET, PADDLE_API_KEY
 # (APPLE_BUNDLE_ID is a public var — see [vars] below.)
 
 # Production custom domains. Apex serves short-link redirects at /s/:token
@@ -59,6 +60,13 @@ PUBLICATION_HOST_SUFFIX = ""
 PUBLIC_API_HOST = "https://api.fastsha.red"
 R2_BUCKET_NAME = "fastshared"
 PUBLICATION_BUCKET_NAME = "fastshared-publications"
+WEB_APP_ORIGIN = ""
+EMAIL_FROM = ""
+EMAIL_SENDER = ""
+PADDLE_ENV = ""
+PADDLE_CLIENT_TOKEN = ""
+PADDLE_PRICE_MONTHLY = ""
+PADDLE_PRICE_ANNUAL = ""
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
 # Public — matches apple/Config/Shared.xcconfig PRODUCT_BUNDLE_IDENTIFIER_PREFIX.
 # Apple's "Sign in with Apple" JWT puts this in the aud claim; must be identical
@@ -108,6 +116,13 @@ PUBLICATION_HOST_SUFFIX = ""
 PUBLIC_API_HOST = "https://fastshared-api-stg.follow.workers.dev"
 R2_BUCKET_NAME = "fastshared-staging"
 PUBLICATION_BUCKET_NAME = "fastshared-publications-staging"
+WEB_APP_ORIGIN = ""
+EMAIL_FROM = ""
+EMAIL_SENDER = ""
+PADDLE_ENV = ""
+PADDLE_CLIENT_TOKEN = ""
+PADDLE_PRICE_MONTHLY = ""
+PADDLE_PRICE_ANNUAL = ""
 R2_ACCOUNT_ID = "aad020260082c48f6370fa7954b72f81"
 APPLE_BUNDLE_ID = "dev.kindrazki.fastshared"
 DEV_PRO_APPLE_USER_IDS = "001657.9b2eb6771024436bb449edaf4b024c3a.1305"

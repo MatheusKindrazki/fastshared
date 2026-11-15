@@ -12,6 +12,7 @@ import {
   parseAppleUserAllowList,
 } from '~/services/subscriptions';
 import type { SubscriptionStatus, SubscriptionVerificationStatus } from '~/db/schema';
+import { findDeviceById } from '~/services/devices';
 
 export const meRoutes = new Hono<AppBindings>();
 
@@ -26,6 +27,7 @@ meRoutes.use('/', ratelimit({ bucket: 'me', limit: 120, windowSeconds: 60 }));
 // `isPro` is duplicated at the top level because the client keys its paywall
 // gate on `MeResponse.isPro`, not on `tier` alone.
 interface MeResponse {
+  userId: string | null;
   isPro: boolean;
   tier: 'free' | 'monthly' | 'annual' | 'lifetime';
   expiresAt: string | null;
@@ -43,6 +45,8 @@ meRoutes.get('/', async (c) => {
   if (!deviceId) return problem(c, 401, 'unauthorized', 'Unauthorized', 'no device');
 
   const db = createDb(c.env.DATABASE_URL);
+  const owner = await findDeviceById(db, deviceId);
+  const userId = owner?.userId ?? null;
   const active = await findActiveProForDevice(
     db,
     deviceId,
@@ -54,6 +58,7 @@ meRoutes.get('/', async (c) => {
   // No active row at all → pure Free.
   if (!active && !entitled) {
     const body: MeResponse = {
+      userId,
       isPro: false,
       tier: 'free',
       expiresAt: null,
@@ -65,6 +70,7 @@ meRoutes.get('/', async (c) => {
 
   if (!active && entitled) {
     return c.json({
+      userId,
       isPro: true,
       tier: 'monthly',
       expiresAt: null,
@@ -86,6 +92,7 @@ meRoutes.get('/', async (c) => {
   const isPro = proStatuses.includes(status);
   if (!isPro) {
     const body: MeResponse = {
+      userId,
       isPro: false,
       tier: 'free',
       expiresAt: null,
@@ -96,6 +103,7 @@ meRoutes.get('/', async (c) => {
   }
 
   const body: MeResponse = {
+    userId,
     isPro: true,
     tier,
     expiresAt: active.expiresAt ? active.expiresAt.toISOString() : null,

@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm';
-import { createDb } from '~/db/client';
-import { publication } from '~/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { createDb, type Db } from '~/db/client';
+import { device, entitlement, publication } from '~/db/schema';
 import type { Env } from '~/env';
 import {
-  findActiveEntitlementForDevice,
   findActiveProForDevice,
   isProForAllUsersEnabled,
   parseAppleUserAllowList,
@@ -64,20 +63,46 @@ export async function deletePublicationVersionPrefix(
   await deletePrefix(env, `pub/${id}/v${version}/`);
 }
 
+async function userHasPro(
+  db: Db,
+  env: Env,
+  userId: string,
+  fallbackDeviceId: string,
+): Promise<boolean> {
+  const active = await db
+    .select()
+    .from(entitlement)
+    .where(and(eq(entitlement.userId, userId), eq(entitlement.status, 'active')))
+    .limit(1);
+  if (active.length > 0) return true;
+  const devices = await db.select().from(device).where(eq(device.userId, userId));
+  for (const id of new Set([fallbackDeviceId, ...devices.map((row) => row.id)])) {
+    if (
+      await findActiveProForDevice(
+        db,
+        id,
+        parseAppleUserAllowList(env.DEV_PRO_APPLE_USER_IDS, env.BETA_UNLIMITED_APPLE_USER_IDS),
+        { proForAllUsers: isProForAllUsersEnabled(env.PRO_FOR_ALL_USERS) },
+      )
+    )
+      return true;
+  }
+  return false;
+}
+
 export async function runPublicationLifecycle(env: Env, now = new Date()): Promise<void> {
   const db = createDb(env.DATABASE_URL);
   const rows = await db.select().from(publication);
+  const proByUser = new Map<string, boolean>();
   for (const row of rows) {
     try {
-      const isPro =
-        row.ownerUserId !== null &&
-        ((await findActiveEntitlementForDevice(db, row.ownerDeviceId)) ||
-          !!(await findActiveProForDevice(
-            db,
-            row.ownerDeviceId,
-            parseAppleUserAllowList(env.DEV_PRO_APPLE_USER_IDS, env.BETA_UNLIMITED_APPLE_USER_IDS),
-            { proForAllUsers: isProForAllUsersEnabled(env.PRO_FOR_ALL_USERS) },
-          )));
+      if (row.ownerUserId && !proByUser.has(row.ownerUserId)) {
+        proByUser.set(
+          row.ownerUserId,
+          await userHasPro(db, env, row.ownerUserId, row.ownerDeviceId),
+        );
+      }
+      const isPro = row.ownerUserId ? (proByUser.get(row.ownerUserId) ?? false) : false;
       const next = nextPublicationState(row, isPro, now);
       if (next.status || next.expiresAt !== undefined) {
         await db
@@ -100,6 +125,33 @@ export async function runPublicationLifecycle(env: Env, now = new Date()): Promi
       }
     } catch {
       // Keep the row eligible for the next cron tick. Other publications continue.
+    }
+  }
+}
+
+// Called after a billing transition so the 30-day grace starts at cancellation,
+// without waiting for the next scheduled sweep.
+export async function syncUserPublicationLifecycle(
+  env: Env,
+  userId: string,
+  now = new Date(),
+): Promise<void> {
+  const db = createDb(env.DATABASE_URL);
+  const rows = await db.select().from(publication).where(eq(publication.ownerUserId, userId));
+  if (rows.length === 0) return;
+  const isPro = await userHasPro(db, env, userId, rows[0]!.ownerDeviceId);
+  for (const row of rows) {
+    const next = nextPublicationState(row, isPro, now);
+    if (next.status || next.expiresAt !== undefined) {
+      await db
+        .update(publication)
+        .set({
+          ...(next.status ? { status: next.status } : {}),
+          ...(next.expiresAt !== undefined ? { expiresAt: next.expiresAt } : {}),
+          updatedAt: now,
+        })
+        .where(eq(publication.id, row.id));
+      await env.RATE_LIMIT.delete(`pub:cache:${row.slug}`);
     }
   }
 }

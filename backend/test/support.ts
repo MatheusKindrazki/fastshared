@@ -130,6 +130,8 @@ export interface Store {
   publicationOpens: Record<string, any>[];
   publicationOpenClaims: Record<string, any>[];
   entitlements: Record<string, any>[];
+  billingEvents: Record<string, any>[];
+  emailLoginTokens: Record<string, any>[];
   publicationAbuseReports: Record<string, any>[];
 }
 
@@ -152,6 +154,8 @@ function emptyStore(): Store {
     publicationOpens: [],
     publicationOpenClaims: [],
     entitlements: [],
+    billingEvents: [],
+    emailLoginTokens: [],
     publicationAbuseReports: [],
   };
 }
@@ -172,6 +176,8 @@ export function resetStore(): void {
   store.publicationOpens.length = 0;
   store.publicationOpenClaims.length = 0;
   store.entitlements.length = 0;
+  store.billingEvents.length = 0;
+  store.emailLoginTokens.length = 0;
   store.publicationAbuseReports.length = 0;
 }
 
@@ -453,6 +459,8 @@ export function installDrizzleFake(): void {
                 publication_open: store.publicationOpens,
                 publication_open_claim: store.publicationOpenClaims,
                 entitlement: store.entitlements,
+                billing_event: store.billingEvents,
+                email_login_token: store.emailLoginTokens,
                 publication_abuse_report: store.publicationAbuseReports,
               };
               if (publicationTables[name])
@@ -489,6 +497,8 @@ export function installDrizzleFake(): void {
                     store.devices.push(row);
                     out.push(row);
                   } else if (name === 'user') {
+                    if (conflictSet === 'nothing' && store.users.some((u) => u.email === v.email))
+                      continue;
                     const row: UserRow = {
                       id: (v.id as string) ?? crypto.randomUUID(),
                       appleUserId: (v.appleUserId as string | null) ?? null,
@@ -661,6 +671,38 @@ export function installDrizzleFake(): void {
                     };
                     store.subscriptions.push(row);
                     out.push(row);
+                  } else if (name === 'billing_event') {
+                    if (store.billingEvents.some((row) => row.eventId === v.eventId)) continue;
+                    const row = {
+                      status: 'processing',
+                      createdAt: new Date(),
+                      processedAt: null,
+                      ...v,
+                    };
+                    store.billingEvents.push(row);
+                    out.push(row);
+                  } else if (name === 'email_login_token') {
+                    const row = { consumedAt: null, createdAt: new Date(), ...v };
+                    store.emailLoginTokens.push(row);
+                    out.push(row);
+                  } else if (name === 'entitlement') {
+                    const existing = store.entitlements.find(
+                      (row) => row.source === v.source && row.externalId === v.externalId,
+                    );
+                    if (existing) {
+                      if (conflictSet && typeof conflictSet === 'object')
+                        Object.assign(existing, conflictSet);
+                      if (conflictSet !== 'nothing') out.push(existing);
+                      continue;
+                    }
+                    const row = {
+                      id: crypto.randomUUID(),
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                      ...v,
+                    };
+                    store.entitlements.push(row);
+                    out.push(row);
                   } else if (
                     [
                       'publication',
@@ -668,7 +710,6 @@ export function installDrizzleFake(): void {
                       'publication_file',
                       'publication_open',
                       'publication_open_claim',
-                      'entitlement',
                       'publication_abuse_report',
                     ].includes(name)
                   ) {
@@ -806,8 +847,26 @@ export function installDrizzleFake(): void {
                   if (name === 'publication') applyAll(store.publications);
                   if (name === 'publication_version') applyAll(store.publicationVersions);
                   if (name === 'publication_abuse_report') applyAll(store.publicationAbuseReports);
+                  if (name === 'billing_event') applyAll(store.billingEvents);
+                  if (name === 'entitlement') applyAll(store.entitlements);
+                  if (name === 'email_login_token') {
+                    const now = Date.now();
+                    store.emailLoginTokens
+                      .filter(
+                        (r) =>
+                          conds.includes(r.tokenHash) &&
+                          r.consumedAt === null &&
+                          r.expiresAt.getTime() > now,
+                      )
+                      .forEach((r) => {
+                        apply(r);
+                        updatedRows.push(r);
+                      });
+                  }
                   return {
                     returning() {
+                      if (name === 'email_login_token' || name === 'billing_event')
+                        return Promise.resolve(updatedRows);
                       if (name === 'share_link') return Promise.resolve(updatedRows);
                       if (name === 'user') {
                         return Promise.resolve(updatedRows);

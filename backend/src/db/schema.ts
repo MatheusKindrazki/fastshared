@@ -467,6 +467,8 @@ export const entitlement = pgTable(
     externalId: text('external_id').notNull(),
     status: text('status').notNull(),
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+    paddleCustomerId: text('paddle_customer_id'),
+    lastEventAt: timestamp('last_event_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -475,6 +477,22 @@ export const entitlement = pgTable(
     userIdx: index('entitlement_user_idx').on(t.userId),
   }),
 );
+
+export const billingEvent = pgTable('billing_event', {
+  eventId: text('event_id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  status: text('status').notNull().default('processing'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+});
+
+export const emailLoginToken = pgTable('email_login_token', {
+  tokenHash: text('token_hash').primaryKey(),
+  email: citext('email').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export type User = InferSelectModel<typeof user>;
 export type NewUser = InferInsertModel<typeof user>;
