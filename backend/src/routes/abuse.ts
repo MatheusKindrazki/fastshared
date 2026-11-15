@@ -3,7 +3,7 @@ import { and, eq, gte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AppBindings } from '~/env';
 import { createDb } from '~/db/client';
-import { abuseReport, shareLink } from '~/db/schema';
+import { abuseReport, shareLink, publication, publicationAbuseReport } from '~/db/schema';
 import { ratelimit } from '~/middleware/ratelimit';
 import { problem } from '~/lib/problem';
 import { findByToken, revokeByTokenAsAdmin } from '~/services/shareLinks';
@@ -11,6 +11,21 @@ import { hmacSha256Hex } from '~/lib/hash';
 import { log } from '~/lib/logger';
 
 export const abuseRoutes = new Hono<AppBindings>();
+
+abuseRoutes.get('/', (c) => {
+  const slug = c.req.query('publication');
+  if (!slug || !/^[a-z2-7]{10}$/.test(slug))
+    return problem(c, 400, 'invalid_report', 'Bad Request');
+  return c.html(
+    `<!doctype html><html><head><meta name="robots" content="noindex"><title>Report publication</title></head><body><h1>Report publication</h1><form method="post" action="/v1/abuse-reports"><input type="hidden" name="publicationSlug" value="${slug}"><label>Reason <select name="reason"><option value="phishing">Phishing</option><option value="malware">Malware</option><option value="spam">Spam</option><option value="other">Other</option></select></label><button type="submit">Report</button></form></body></html>`,
+    200,
+    {
+      'Content-Security-Policy':
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+      'X-Robots-Tag': 'noindex',
+    },
+  );
+});
 
 const reportSchema = z.object({
   token: z.string().min(1).max(64),
@@ -21,7 +36,56 @@ abuseRoutes.post(
   '/',
   ratelimit({ bucket: 'abuse_report', limit: 5, windowSeconds: 3600, keyFrom: 'ip' }),
   async (c) => {
-    const body = await c.req.json().catch(() => null);
+    const body = c.req.header('content-type')?.includes('application/x-www-form-urlencoded')
+      ? await c.req.parseBody()
+      : await c.req.json().catch(() => null);
+    if (body && typeof body === 'object' && 'publicationSlug' in body) {
+      const input = z
+        .object({
+          publicationSlug: z.string().regex(/^[a-z2-7]{10}$/),
+          reason: z.enum(['phishing', 'malware', 'spam', 'other']),
+        })
+        .safeParse(body);
+      if (!input.success) return problem(c, 400, 'invalid_report', 'Bad Request');
+      const db = createDb(c.env.DATABASE_URL);
+      const [pub] = await db
+        .select()
+        .from(publication)
+        .where(eq(publication.slug, input.data.publicationSlug))
+        .limit(1);
+      if (!pub) return problem(c, 404, 'not_found', 'Not Found');
+      const ip = c.req.header('cf-connecting-ip');
+      const ipHash = ip
+        ? await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, `abuse-report-ip:${ip}`)
+        : null;
+      const [report] = await db
+        .insert(publicationAbuseReport)
+        .values({ publicationId: pub.id, reason: input.data.reason, ipHash })
+        .returning();
+      if (ipHash && pub.status === 'active') {
+        const cutoff = new Date(Date.now() - 86400_000);
+        const recent = await db
+          .select()
+          .from(publicationAbuseReport)
+          .where(
+            and(
+              eq(publicationAbuseReport.publicationId, pub.id),
+              gte(publicationAbuseReport.createdAt, cutoff),
+            ),
+          );
+        if (
+          new Set(recent.filter((r) => r.ipHash && r.createdAt >= cutoff).map((r) => r.ipHash))
+            .size >= 3
+        ) {
+          await db
+            .update(publication)
+            .set({ status: 'suspended', updatedAt: new Date() })
+            .where(eq(publication.id, pub.id));
+          await c.env.RATE_LIMIT.delete(`pub:cache:${pub.slug}`);
+        }
+      }
+      return c.json({ id: report?.id, status: 'received' }, 201);
+    }
     const parsed = reportSchema.safeParse(body);
     if (!parsed.success) return problem(c, 400, 'invalid_report', 'Bad Request', 'invalid report');
 
