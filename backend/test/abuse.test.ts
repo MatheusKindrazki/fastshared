@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ctx, installDrizzleFake, resetKv, resetStore, store, TEST_ENV } from './support';
 
 installDrizzleFake();
@@ -33,7 +33,6 @@ describe('abuse reports and admin takedown', () => {
     resetKv();
     delete TEST_ENV.ADMIN_TOKEN;
     TEST_ENV.USER_CONTENT_HOST = '';
-    vi.spyOn(console, 'log').mockImplementation(() => {});
     store.shareLinks.push({
       id: crypto.randomUUID(),
       token,
@@ -51,7 +50,12 @@ describe('abuse reports and admin takedown', () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('persists an anonymous report and rate limits repeated requests', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     for (let i = 0; i < 5; i++) {
       const res = await post('/v1/abuse-reports', { token, reason: 'phishing' });
       expect(res.status).toBe(201);
@@ -63,9 +67,8 @@ describe('abuse reports and admin takedown', () => {
     });
     expect(store.abuseReports[0]!.ipHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(store.abuseReports)).not.toContain('203.0.113.4');
-    const receivedLog = vi
-      .mocked(console.log)
-      .mock.calls.map(([line]) => String(line))
+    const receivedLog = logSpy.mock.calls
+      .map(([line]) => String(line))
       .find((line) => line.includes('"msg":"abuse_report_received"'));
     expect(JSON.parse(receivedLog!)).toMatchObject({
       msg: 'abuse_report_received',
