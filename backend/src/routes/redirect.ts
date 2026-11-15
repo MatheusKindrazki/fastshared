@@ -40,6 +40,7 @@ redirectRoutes.get('/:token/raw', (c) => binaryHandler(c, 'inline'));
 // Resumable-download clients probe with HEAD before issuing ranged GETs.
 redirectRoutes.on('HEAD', '/:token', (c) => binaryHandler(c, 'attachment'));
 redirectRoutes.get('/:token', (c) => dispatchHandler(c));
+redirectRoutes.post('/:token/opened', (c) => openedHandler(c));
 
 redirectRoutes.post('/:token/verify', (c) => {
   return problem(
@@ -138,14 +139,9 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
   }
 
   const a = loaded.assetRow;
-  // Preview page (HTML).
-  scheduleAccessSideEffects(c, db, {
-    token,
-    link: loaded.link,
-    ownerDeviceId: a.ownerDeviceId,
-    filename: a.originalFilename ?? 'download',
-    shortUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
-  });
+  // Preview HTML is served to browsers and to unfurlers. Count the fetch,
+  // but do not alert: an alert requires the rendered page to call /opened.
+  scheduleAccessCount(c, db, token);
 
   let textPreview: string | undefined;
   let textTruncated = false;
@@ -175,52 +171,24 @@ async function dispatchHandler(c: Context<AppBindings>): Promise<Response> {
     previewUrl: `${c.env.SHORT_LINK_HOST}/s/${token}/raw`,
     canonicalUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
     ogImageUrl: `${c.env.SHORT_LINK_HOST}/og-image.png`,
+    openedUrl: `/s/${token}/opened`,
     ...(textPreview !== undefined ? { textPreview, textTruncated } : {}),
   });
 }
 
 const TEXT_PREVIEW_CAP_BYTES = 16 * 1024;
 
-interface AccessSideEffectArgs {
-  token: string;
-  link: ShareLink;
-  ownerDeviceId: string | null;
-  filename: string;
-  shortUrl: string;
-}
-
-function scheduleAccessSideEffects(
-  c: Context<AppBindings>,
-  db: Db,
-  args: AccessSideEffectArgs,
-): void {
+function scheduleAccessCount(c: Context<AppBindings>, db: Db, token: string): void {
   c.executionCtx.waitUntil(
-    recordAccessAndMaybeNotify(c, db, args).catch((err) => {
+    incrementAccess(db, token).catch((err) => {
       log.warn({
-        msg: 'access_side_effect_failed',
+        msg: 'access_count_failed',
         requestId: c.get('requestId'),
-        token: args.token,
+        token,
         error: err instanceof Error ? err.message : String(err),
       });
     }),
   );
-}
-
-async function recordAccessAndMaybeNotify(
-  c: Context<AppBindings>,
-  db: Db,
-  args: AccessSideEffectArgs,
-): Promise<void> {
-  const accessCount = await incrementAccess(db, args.token);
-  if (accessCount === null || !args.link.notifyOnOpen || !args.ownerDeviceId) return;
-  await sendLinkOpenedNotification({
-    env: c.env,
-    db,
-    deviceId: args.ownerDeviceId,
-    token: args.token,
-    filename: args.filename,
-    shortUrl: args.shortUrl,
-  });
 }
 
 function isTextLikeContentType(ct: string): boolean {
@@ -265,13 +233,7 @@ async function binaryHandler(
 
   const onLeadingHit = (offset: number) => {
     if (offset !== 0) return;
-    scheduleAccessSideEffects(c, db, {
-      token,
-      link: loaded.link,
-      ownerDeviceId: loaded.assetRow.ownerDeviceId,
-      filename: loaded.assetRow.originalFilename ?? 'download',
-      shortUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
-    });
+    scheduleAccessCount(c, db, token);
   };
   return streamAssetBytes(c, loaded.assetRow, mode, onLeadingHit);
 }
@@ -358,6 +320,27 @@ function acceptsHtml(accept: string | undefined | null): boolean {
   return lower.includes('text/html') || lower.includes('application/xhtml+xml');
 }
 
+// Known link-unfurl bots that need HTML (OG tags). They are not a real open.
+const UNFURLER_MARKERS = [
+  'slackbot',
+  'discordbot',
+  'telegrambot',
+  'whatsapp',
+  'linkedinbot',
+  'facebookexternalhit',
+  'twitterbot',
+  'skypeuripreview',
+  'redditbot',
+  'embedly',
+  'iframely',
+  'pinterest',
+] as const;
+
+function isUnfurler(ua: string): boolean {
+  const lower = ua.toLowerCase();
+  return UNFURLER_MARKERS.some((marker) => lower.includes(marker));
+}
+
 // Serve the raw file (not the HTML preview) to automated clients even when
 // they advertise `Accept: text/html`. Browsers get the preview; everything
 // programmatic (curl, wget, HTTP libraries, MCP servers, LLM fetchers,
@@ -367,22 +350,7 @@ function isAutomatedClient(ua: string | undefined | null): boolean {
   if (!ua) return true;
   const lower = ua.toLowerCase();
 
-  // Known link-unfurl bots that need HTML (OG tags).
-  const unfurlers = [
-    'slackbot',
-    'discordbot',
-    'telegrambot',
-    'whatsapp',
-    'linkedinbot',
-    'facebookexternalhit',
-    'twitterbot',
-    'skypeuripreview',
-    'redditbot',
-    'embedly',
-    'iframely',
-    'pinterest',
-  ];
-  if (unfurlers.some((b) => lower.includes(b))) return false;
+  if (isUnfurler(lower)) return false;
 
   // Real browsers. `mozilla/` prefix covers Chrome, Safari, Firefox, Edge.
   // Filter OUT "headless" which is usually a scraper pretending to be Chrome.
@@ -477,6 +445,251 @@ function goneOrNotFoundJson(
   return res;
 }
 
+// One confirmed render per visitor per link. KV TTL is the dedupe window.
+const OPENED_VISITOR_TTL_SECONDS = 24 * 60 * 60;
+const OPENED_RATE_LIMIT = 30;
+const OPENED_RATE_WINDOW_SECONDS = 60;
+const VISITOR_ID_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
+
+function shouldIgnoreOpenBeacon(ua: string | undefined | null): boolean {
+  if (!ua) return true;
+  if (isUnfurler(ua)) return true;
+  return isAutomatedClient(ua);
+}
+
+function noContent(): Response {
+  const headers = new Headers();
+  applySecurityHeaders(headers);
+  return new Response(null, { status: 204, headers });
+}
+
+async function openedHandler(c: Context<AppBindings>): Promise<Response> {
+  const token = c.req.param('token') ?? '';
+  if (!token) return goneOrNotFoundJson(c, 404, 'not_found', 'missing token');
+
+  const limited = await consumeOpenedRateLimit(c, token);
+  if (limited) return limited;
+
+  const db = createDb(c.env.DATABASE_URL);
+  const resolved = await resolveOpenTarget(c, db, token);
+  if (resolved.status === 'not_found') {
+    return goneOrNotFoundJson(c, 404, 'not_found', 'unknown token');
+  }
+  if (resolved.status === 'gone') {
+    return goneOrNotFoundJson(c, 410, 'gone', resolved.reason);
+  }
+  if (resolved.status === 'pending') {
+    return goneOrNotFoundJson(c, 404, 'not_found', 'upload in progress');
+  }
+  if (resolved.status === 'password') {
+    return problem(
+      c,
+      501,
+      'not_implemented',
+      'Not Implemented',
+      'password-protected share links are post-MVP',
+    );
+  }
+
+  // Unfurlers and automated clients can still POST. That is not an open.
+  if (shouldIgnoreOpenBeacon(c.req.header('user-agent'))) return noContent();
+
+  const visitor = await readVisitorId(c);
+  if (!visitor) {
+    return problem(c, 400, 'invalid_visitor', 'Bad Request', 'visitor id is required');
+  }
+
+  const target = resolved.target;
+  if (!target.link.notifyOnOpen || !target.ownerDeviceId) return noContent();
+
+  const claimed = await claimOpenVisitor(c, token, visitor);
+  if (!claimed) return noContent();
+
+  c.executionCtx.waitUntil(
+    deliverOpenAlert(c, db, {
+      deviceId: target.ownerDeviceId,
+      token,
+      visitor,
+      filename: target.filename,
+      shortUrl: target.shortUrl,
+    }),
+  );
+  return noContent();
+}
+
+interface DeliverOpenAlertArgs {
+  deviceId: string;
+  token: string;
+  visitor: string;
+  filename: string;
+  shortUrl: string;
+}
+
+async function deliverOpenAlert(
+  c: Context<AppBindings>,
+  db: Db,
+  args: DeliverOpenAlertArgs,
+): Promise<void> {
+  try {
+    const delivered = await sendLinkOpenedNotification({
+      env: c.env,
+      db,
+      deviceId: args.deviceId,
+      token: args.token,
+      filename: args.filename,
+      shortUrl: args.shortUrl,
+    });
+    if (!delivered) await releaseOpenVisitor(c, args.token, args.visitor);
+  } catch (err) {
+    await releaseOpenVisitor(c, args.token, args.visitor).catch(() => undefined);
+    log.warn({
+      msg: 'open_alert_failed',
+      requestId: c.get('requestId'),
+      token: args.token,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+interface OpenTarget {
+  link: ShareLink;
+  ownerDeviceId: string | null;
+  filename: string;
+  shortUrl: string;
+}
+
+async function resolveOpenTarget(
+  c: Context<AppBindings>,
+  db: Db,
+  token: string,
+): Promise<
+  | { status: 'ok'; target: OpenTarget }
+  | { status: 'not_found' }
+  | { status: 'gone'; reason: 'expired' | 'revoked' | 'deleted' }
+  | { status: 'pending' }
+  | { status: 'password' }
+> {
+  const peek = await findByToken(db, token);
+  if (!peek) return { status: 'not_found' };
+
+  if (peek.isBundle) {
+    const loaded = await loadActiveBundle(c, db, token);
+    if ('status' in loaded) {
+      if (loaded.status === 'not_found') return { status: 'not_found' };
+      if (loaded.status === 'pending') return { status: 'pending' };
+      return { status: 'gone', reason: loaded.reason };
+    }
+    if (loaded.link.visibility === 'password') return { status: 'password' };
+    const first = loaded.assets[0]?.asset;
+    const filename =
+      loaded.assets.length === 1
+        ? (first?.originalFilename ?? 'download')
+        : `${loaded.assets.length} files`;
+    return {
+      status: 'ok',
+      target: {
+        link: loaded.link,
+        ownerDeviceId: first?.ownerDeviceId ?? null,
+        filename,
+        shortUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
+      },
+    };
+  }
+
+  const loaded = await loadActiveLinkAndAsset(c, db, token);
+  if (loaded.status === 'not_found') return { status: 'not_found' };
+  if (loaded.status === 'gone') return { status: 'gone', reason: loaded.reason };
+  if (loaded.status === 'pending') return { status: 'pending' };
+  if (loaded.link.visibility === 'password') return { status: 'password' };
+  return {
+    status: 'ok',
+    target: {
+      link: loaded.link,
+      ownerDeviceId: loaded.assetRow.ownerDeviceId,
+      filename: loaded.assetRow.originalFilename ?? 'download',
+      shortUrl: `${c.env.SHORT_LINK_HOST}/s/${token}`,
+    },
+  };
+}
+
+async function readVisitorId(c: Context<AppBindings>): Promise<string | null> {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return null;
+  }
+  if (!body || typeof body !== 'object') return null;
+  const visitor = (body as { visitor?: unknown }).visitor;
+  if (typeof visitor !== 'string' || !VISITOR_ID_PATTERN.test(visitor)) return null;
+  return visitor;
+}
+
+async function consumeOpenedRateLimit(
+  c: Context<AppBindings>,
+  token: string,
+): Promise<Response | null> {
+  const ip = c.req.header('cf-connecting-ip') ?? 'unknown';
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = now - (now % OPENED_RATE_WINDOW_SECONDS);
+  const identity = (
+    await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, `${ip}:${token}`)
+  ).slice(0, 32);
+  const key = `rl:open:${identity}:${windowStart}`;
+  const ttl = OPENED_RATE_WINDOW_SECONDS + 60;
+  const existing = await c.env.RATE_LIMIT.get(key);
+  const current = existing ? Number(existing) : 0;
+  if (!Number.isFinite(current)) {
+    await c.env.RATE_LIMIT.put(key, '1', { expirationTtl: ttl });
+    return null;
+  }
+  if (current >= OPENED_RATE_LIMIT) {
+    const retryAfter = windowStart + OPENED_RATE_WINDOW_SECONDS - now;
+    const res = problem(
+      c,
+      429,
+      'rate_limited',
+      'Too Many Requests',
+      `Limit of ${OPENED_RATE_LIMIT} per ${OPENED_RATE_WINDOW_SECONDS}s exceeded for bucket 'opened_ip_token'`,
+    );
+    res.headers.set('Retry-After', String(Math.max(retryAfter, 1)));
+    applySecurityHeaders(res.headers);
+    return res;
+  }
+  await c.env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: ttl });
+  return null;
+}
+
+async function openVisitorKey(
+  c: Context<AppBindings>,
+  token: string,
+  visitor: string,
+): Promise<string> {
+  const tokenKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, token)).slice(0, 32);
+  const visitorKey = (await hmacSha256Hex(c.env.DEVICE_TOKEN_PEPPER, visitor)).slice(0, 32);
+  return `open:${tokenKey}:${visitorKey}`;
+}
+
+async function claimOpenVisitor(
+  c: Context<AppBindings>,
+  token: string,
+  visitor: string,
+): Promise<boolean> {
+  const key = await openVisitorKey(c, token, visitor);
+  const existing = await c.env.RATE_LIMIT.get(key);
+  if (existing) return false;
+  await c.env.RATE_LIMIT.put(key, '1', { expirationTtl: OPENED_VISITOR_TTL_SECONDS });
+  return true;
+}
+
+async function releaseOpenVisitor(
+  c: Context<AppBindings>,
+  token: string,
+  visitor: string,
+): Promise<void> {
+  await c.env.RATE_LIMIT.delete(await openVisitorKey(c, token, visitor));
+}
+
 // ---------------------------------------------------------------------------
 // Bundle path: /b/:token (preview HTML) + /b/:token/d/:assetId (per-asset
 // download). Mounted at /b in the worker root. Mirrors the rate-limit
@@ -567,23 +780,14 @@ async function bundlePreviewHandler(c: Context<AppBindings>): Promise<Response> 
     return goneOrNotFoundHtml(c, 410, 'gone', loaded.reason);
   }
 
-  const firstAsset = loaded.assets[0]?.asset;
-  scheduleAccessSideEffects(c, db, {
-    token,
-    link: loaded.link,
-    ownerDeviceId: firstAsset?.ownerDeviceId ?? null,
-    filename:
-      loaded.assets.length === 1
-        ? (firstAsset?.originalFilename ?? 'download')
-        : `${loaded.assets.length} files`,
-    shortUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
-  });
+  scheduleAccessCount(c, db, token);
 
   return renderBundlePreviewPage({
     token,
     expiresAt: loaded.link.expiresAt,
     canonicalUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
     ogImageUrl: `${c.env.SHORT_LINK_HOST}/og-image.png`,
+    openedUrl: `/s/${token}/opened`,
     items: loaded.assets.map((row) => ({
       assetId: row.asset.id,
       filename: row.asset.originalFilename ?? 'download',
@@ -661,13 +865,7 @@ async function bundleAssetDownloadHandler(c: Context<AppBindings>): Promise<Resp
 
   const onLeadingHit = (offset: number) => {
     if (offset !== 0) return;
-    scheduleAccessSideEffects(c, db, {
-      token,
-      link,
-      ownerDeviceId: a.ownerDeviceId,
-      filename: a.originalFilename ?? 'download',
-      shortUrl: `${c.env.SHORT_LINK_HOST}/b/${token}`,
-    });
+    scheduleAccessCount(c, db, token);
   };
   return streamAssetBytes(c, a, 'attachment', onLeadingHit);
 }

@@ -15,15 +15,15 @@ export interface SendLinkOpenedNotificationArgs {
 
 export async function sendLinkOpenedNotification(
   args: SendLinkOpenedNotificationArgs,
-): Promise<void> {
+): Promise<boolean> {
   const config = apnsConfig(args.env);
   if (!config) {
     log.warn({ msg: 'apns_not_configured' });
-    return;
+    return false;
   }
 
   const device = await findDeviceById(args.db, args.deviceId);
-  if (!device?.apnsToken || !device.apnsEnvironment) return;
+  if (!device?.apnsToken || !device.apnsEnvironment) return false;
 
   const jwt = await providerToken(config);
   const endpoint =
@@ -57,7 +57,7 @@ export async function sendLinkOpenedNotification(
     body: JSON.stringify(payload),
   });
 
-  if (response.ok) return;
+  if (response.ok) return true;
 
   const detail = await safeText(response);
   log.warn({
@@ -71,6 +71,7 @@ export async function sendLinkOpenedNotification(
   if (response.status === 410 || /BadDeviceToken|Unregistered/i.test(detail)) {
     await clearDevicePushToken(args.db, args.deviceId);
   }
+  return false;
 }
 
 interface APNSConfig {
@@ -105,11 +106,15 @@ function decodeBase64(value: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-function notificationBody(filename?: string | null): string {
+export function linkOpenedAlertBody(filename?: string | null): string {
   const clean = filename?.trim();
-  if (!clean) return 'Your shared link was opened.';
+  if (!clean) return 'Your link was opened in a browser';
   const clipped = clean.length > 80 ? `${clean.slice(0, 77)}...` : clean;
-  return `"${clipped}" was opened.`;
+  return `"${clipped}" was opened in a browser`;
+}
+
+function notificationBody(filename?: string | null): string {
+  return linkOpenedAlertBody(filename);
 }
 
 async function safeText(response: Response): Promise<string> {

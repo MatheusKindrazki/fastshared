@@ -34,6 +34,8 @@ export interface RenderPreviewPageArgs {
   previewUrl: string;
   canonicalUrl: string;
   ogImageUrl: string;
+  /** Same-origin URL the rendered page calls after it stays visible. */
+  openedUrl?: string;
   textPreview?: string;
   textTruncated?: boolean;
   requestNow?: Date;
@@ -589,6 +591,7 @@ ${renderLLMInstructionsBody(llmArgs)}
   setInterval(tick, 1000);
 })();
 </script>
+${openBeaconScript(args.openedUrl)}
 </body>
 </html>`;
 
@@ -596,6 +599,64 @@ ${renderLLMInstructionsBody(llmArgs)}
     status: 200,
     headers: buildHtmlHeaders(),
   });
+}
+
+// Posts to the open-alert endpoint only after the document has stayed
+// visible. Hiding the page cancels the timer, so a prefetch that never
+// paints does not confirm an open.
+function openBeaconScript(openedUrl: string | undefined): string {
+  if (!openedUrl) return '';
+  const endpoint = JSON.stringify(openedUrl).replace(/</g, '\\u003c');
+  return `<script>
+(function () {
+  var endpoint = ${endpoint};
+  var storageKey = 'fs_visitor_id';
+  var visibleMs = 1500;
+  var sent = false;
+  var timer = null;
+  function visitorId() {
+    try {
+      var existing = localStorage.getItem(storageKey);
+      if (existing) return existing;
+      var created = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ('v' + Math.random().toString(36).slice(2) + Date.now().toString(36));
+      localStorage.setItem(storageKey, created);
+      return created;
+    } catch (e) {
+      return '';
+    }
+  }
+  function clearTimer() {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+  function send() {
+    if (sent || document.visibilityState !== 'visible') return;
+    var visitor = visitorId();
+    if (!visitor) return;
+    sent = true;
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ visitor: visitor }),
+      keepalive: true,
+      credentials: 'omit',
+      cache: 'no-store'
+    }).catch(function () {});
+  }
+  function arm() {
+    if (sent) return;
+    clearTimer();
+    if (document.visibilityState !== 'visible') return;
+    timer = setTimeout(send, visibleMs);
+  }
+  document.addEventListener('visibilitychange', arm);
+  arm();
+})();
+</script>`;
 }
 
 function renderViewport(
@@ -878,6 +939,8 @@ export interface RenderBundlePreviewPageArgs {
   expiresAt: Date;
   canonicalUrl: string;
   ogImageUrl: string;
+  /** Same-origin URL the rendered page calls after it stays visible. */
+  openedUrl?: string;
   items: BundlePreviewItem[];
   requestNow?: Date;
 }
@@ -1692,6 +1755,7 @@ ${renderBundleLLMInstructionsBody({ fileCount, items: llmItems })}
   setInterval(tick, 1000);
 })();
 </script>
+${openBeaconScript(args.openedUrl)}
 </body>
 </html>`;
 
@@ -1883,6 +1947,7 @@ function buildHtmlHeaders(): Headers {
     'Content-Security-Policy',
     [
       "default-src 'self'",
+      "connect-src 'self'",
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "script-src 'self' 'unsafe-inline'",
