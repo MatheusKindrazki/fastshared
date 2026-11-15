@@ -273,7 +273,8 @@ describe('redirect proxy', () => {
     const first = await get(`/s/${token}`, { accept: 'text/html' });
     expect(first.status).toBe(200);
     const html = await first.text();
-    expect(html).toContain(`/s/${token}/opened`);
+    expect(html).toContain(`"/s/${token}/opened"`);
+    expect(html).not.toContain(`https://fastsha.red/s/${token}/opened`);
     expect(html).toContain('visibilityState');
     expect(first.headers.get('Content-Security-Policy')).toContain("connect-src 'self'");
 
