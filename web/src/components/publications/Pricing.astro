@@ -1,0 +1,180 @@
+---
+import Frame from './Frame.astro';
+
+const shared = [
+  ['Formats', 'HTML, PDF, ZIP'],
+  ['Isolation', 'Included'],
+  ['Revoke', 'Included'],
+];
+
+const soon = [
+  'Same-URL version updates',
+  'Password protection',
+  'Per-version view analytics',
+  'MCP server integration',
+];
+---
+
+<Frame
+  title="Pricing — FastShared"
+  description="FastShared publications. Free, or Pro at US$15 a month or US$144 a year."
+  width="wide"
+>
+  <div data-pricing-root>
+    <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-violet-hot mb-6">Pricing</p>
+    <h1>Free stays free. Pro is for the weekly delivery.</h1>
+    <p class="lede">
+      One active publication on Free, for seven days. Pro is US$15 a month or US$144 a year, within 2 GB, for as long as the subscription is active.
+    </p>
+
+    <div class="tiers">
+      <article class="tier-card">
+        <header class="tier-head">
+          <p class="tier-name">Free</p>
+          <p class="tier-price"><span class="amount">$0</span></p>
+          <p class="tier-blurb">For a real client delivery, without a card.</p>
+        </header>
+        <a class="btn-ghost tier-cta" href="/publish/">Publish a link</a>
+        <ul class="tier-features" aria-label="Free tier">
+          <li><span class="ft-k">Active publications</span><span class="ft-v">1</span></li>
+          <li><span class="ft-k">Retention</span><span class="ft-v">7 days</span></li>
+          <li><span class="ft-k">Open alerts</span><span class="ft-v">3 per publication</span></li>
+          <li><span class="ft-k">Upload</span><span class="ft-v">25 MB</span></li>
+          <li><span class="ft-k">Badge</span><span class="ft-v">Hosted with FastShared</span></li>
+          {shared.map(([label, value]) => (
+            <li><span class="ft-k">{label}</span><span class="ft-v">{value}</span></li>
+          ))}
+        </ul>
+      </article>
+
+      <article class="tier-card tier-pro">
+        <header class="tier-head">
+          <p class="tier-name">Pro</p>
+          <p class="tier-price"><span class="amount">$15</span><span class="period">/ month</span></p>
+          <p class="tier-blurb">Or US$144 a year. That is US$36 less than twelve months.</p>
+        </header>
+        <div class="checkout">
+          <button type="button" class="btn-primary" data-checkout="monthly">Subscribe monthly</button>
+          <button type="button" class="btn-ghost" data-checkout="annual">Subscribe yearly, US$144</button>
+        </div>
+        <p class="sign-note">
+          Checkout needs a signed-in account. <a href="/account/">Sign in</a>, then come back.
+        </p>
+        <ul class="tier-features" aria-label="Pro tier">
+          <li><span class="ft-k">Active publications</span><span class="ft-v">Within 2 GB</span></li>
+          <li><span class="ft-k">Retention</span><span class="ft-v">While Pro is active</span></li>
+          <li><span class="ft-k">After cancel</span><span class="ft-v">30 days to export</span></li>
+          <li><span class="ft-k">Open alerts</span><span class="ft-v">Unlimited</span></li>
+          <li><span class="ft-k">Upload</span><span class="ft-v">250 MB</span></li>
+          <li><span class="ft-k">Badge</span><span class="ft-v">None</span></li>
+          {shared.map(([label, value]) => (
+            <li><span class="ft-k">{label}</span><span class="ft-v">{value}</span></li>
+          ))}
+        </ul>
+      </article>
+    </div>
+
+    <p data-checkout-status role="status"></p>
+    <p class="fine">
+      Prices in US dollars. Web checkout is billed by Paddle. The iOS and Mac apps bill through Apple.
+      Refunds for web purchases are in the <a href="/refund/">refund policy</a>.
+    </p>
+
+    <section class="soon" aria-labelledby="soon-heading">
+      <h2 id="soon-heading">Coming soon</h2>
+      <ul>
+        {soon.map((item) => <li>{item}</li>)}
+      </ul>
+    </section>
+
+    <section aria-labelledby="pricing-faq">
+      <h2 id="pricing-faq">Questions</h2>
+      <details class="faq-item">
+        <summary>Does the recipient pay anything?</summary>
+        <div class="faq-body">No. Clients do not pay, do not see a paywall, and do not register. They open the link in a browser.</div>
+      </details>
+      <details class="faq-item">
+        <summary>What happens if I cancel Pro?</summary>
+        <div class="faq-body">Publications stay online for 30 days so you can export them. After that, the files are deleted. There is no seven-day trial. Free stays free.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Can I revoke a link before it expires?</summary>
+        <div class="faq-body">Yes. Free and Pro can both revoke a publication immediately. The link stops serving.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Is there a team plan?</summary>
+        <div class="faq-body">Not now. The workflow is for one person shipping client work.</div>
+      </details>
+    </section>
+  </div>
+</Frame>
+
+<script>
+  import '../../scripts/pricing-checkout.ts';
+</script>
+
+<style>
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(40px, 7vw, 84px);
+    line-height: 0.96;
+    letter-spacing: -0.045em;
+    color: var(--charcoal);
+    max-width: 16ch;
+  }
+  h2 {
+    margin: 48px 0 16px;
+    font-family: var(--display);
+    font-size: clamp(28px, 4vw, 40px);
+    letter-spacing: -0.03em;
+    color: var(--charcoal);
+  }
+  .lede,
+  .fine,
+  .sign-note,
+  [data-checkout-status] {
+    margin-top: 16px;
+    max-width: 40rem;
+    color: var(--silver);
+    line-height: 1.6;
+  }
+  .sign-note a,
+  .fine a {
+    color: var(--charcoal);
+    text-decoration: underline;
+  }
+  .tiers {
+    display: grid;
+    gap: 16px;
+    margin-top: 36px;
+  }
+  .checkout {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .tier-features .ft-v {
+    white-space: normal;
+    text-align: right;
+  }
+  .soon ul {
+    display: grid;
+    gap: 8px;
+    padding: 0;
+    list-style: none;
+  }
+  .soon li::before {
+    content: 'Coming soon · ';
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  @media (min-width: 800px) {
+    .tiers {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

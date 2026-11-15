@@ -1,0 +1,162 @@
+---
+import Frame from './Frame.astro';
+---
+
+<Frame
+  title="Publish — FastShared"
+  description="Publish an HTML file, PDF, ZIP, or folder as a FastShared link."
+  noindex
+>
+  <div data-publish-root>
+    <p class="font-mono text-[12px] tracking-[0.18em] uppercase text-violet-hot mb-6">Publish</p>
+    <h1>Drop the work. Take the link.</h1>
+    <p class="lede">A folder, a ZIP, an HTML file, or a PDF. The link stays stable. You can revoke it from your account.</p>
+
+    <section data-signed-out>
+      <h2>Sign in to publish</h2>
+      <form data-sign-in novalidate>
+        <label for="publish-email">Email</label>
+        <input id="publish-email" name="email" type="email" autocomplete="email" required maxlength="256" />
+        <button class="btn-primary" type="submit">Email me a sign-in link</button>
+      </form>
+      <p data-sign-in-status role="status"></p>
+    </section>
+
+    <section data-signed-in hidden>
+      <form data-publish-form>
+        <label for="publish-title">Title <span>(optional)</span></label>
+        <input id="publish-title" name="title" type="text" maxlength="200" autocomplete="off" />
+
+        <div class="drop" data-drop>
+          <p id="drop-label">Drop a folder, a ZIP, an HTML file, or a PDF.</p>
+          <div class="pickers">
+            <label class="btn-ghost file">
+              Choose a file
+              <input id="publish-file" type="file" accept=".zip,.html,.htm,.pdf,application/zip,application/pdf,text/html" />
+            </label>
+            <label class="btn-ghost file">
+              Choose a folder
+              <input id="publish-folder" type="file" multiple />
+            </label>
+          </div>
+          <p data-chosen>Nothing selected.</p>
+        </div>
+
+        <button class="btn-primary" type="submit">Publish</button>
+      </form>
+      <p data-publish-status role="status"></p>
+      <div data-result hidden>
+        <p>Stable link</p>
+        <a data-url href=""></a>
+        <button type="button" class="btn-ghost" data-copy>Copy link</button>
+      </div>
+    </section>
+  </div>
+</Frame>
+
+<script>
+  import '../../scripts/publish-page.ts';
+</script>
+
+<style>
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(40px, 7vw, 80px);
+    line-height: 0.96;
+    letter-spacing: -0.045em;
+    color: var(--charcoal);
+    max-width: 12ch;
+  }
+  h2 {
+    margin-top: 28px;
+    font-family: var(--display);
+    font-size: 28px;
+    letter-spacing: -0.03em;
+    color: var(--charcoal);
+  }
+  .lede {
+    margin-top: 20px;
+    max-width: 38rem;
+    color: var(--silver);
+    line-height: 1.6;
+  }
+  form {
+    display: grid;
+    gap: 10px;
+    margin-top: 28px;
+    max-width: 40rem;
+  }
+  label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--charcoal);
+  }
+  label span {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--silver);
+  }
+  input[type='email'],
+  input[type='text'] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--canvas);
+    color: var(--charcoal);
+  }
+  .drop {
+    margin-top: 8px;
+    padding: 20px;
+    border: 1px dashed var(--rule);
+    border-radius: 16px;
+    background: var(--canvas);
+  }
+  .drop[data-active='true'] {
+    border-color: var(--charcoal);
+  }
+  .pickers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .file {
+    position: relative;
+    overflow: hidden;
+  }
+  .file input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  [data-chosen],
+  [data-publish-status],
+  [data-sign-in-status] {
+    min-height: 1.4em;
+    color: var(--silver);
+    overflow-wrap: anywhere;
+  }
+  [data-result] {
+    display: grid;
+    gap: 10px;
+    margin-top: 20px;
+    max-width: 100%;
+  }
+  [data-result][hidden] {
+    display: none;
+  }
+  [data-url] {
+    color: var(--charcoal);
+    text-decoration: underline;
+    overflow-wrap: anywhere;
+  }
+  button.btn-primary,
+  a.btn-primary {
+    justify-content: center;
+  }
+</style>

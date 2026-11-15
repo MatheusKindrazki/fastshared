@@ -1,0 +1,136 @@
+---
+import terms from '../../content/legal/terms.md?raw';
+import privacy from '../../content/legal/privacy.md?raw';
+import refund from '../../content/legal/refund.md?raw';
+import { renderLegalMarkdown } from '../../lib/legal-markdown';
+import Frame from './Frame.astro';
+
+interface Props {
+  kind: 'terms' | 'privacy' | 'refund';
+}
+
+const copy = {
+  terms: {
+    title: 'Terms — FastShared',
+    description: 'Terms for FastShared, including publications and web billing through Paddle.',
+    source: terms,
+  },
+  privacy: {
+    title: 'Privacy — FastShared',
+    description: 'How FastShared handles files, publication opens, and web billing.',
+    source: privacy,
+  },
+  refund: {
+    title: 'Refunds — FastShared',
+    description: 'Refunds and cancellation for FastShared Pro bought on the web or in the App Store.',
+    source: refund,
+  },
+} as const;
+
+const page = copy[Astro.props.kind];
+const html = renderLegalMarkdown(page.source);
+---
+
+<Frame title={page.title} description={page.description} width="prose">
+  <article class="legal" set:html={html} />
+</Frame>
+
+<style>
+  .legal :global(h1) {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(40px, 7vw, 84px);
+    line-height: 0.96;
+    letter-spacing: -0.04em;
+    color: var(--charcoal);
+  }
+  .legal :global(h2),
+  .legal :global(h3) {
+    font-family: var(--display);
+    color: var(--charcoal);
+    letter-spacing: -0.02em;
+    margin-top: 2rem;
+  }
+  .legal :global(h2) {
+    font-size: clamp(26px, 4vw, 32px);
+  }
+  .legal :global(h3) {
+    font-size: 22px;
+  }
+  .legal :global(p),
+  .legal :global(li) {
+    margin-top: 0.9rem;
+    color: var(--silver);
+    font-size: 17px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .legal :global(ul),
+  .legal :global(ol) {
+    padding-left: 1.2rem;
+  }
+  .legal :global(a) {
+    color: var(--charcoal);
+    text-decoration: underline;
+  }
+  .legal :global(code) {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    color: var(--charcoal);
+  }
+  .legal :global(blockquote) {
+    margin-top: 1.2rem;
+    padding: 16px 18px;
+    border-left: 3px solid var(--charcoal);
+    background: var(--canvas);
+  }
+  .legal :global(.legal-table) {
+    margin-top: 1.2rem;
+    width: 100%;
+  }
+  .legal :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .legal :global(th),
+  .legal :global(td) {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 8px;
+    border-top: 1px solid var(--rule);
+    overflow-wrap: anywhere;
+  }
+  .legal :global(th) {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--silver);
+  }
+  @media (max-width: 640px) {
+    .legal :global(thead) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+    .legal :global(table),
+    .legal :global(tbody),
+    .legal :global(tr),
+    .legal :global(td) {
+      display: block;
+      width: 100%;
+    }
+    .legal :global(td)::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 4px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--silver);
+    }
+  }
+</style>

@@ -1,7 +1,11 @@
 ---
 import BrandLockup from './BrandLockup.astro';
 
-// Fixed navigation with the shipped app icon as the public brand mark.
+interface Props {
+  publications?: boolean;
+}
+
+const { publications = false } = Astro.props;
 ---
 <nav
   class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
@@ -18,6 +22,16 @@ import BrandLockup from './BrandLockup.astro';
     </a>
 
     <div class="flex items-center gap-5">
+      {publications ? (
+        <>
+          <a href="/pricing/" class="nav-link font-mono text-[12px] uppercase transition-colors hidden sm:inline-flex" data-testid="nav-pricing">Pricing</a>
+          <a href="/publications/" class="nav-link font-mono text-[12px] uppercase transition-colors hidden md:inline-flex">Publications</a>
+          <a href="/publish/" class="nav-link font-mono text-[12px] uppercase transition-colors inline-flex">Publish</a>
+          <a href="/account/" class="nav-link font-mono text-[12px] uppercase transition-colors inline-flex">Account</a>
+          <a href="https://apps.apple.com/app/id6762569167" class="nav-link font-mono text-[12px] uppercase transition-colors hidden sm:inline-flex items-center gap-2" data-testid="nav-testflight" target="_blank" rel="noopener noreferrer">App Store <span aria-hidden="true">→</span></a>
+        </>
+      ) : (
+        <>
       <a
         href="/pricing/"
         class="nav-link font-mono text-[12px] uppercase transition-colors inline-flex"
@@ -40,6 +54,8 @@ import BrandLockup from './BrandLockup.astro';
       >
         App Store <span aria-hidden="true">→</span>
       </a>
+        </>
+      )}
       <button
         type="button"
         class="theme-toggle"
