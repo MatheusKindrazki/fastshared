@@ -31,6 +31,14 @@ custom_domain = true
 pattern = "api.fastsha.red"
 custom_domain = true
 
+# Publication hosts (p-<slug>.fastsha.red) and the user-content host
+# (u.fastsha.red). Custom domains above take precedence; other subdomains
+# pass through to their own DNS target (see isUnclaimedSubdomain).
+# Requires a proxied wildcard DNS record "*" on the zone.
+[[routes]]
+pattern = "*.fastsha.red/*"
+zone_name = "fastsha.red"
+
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "fastshared"
@@ -55,12 +63,12 @@ crons = ["*/30 * * * *", "0 * * * *", "0 3 * * SUN"]
 [vars]
 APP_ENV = "production"
 SHORT_LINK_HOST = "https://fastsha.red"
-USER_CONTENT_HOST = ""
-PUBLICATION_HOST_SUFFIX = ""
+USER_CONTENT_HOST = "https://u.fastsha.red"
+PUBLICATION_HOST_SUFFIX = "fastsha.red"
 PUBLIC_API_HOST = "https://api.fastsha.red"
 R2_BUCKET_NAME = "fastshared"
 PUBLICATION_BUCKET_NAME = "fastshared-publications"
-WEB_APP_ORIGIN = ""
+WEB_APP_ORIGIN = "https://fastsha.red"
 EMAIL_FROM = ""
 EMAIL_SENDER = ""
 PADDLE_ENV = ""

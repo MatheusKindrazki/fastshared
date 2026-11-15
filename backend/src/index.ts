@@ -108,6 +108,15 @@ function isAppPath(pathname: string): boolean {
   return APP_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
+export function isUnclaimedSubdomain(hostname: string, env: Env): boolean {
+  const primary = new URL(env.SHORT_LINK_HOST).hostname;
+  if (hostname === primary || !hostname.endsWith(`.${primary}`)) return false;
+  const claimed = [env.PUBLIC_API_HOST, env.USER_CONTENT_HOST]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new URL(value).hostname);
+  return !claimed.includes(hostname);
+}
+
 async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(req.url);
   const publicationSlug = publicationSlugFromHost(url.hostname, env.PUBLICATION_HOST_SUFFIX);
@@ -119,6 +128,12 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
     if ((req.method !== 'GET' && req.method !== 'HEAD') || (!raw && !bundlePreview)) {
       return new Response('Not Found', { status: 404 });
     }
+  }
+  if (isUnclaimedSubdomain(url.hostname, env)) {
+    // The wildcard route catches every subdomain of the short-link host. Only
+    // publication hosts, the user-content host and the API belong to this
+    // Worker; anything else keeps going to whatever its DNS record serves.
+    return fetch(req);
   }
   if (url.hostname === 'fastsha.red' && !isAppPath(url.pathname)) {
     const target = new URL(url.pathname + url.search, PAGES_ORIGIN);
