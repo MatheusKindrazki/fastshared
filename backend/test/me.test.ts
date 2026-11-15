@@ -71,6 +71,28 @@ describe('GET /v1/me', () => {
     expect(body.subscription).toBeNull();
   });
 
+  it('active user entitlement grants Pro without a device IAP row', async () => {
+    const { deviceId, token } = await seedDevice();
+    const userId = crypto.randomUUID();
+    store.devices.find((d) => d.id === deviceId)!.userId = userId;
+    store.entitlements.push({
+      id: crypto.randomUUID(),
+      userId,
+      source: 'paddle',
+      externalId: 'sub-test',
+      status: 'active',
+      currentPeriodEnd: null,
+    });
+    const res = await get('/v1/me', { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      isPro: true,
+      tier: 'monthly',
+      caps: toWireCaps(PRO_CAPS),
+      subscription: null,
+    });
+  });
+
   it('PRO_FOR_ALL_USERS=true → Pro lifetime caps without subscription rows', async () => {
     TEST_ENV.PRO_FOR_ALL_USERS = 'true';
     const { token } = await seedDevice();

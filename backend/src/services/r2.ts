@@ -37,6 +37,7 @@ export interface PresignPutArgs {
   contentType: string;
   sizeBytes: number;
   expiresIn?: number;
+  bucketName?: string;
 }
 
 export interface PresignPutResult {
@@ -49,7 +50,7 @@ export interface PresignPutResult {
 export async function presignPut(args: PresignPutArgs): Promise<PresignPutResult> {
   const expiresIn = args.expiresIn ?? 15 * 60;
   const cmd = new PutObjectCommand({
-    Bucket: args.env.R2_BUCKET_NAME,
+    Bucket: args.bucketName ?? args.env.R2_BUCKET_NAME,
     Key: args.key,
     ContentType: args.contentType,
     ContentLength: args.sizeBytes,
@@ -105,16 +106,10 @@ export async function completeMultipartUpload(
   parts: Array<{ PartNumber: number; ETag: string }>,
 ): Promise<void> {
   const mp = env.R2.resumeMultipartUpload(key, uploadId);
-  await mp.complete(
-    parts.map((p) => ({ partNumber: p.PartNumber, etag: p.ETag })),
-  );
+  await mp.complete(parts.map((p) => ({ partNumber: p.PartNumber, etag: p.ETag })));
 }
 
-export async function abortMultipartUpload(
-  env: Env,
-  key: string,
-  uploadId: string,
-): Promise<void> {
+export async function abortMultipartUpload(env: Env, key: string, uploadId: string): Promise<void> {
   const mp = env.R2.resumeMultipartUpload(key, uploadId);
   await mp.abort();
 }

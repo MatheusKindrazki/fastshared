@@ -20,6 +20,7 @@
     "@neondatabase/serverless": "^0.10.1",
     "@peculiar/x509": "^2.0.0",
     "drizzle-orm": "^0.45.2",
+    "fflate": "0.8.3",
     "hono": "^4.6.5",
     "jose": "^6.2.2",
     "reflect-metadata": "^0.2.2",

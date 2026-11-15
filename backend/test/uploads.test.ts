@@ -443,11 +443,13 @@ import type { Env } from '~/env';
 const TEST_ENV: Env = {
   DATABASE_URL: 'postgres://test',
   R2: {} as unknown as R2Bucket,
+  PUBLICATIONS: {} as unknown as R2Bucket,
   RATE_LIMIT: makeKv(),
   R2_ACCOUNT_ID: 'acc',
   R2_ACCESS_KEY_ID: 'k',
   R2_SECRET_ACCESS_KEY: 's',
   R2_BUCKET_NAME: 'fastshared-test',
+  PUBLICATION_BUCKET_NAME: 'fastshared-publications-test',
   SHORT_LINK_HOST: 'https://fastsha.red',
   PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',

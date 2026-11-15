@@ -24,6 +24,9 @@ import { runReconciliation } from '~/services/reconciliation';
 import { runMultipartSweeper } from '~/services/multipartSweeper';
 import { problem } from '~/lib/problem';
 import { log } from '~/lib/logger';
+import { publicationRoutes } from '~/routes/publications';
+import { publicationSlugFromHost, servePublication } from '~/services/publicationHost';
+import { runPublicationLifecycle } from '~/services/publicationLifecycle';
 
 const app = new Hono<AppBindings>();
 
@@ -63,6 +66,7 @@ app.route('/v1/abuse-reports', abuseRoutes);
 app.route('/v1/iap', iapRoutes);
 app.route('/v1/me', meRoutes);
 app.route('/v1/account', accountRoutes);
+app.route('/v1/publications', publicationRoutes);
 app.route('/s', redirectRoutes);
 app.route('/b', bundleRedirectRoutes);
 app.route('/.well-known', wellKnownRoutes);
@@ -102,6 +106,8 @@ function isAppPath(pathname: string): boolean {
 
 async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(req.url);
+  const publicationSlug = publicationSlugFromHost(url.hostname, env.PUBLICATION_HOST_SUFFIX);
+  if (publicationSlug) return servePublication(req, env, ctx, publicationSlug);
   if (env.USER_CONTENT_HOST && url.host === new URL(env.USER_CONTENT_HOST).host) {
     // The dedicated origin has no app, admin, preview chrome, or Pages surface.
     const raw = /^\/s\/[^/]+\/raw$/.test(url.pathname);
@@ -123,8 +129,18 @@ async function routeRequest(req: Request, env: Env, ctx: ExecutionContext): Prom
   return app.fetch(req, env, ctx);
 }
 
+export function withoutDomainCookies(res: Response): Response {
+  if (!res.headers.has('set-cookie')) return res;
+  const headers = new Headers(res.headers);
+  // All public surfaces use bearer tokens. Do not allow a publication origin
+  // or the Pages proxy to write parent-domain cookies.
+  headers.delete('set-cookie');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
 export default {
-  fetch: routeRequest,
+  fetch: async (req: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
+    withoutDomainCookies(await routeRequest(req, env, ctx)),
   scheduled: async (controller, env, ctx) => {
     try {
       assertEnv(env);
@@ -142,6 +158,7 @@ export default {
     // 1-min cadence pinned the compute awake 24/7 (the idle-compute cost leak).
     if (cron === '*/30 * * * *') {
       ctx.waitUntil(runDueDeletionJobs(env, ctx));
+      ctx.waitUntil(runPublicationLifecycle(env));
     } else if (cron === '0 * * * *') {
       ctx.waitUntil(runReconciliation(env));
     } else if (cron === '0 3 * * SUN') {

@@ -124,6 +124,13 @@ export interface Store {
   subscriptions: SubscriptionRow[];
   bundleAssets: BundleAssetRow[];
   abuseReports: AbuseReportRow[];
+  publications: Record<string, any>[];
+  publicationVersions: Record<string, any>[];
+  publicationFiles: Record<string, any>[];
+  publicationOpens: Record<string, any>[];
+  publicationOpenClaims: Record<string, any>[];
+  entitlements: Record<string, any>[];
+  publicationAbuseReports: Record<string, any>[];
 }
 
 export const store: Store = emptyStore();
@@ -139,6 +146,13 @@ function emptyStore(): Store {
     subscriptions: [],
     bundleAssets: [],
     abuseReports: [],
+    publications: [],
+    publicationVersions: [],
+    publicationFiles: [],
+    publicationOpens: [],
+    publicationOpenClaims: [],
+    entitlements: [],
+    publicationAbuseReports: [],
   };
 }
 
@@ -152,16 +166,25 @@ export function resetStore(): void {
   store.subscriptions.length = 0;
   store.bundleAssets.length = 0;
   store.abuseReports.length = 0;
+  store.publications.length = 0;
+  store.publicationVersions.length = 0;
+  store.publicationFiles.length = 0;
+  store.publicationOpens.length = 0;
+  store.publicationOpenClaims.length = 0;
+  store.entitlements.length = 0;
+  store.publicationAbuseReports.length = 0;
 }
 
 export const TEST_ENV: Env = {
   DATABASE_URL: 'postgres://test',
   R2: {} as unknown as R2Bucket,
+  PUBLICATIONS: {} as unknown as R2Bucket,
   RATE_LIMIT: makeKv(),
   R2_ACCOUNT_ID: 'acc',
   R2_ACCESS_KEY_ID: 'k',
   R2_SECRET_ACCESS_KEY: 's',
   R2_BUCKET_NAME: 'fastshared-test',
+  PUBLICATION_BUCKET_NAME: 'fastshared-publications-test',
   SHORT_LINK_HOST: 'https://fastsha.red',
   PUBLIC_API_HOST: 'https://api.fastsha.red',
   DEVICE_TOKEN_PEPPER: 'test-pepper-test-pepper-test-pepper',
@@ -395,6 +418,48 @@ export function installDrizzleFake(): void {
                   },
                 );
               }
+              if (name === 'publication_version' && shape && 'bytes' in shape) {
+                let ownerId: string | undefined;
+                const aggregate = {
+                  innerJoin() {
+                    return aggregate;
+                  },
+                  where(cond: unknown) {
+                    ownerId = extractParamStrings(cond).find(
+                      (value) => value !== 'ready' && value !== 'deleted',
+                    );
+                    return aggregate;
+                  },
+                  then<T>(onFulfilled?: (rows: Array<{ bytes: string }>) => T) {
+                    const bytes = store.publicationVersions
+                      .filter((version) => {
+                        const pub = store.publications.find((p) => p.id === version.publicationId);
+                        return (
+                          version.state === 'ready' &&
+                          pub?.status !== 'deleted' &&
+                          (!ownerId || pub?.ownerUserId === ownerId)
+                        );
+                      })
+                      .reduce((total, version) => total + BigInt(version.totalBytes), 0n);
+                    return Promise.resolve([{ bytes: bytes.toString() }]).then(onFulfilled);
+                  },
+                };
+                return aggregate;
+              }
+              const publicationTables: Record<string, Record<string, any>[]> = {
+                publication: store.publications,
+                publication_version: store.publicationVersions,
+                publication_file: store.publicationFiles,
+                publication_open: store.publicationOpens,
+                publication_open_claim: store.publicationOpenClaims,
+                entitlement: store.entitlements,
+                publication_abuse_report: store.publicationAbuseReports,
+              };
+              if (publicationTables[name])
+                return chain<Record<string, any>>(
+                  () => publicationTables[name]!,
+                  (r, conds) => conds.every((c) => Object.values(r).some((v) => v === c)),
+                );
               return chain<unknown>(() => []);
             },
           };
@@ -596,6 +661,64 @@ export function installDrizzleFake(): void {
                     };
                     store.subscriptions.push(row);
                     out.push(row);
+                  } else if (
+                    [
+                      'publication',
+                      'publication_version',
+                      'publication_file',
+                      'publication_open',
+                      'publication_open_claim',
+                      'entitlement',
+                      'publication_abuse_report',
+                    ].includes(name)
+                  ) {
+                    const publicationTables: Record<string, Record<string, any>[]> = {
+                      publication: store.publications,
+                      publication_version: store.publicationVersions,
+                      publication_file: store.publicationFiles,
+                      publication_open: store.publicationOpens,
+                      publication_open_claim: store.publicationOpenClaims,
+                      entitlement: store.entitlements,
+                      publication_abuse_report: store.publicationAbuseReports,
+                    };
+                    const rows = publicationTables[name]!;
+                    const row: Record<string, any> = {
+                      id: crypto.randomUUID(),
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                      deletedAt: null,
+                      status: 'active',
+                      currentVersionId: null,
+                      expiresAt: null,
+                      notifyOnOpen: true,
+                      fileCount: 0,
+                      totalBytes: 0,
+                      entryPath: null,
+                      state: 'pending',
+                      ...v,
+                    };
+                    if (name === 'publication_open_claim') {
+                      const existing = rows.find(
+                        (r) =>
+                          r.publicationId === row.publicationId &&
+                          r.versionId === row.versionId &&
+                          r.visitorHash === row.visitorHash,
+                      );
+                      if (existing) {
+                        if (new Date().getTime() - existing.lastOpenedAt.getTime() < 86400_000)
+                          continue;
+                        existing.lastOpenedAt = row.lastOpenedAt;
+                        out.push(existing);
+                        continue;
+                      }
+                    }
+                    if (
+                      conflictSet === 'nothing' &&
+                      rows.some((r) => r.versionId === row.versionId && r.path === row.path)
+                    )
+                      continue;
+                    rows.push(row);
+                    out.push(row);
                   }
                 }
                 return out;
@@ -680,6 +803,9 @@ export function installDrizzleFake(): void {
                   if (name === 'device') applyAll(store.devices);
                   if (name === 'user') applyAll(store.users);
                   if (name === 'subscription') applyAll(store.subscriptions);
+                  if (name === 'publication') applyAll(store.publications);
+                  if (name === 'publication_version') applyAll(store.publicationVersions);
+                  if (name === 'publication_abuse_report') applyAll(store.publicationAbuseReports);
                   return {
                     returning() {
                       if (name === 'share_link') return Promise.resolve(updatedRows);

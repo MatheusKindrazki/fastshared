@@ -7,6 +7,7 @@ import { problem } from '~/lib/problem';
 import { FREE_CAPS, PRO_CAPS, toWireCaps, type TierCapsWire } from '~/lib/tierCaps';
 import {
   findActiveProForDevice,
+  findActiveEntitlementForDevice,
   isProForAllUsersEnabled,
   parseAppleUserAllowList,
 } from '~/services/subscriptions';
@@ -48,9 +49,10 @@ meRoutes.get('/', async (c) => {
     parseAppleUserAllowList(c.env.DEV_PRO_APPLE_USER_IDS, c.env.BETA_UNLIMITED_APPLE_USER_IDS),
     { proForAllUsers: isProForAllUsersEnabled(c.env.PRO_FOR_ALL_USERS) },
   );
+  const entitled = await findActiveEntitlementForDevice(db, deviceId);
 
   // No active row at all → pure Free.
-  if (!active) {
+  if (!active && !entitled) {
     const body: MeResponse = {
       isPro: false,
       tier: 'free',
@@ -60,6 +62,17 @@ meRoutes.get('/', async (c) => {
     };
     return c.json(body);
   }
+
+  if (!active && entitled) {
+    return c.json({
+      isPro: true,
+      tier: 'monthly',
+      expiresAt: null,
+      caps: toWireCaps(PRO_CAPS),
+      subscription: null,
+    } satisfies MeResponse);
+  }
+  if (!active) throw new Error('missing active subscription');
 
   const status = active.status as SubscriptionStatus;
   const tier = active.tier as MeResponse['tier'];
