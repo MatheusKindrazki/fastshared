@@ -40,11 +40,17 @@ export class CommandError extends Error {
 }
 
 const UNPACK_MESSAGES: Record<string, string> = {
+  compression_ratio: 'This archive was rejected because its compression ratio is too high.',
+  duplicate_path: 'This archive contains the same path more than once.',
+  file_too_large: 'A file in this archive is too large to publish. Each file must be 100 MB or smaller.',
+  invalid_zip: 'This archive could not be read as a zip file.',
   no_entry:
     'This site has no HTML entry. Include index.html at the root, or a single top-level folder that contains index.html.',
-  too_many_files: 'This archive has too many files to publish.',
-  ratio: 'This archive was rejected because its compression ratio is too high.',
-  path: 'This archive contains a path that is not allowed. Use relative paths without parent segments or backslashes.',
+  too_many_entries: 'This archive has too many files to publish. A publication accepts at most 2000 entries.',
+  total_too_large: 'This archive is larger than the publication size limit.',
+  unsafe_entry: 'This archive contains an entry that is not a regular file or directory.',
+  unsafe_path:
+    'This archive contains a path that is not allowed. Use relative paths without parent segments or backslashes.',
 };
 
 export function publicationPollSettings(env: NodeJS.ProcessEnv): { pollIntervalMs: number; pollTimeoutMs: number } {

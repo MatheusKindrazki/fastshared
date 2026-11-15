@@ -30,7 +30,7 @@ fastshared publications opens my-slug
 
 stdout for `publish` is the stable URL only. `--json` prints `{ id, slug, url, version, fileCount, totalBytes }`. A directory is zipped locally and published as a site. A single `.html` file is zipped as `index.html` and published as a site. A `.pdf` stays a PDF. Any other single file stays a file.
 
-`--update` keeps the same URL. On the Free plan the API returns HTTP 402, and the CLI exits 2 with `Same-URL updates are a Pro feature` and the upgrade URL on stderr. If completion returns HTTP 202, the CLI polls for up to 60 seconds. Archive rejections `no_entry`, `too_many_files`, `ratio`, and `path` are explained on stderr.
+`--update` keeps the same URL. On the Free plan the API returns HTTP 402, and the CLI exits 2 with `Same-URL updates are a Pro feature` and the upgrade URL on stderr. If completion returns HTTP 202, the CLI polls for up to 60 seconds. Archive rejections from the publications API (`compression_ratio`, `duplicate_path`, `file_too_large`, `invalid_zip`, `no_entry`, `too_many_entries`, `total_too_large`, `unsafe_entry`, `unsafe_path`) are explained on stderr. An unknown code is printed with the code itself.
 
 ## MCP
 

@@ -71,7 +71,7 @@ fastshared mcp
 - `publish` prints only the stable URL. `--json` prints `{ id, slug, url, version, fileCount, totalBytes }`.
 - `--update` calls `POST /v1/publications/:id/versions`. HTTP 402 exits 2 and prints `Same-URL updates are a Pro feature` plus `upgradeUrl` on stderr.
 - HTTP 202 on complete polls `GET /v1/publications/:id/versions/:version`, or the `Location` header when that URL is on the API host, until the version is ready or 60 seconds pass.
-- `unpack_error` values `no_entry`, `too_many_files`, `ratio`, and `path` are printed as short explanations.
+- `unpack_error` values from the publications API (`compression_ratio`, `duplicate_path`, `file_too_large`, `invalid_zip`, `no_entry`, `too_many_entries`, `total_too_large`, `unsafe_entry`, `unsafe_path`) are printed as short explanations. An unknown code is printed with the code itself.
 
 `fastshared mcp` speaks MCP over stdio. Tools: `publish`, `update`, `revoke`, `list`, `opens`.
 

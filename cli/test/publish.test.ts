@@ -327,7 +327,17 @@ describe('publication commands', () => {
     expect(stderr.text()).toContain('not on the API host');
   });
 
-  it.each(['no_entry', 'too_many_files', 'ratio', 'path'] as const)(
+  it.each([
+    'compression_ratio',
+    'duplicate_path',
+    'file_too_large',
+    'invalid_zip',
+    'no_entry',
+    'too_many_entries',
+    'total_too_large',
+    'unsafe_entry',
+    'unsafe_path',
+  ] as const)(
     'explains unpack_error %s',
     async (unpackError) => {
       const dir = await mkdtemp(join(tmpdir(), 'fastshared-pub-unpack-'));
@@ -355,6 +365,32 @@ describe('publication commands', () => {
       expect(stderr.text()).toContain(expectedUnpackMessage(unpackError));
     },
   );
+
+  it('prints an unknown unpack_error code without inventing a cause', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'fastshared-pub-unpack-unknown-'));
+    await writeFile(join(dir, 'page.html'), '<p>x</p>');
+    const apiUrl = await startMockApi(async (req, res) => {
+      if (req.method === 'POST' && req.url === '/v1/publications') return json(res, 200, slot(apiUrl, 1));
+      if (req.method === 'PUT' && req.url === '/r2/pub') {
+        res.writeHead(200);
+        res.end();
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/v1/publications/pub_1/versions/1/complete') {
+        return json(res, 422, {
+          title: 'Unprocessable Content',
+          code: 'unpack_error',
+          unpack_error: 'future_code',
+        });
+      }
+      return json(res, 404, {});
+    });
+
+    const stderr = new MemoryWritable();
+    const code = await run(dir, ['publish', 'page.html', '--quiet', '--api-url', apiUrl], new MemoryWritable(), stderr);
+    expect(code).toBe(1);
+    expect(stderr.text()).toContain('The publication archive was rejected (future_code).');
+  });
 
   it('lists, revokes, and shows opens', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'fastshared-pub-manage-'));
@@ -495,15 +531,36 @@ function ready(version: number, totalBytes: number) {
   };
 }
 
-function expectedUnpackMessage(code: 'no_entry' | 'too_many_files' | 'ratio' | 'path'): string {
+function expectedUnpackMessage(
+  code:
+    | 'compression_ratio'
+    | 'duplicate_path'
+    | 'file_too_large'
+    | 'invalid_zip'
+    | 'no_entry'
+    | 'too_many_entries'
+    | 'total_too_large'
+    | 'unsafe_entry'
+    | 'unsafe_path',
+): string {
   switch (code) {
+    case 'compression_ratio':
+      return 'compression ratio is too high';
+    case 'duplicate_path':
+      return 'same path more than once';
+    case 'file_too_large':
+      return '100 MB or smaller';
+    case 'invalid_zip':
+      return 'could not be read as a zip file';
     case 'no_entry':
       return 'no HTML entry';
-    case 'too_many_files':
-      return 'too many files';
-    case 'ratio':
-      return 'compression ratio';
-    case 'path':
+    case 'too_many_entries':
+      return 'at most 2000 entries';
+    case 'total_too_large':
+      return 'publication size limit';
+    case 'unsafe_entry':
+      return 'not a regular file or directory';
+    case 'unsafe_path':
       return 'path that is not allowed';
   }
 }
