@@ -70,4 +70,16 @@ describe('detectMime', () => {
   it('falls back to application/octet-stream', () => {
     expect(detectMime('artifact.unknownext')).toBe('application/octet-stream');
   });
+
+  it('sends HTML as text/html so recipients see the page instead of a download', () => {
+    expect(detectMime('report.html')).toBe('text/html');
+    expect(detectMime('REPORT.HTM')).toBe('text/html');
+  });
+
+  it('maps common log, video, image and audio extensions', () => {
+    expect(detectMime('build.log')).toBe('text/plain');
+    expect(detectMime('demo.webm')).toBe('video/webm');
+    expect(detectMime('photo.heic')).toBe('image/heic');
+    expect(detectMime('voice.m4a')).toBe('audio/mp4');
+  });
 });

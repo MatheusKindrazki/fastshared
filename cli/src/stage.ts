@@ -72,6 +72,9 @@ export function detectMime(filename: string): string {
   const ext = filename.toLowerCase().split('.').pop() ?? '';
   const map: Record<string, string> = {
     txt: 'text/plain',
+    log: 'text/plain',
+    html: 'text/html',
+    htm: 'text/html',
     md: 'text/markdown',
     csv: 'text/csv',
     json: 'application/json',
@@ -88,6 +91,9 @@ export function detectMime(filename: string): string {
     svg: 'image/svg+xml',
     mp4: 'video/mp4',
     mov: 'video/quicktime',
+    webm: 'video/webm',
+    heic: 'image/heic',
+    m4a: 'audio/mp4',
     mp3: 'audio/mpeg',
     wav: 'audio/wav',
   };
