@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArgs, parseTtl, UsageError } from '../src/options.js';
+import { parseArgs, parseCommand, parseTtl, UsageError } from '../src/options.js';
 
 describe('options', () => {
   it('maps ttl presets to backend retention policies', () => {
@@ -41,5 +41,39 @@ describe('options', () => {
 
   it('rejects missing input', () => {
     expect(() => parseArgs([])).toThrow(UsageError);
+  });
+
+  it('keeps a file path on the temporary upload command', () => {
+    expect(parseCommand(['notes.txt', '--ttl', '1d']).command).toBe('upload');
+  });
+
+  it('parses publication commands', () => {
+    expect(parseCommand(['--json', 'publish', './site', '--title', 'Notes', '--update', 'notes'])).toMatchObject({
+      command: 'publish',
+      path: './site',
+      title: 'Notes',
+      update: 'notes',
+      outputJson: true,
+    });
+    expect(parseCommand(['publications', 'list', '--json'])).toMatchObject({
+      command: 'publications',
+      action: 'list',
+      outputJson: true,
+    });
+    expect(parseCommand(['publications', 'revoke', 'notes'])).toMatchObject({
+      command: 'publications',
+      action: 'revoke',
+      target: 'notes',
+    });
+    expect(parseCommand(['publications', 'opens', 'pub_1'])).toMatchObject({
+      command: 'publications',
+      action: 'opens',
+      target: 'pub_1',
+    });
+    expect(parseCommand(['mcp']).command).toBe('mcp');
+  });
+
+  it('rejects a publication id with a slash', () => {
+    expect(() => parseCommand(['publications', 'revoke', 'a/b'])).toThrow(UsageError);
   });
 });
