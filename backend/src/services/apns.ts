@@ -105,11 +105,15 @@ function decodeBase64(value: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-function notificationBody(filename?: string | null): string {
+export function linkOpenedAlertBody(filename?: string | null): string {
   const clean = filename?.trim();
-  if (!clean) return 'Your shared link was opened.';
+  if (!clean) return 'Your link was opened in a browser';
   const clipped = clean.length > 80 ? `${clean.slice(0, 77)}...` : clean;
-  return `"${clipped}" was opened.`;
+  return `"${clipped}" was opened in a browser`;
+}
+
+function notificationBody(filename?: string | null): string {
+  return linkOpenedAlertBody(filename);
 }
 
 async function safeText(response: Response): Promise<string> {

@@ -262,7 +262,7 @@ describe('redirect proxy', () => {
     expect(body).toContain('photo.jpg');
   });
 
-  it('sends link-open notification on every access when enabled', async () => {
+  it('counts each preview fetch without sending an open alert', async () => {
     const { token } = seedLinkAndAsset({
       originalFilename: 'photo.jpg',
       contentType: 'image/jpeg',
@@ -272,25 +272,22 @@ describe('redirect proxy', () => {
 
     const first = await get(`/s/${token}`, { accept: 'text/html' });
     expect(first.status).toBe(200);
+    const html = await first.text();
+    expect(html).toContain(`/s/${token}/opened`);
+    expect(html).toContain('visibilityState');
+    expect(first.headers.get('Content-Security-Policy')).toContain("connect-src 'self'");
 
     await vi.waitFor(() => {
-      expect(apnsMocks.sendLinkOpenedNotification).toHaveBeenCalledTimes(1);
+      expect(store.shareLinks[0]?.accessCount).toBe(1);
     });
-    const firstCall = apnsMocks.sendLinkOpenedNotification.mock.calls[0] as
-      | [Record<string, unknown>]
-      | undefined;
-    expect(firstCall?.[0]).toMatchObject({
-      token,
-      filename: 'photo.jpg',
-      shortUrl: `https://fastsha.red/s/${token}`,
-    });
+    expect(apnsMocks.sendLinkOpenedNotification).not.toHaveBeenCalled();
 
     const second = await get(`/s/${token}`, { accept: 'text/html' });
     expect(second.status).toBe(200);
     await vi.waitFor(() => {
       expect(store.shareLinks[0]?.accessCount).toBe(2);
     });
-    expect(apnsMocks.sendLinkOpenedNotification).toHaveBeenCalledTimes(2);
+    expect(apnsMocks.sendLinkOpenedNotification).not.toHaveBeenCalled();
   });
 
   it('does not send link-open notification when disabled', async () => {
