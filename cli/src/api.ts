@@ -306,6 +306,35 @@ export class FastSharedApi {
     return this.readPublicationCompletion(response);
   }
 
+  async claimLinkCode(code: string, deviceToken: string): Promise<{ linked: boolean; userId: string }> {
+    const body = await this.requestJson<unknown>('/v1/link-codes/claim', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        authorization: `Bearer ${deviceToken}`,
+      },
+      body: JSON.stringify({ code }),
+    });
+    const obj = (body ?? {}) as Record<string, unknown>;
+    if (obj.linked !== true || typeof obj.userId !== 'string') {
+      throw new Error('invalid link response');
+    }
+    return { linked: true, userId: obj.userId };
+  }
+
+  async me(deviceToken: string): Promise<{ userId: string | null; isPro: boolean }> {
+    const body = await this.requestJson<unknown>('/v1/me', {
+      method: 'GET',
+      headers: { accept: 'application/json', authorization: `Bearer ${deviceToken}` },
+    });
+    const obj = (body ?? {}) as Record<string, unknown>;
+    return {
+      userId: typeof obj.userId === 'string' ? obj.userId : null,
+      isPro: obj.isPro === true,
+    };
+  }
+
   async listPublications(deviceToken: string): Promise<PublicationSummary[]> {
     const body = await this.requestJson<unknown>('/v1/publications', {
       method: 'GET',

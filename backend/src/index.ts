@@ -7,6 +7,7 @@ import { logger } from '~/middleware/logger';
 import { errors } from '~/middleware/errors';
 import { healthRoutes } from '~/routes/health';
 import { deviceRoutes } from '~/routes/devices';
+import { linkCodeRoutes } from '~/routes/linkCodes';
 import { uploadRoutes } from '~/routes/uploads';
 import { historyRoutes } from '~/routes/history';
 import { assetRoutes } from '~/routes/assets';
@@ -59,6 +60,7 @@ app.use('*', async (c, next) => {
 
 app.route('/v1/health', healthRoutes);
 app.route('/v1/devices', deviceRoutes);
+app.route('/v1/link-codes', linkCodeRoutes);
 app.route('/v1/auth', authRoutes);
 app.route('/v1/auth/email', emailAuthRoutes);
 app.route('/v1/billing', billingRoutes);

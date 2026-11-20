@@ -58,6 +58,10 @@ export async function runCli(
         return await runPublications(command, session, io);
       case 'mcp':
         return await runMcp(session, io);
+      case 'login':
+        return await runLogin(command, session, io);
+      case 'whoami':
+        return await runWhoami(command, session, io);
       default:
         return 1;
     }
@@ -66,6 +70,36 @@ export async function runCli(
     if (err instanceof UsageError || err instanceof CommandError) return err.exitCode;
     return 1;
   }
+}
+
+async function runLogin(
+  command: Extract<ParsedCommand, { command: 'login' }>,
+  session: Session,
+  io: CliIO,
+): Promise<number> {
+  const result = await session.api.claimLinkCode(command.code!, session.deviceToken);
+  if (command.outputJson) {
+    io.stdout.write(`${JSON.stringify(result)}\n`);
+  } else {
+    io.stdout.write('Linked to your FastShared account. Open alerts now reach your other devices.\n');
+  }
+  return 0;
+}
+
+async function runWhoami(
+  command: Extract<ParsedCommand, { command: 'whoami' }>,
+  session: Session,
+  io: CliIO,
+): Promise<number> {
+  const me = await session.api.me(session.deviceToken);
+  if (command.outputJson) {
+    io.stdout.write(`${JSON.stringify({ linked: me.userId !== null, ...me })}\n`);
+  } else if (me.userId) {
+    io.stdout.write(`Linked to an account (${me.isPro ? 'Pro' : 'Free'}).\n`);
+  } else {
+    io.stdout.write('Not linked. Run: fastshared login <code> (code from the app: Settings → Link a computer)\n');
+  }
+  return 0;
 }
 
 interface Session {

@@ -12,7 +12,23 @@ import Frame from './Frame.astro';
     <h1>Your publications.</h1>
 
     <section data-signed-out>
-      <p class="lede">Email a sign-in link. The link returns you here. We keep the session in this browser only.</p>
+      <p class="lede">Have the FastShared app? Open Settings → Link a computer and type the 6-digit code here.</p>
+      <form data-link-code>
+        <label for="account-code">Code from the app</label>
+        <input
+          id="account-code"
+          name="code"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          pattern="[0-9]{6}"
+          maxlength="6"
+          required
+        />
+        <button class="btn-primary" type="submit">Link this browser</button>
+      </form>
+      <p data-link-status role="status"></p>
+
+      <p class="lede">Or email a sign-in link. The link returns you here. We keep the session in this browser only.</p>
       <form data-sign-in>
         <label for="account-email">Email</label>
         <input id="account-email" name="email" type="email" autocomplete="email" required maxlength="256" />
@@ -73,7 +89,8 @@ import Frame from './Frame.astro';
     text-transform: uppercase;
     color: var(--charcoal);
   }
-  input[type='email'] {
+  input[type='email'],
+  input[name='code'] {
     width: min(100%, 24rem);
     padding: 12px 14px;
     border: 1px solid var(--rule);
@@ -83,6 +100,7 @@ import Frame from './Frame.astro';
   }
   [data-account-status],
   [data-sign-in-status],
+  [data-link-status],
   [data-empty] {
     margin-top: 16px;
     color: var(--silver);

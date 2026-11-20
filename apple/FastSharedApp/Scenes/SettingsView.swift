@@ -29,6 +29,7 @@ struct SettingsView: View {
     @State private var accountDeletionError: String?
     @State private var isDeletingAccount: Bool = false
     @State private var showSignInSheet: Bool = false
+    @State private var showLinkComputer: Bool = false
     @State private var authRefreshToken: Int = 0
     @State private var defaultRetention: RetentionPolicy = RetentionPolicy.defaultFromAppGroup()
     @State private var showRetentionPicker: Bool = false
@@ -297,6 +298,9 @@ struct SettingsView: View {
         } message: {
             Text(accountDeletionError ?? "Something went wrong. Please try again.")
         }
+        .sheet(isPresented: $showLinkComputer) {
+            LinkComputerSheet(apiClient: apiClient, onDone: { showLinkComputer = false })
+        }
         .sheet(isPresented: $showSignInSheet) {
             SignInView(onComplete: {
                 showSignInSheet = false
@@ -442,7 +446,37 @@ struct SettingsView: View {
             .frame(height: 0.5)
             .padding(.leading, 16)
 
-        // Row 3 — Sign out (destructive)
+        // Row 3 — Link a computer (pairs the CLI or a browser with this account)
+        Button {
+            showLinkComputer = true
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Link a computer")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(BrandPalette.accentHot)
+                    Text("Get open alerts here for links you publish from the CLI or the web.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(textDim)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(textFaint)
+                    .padding(.leading, 4)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+
+        Rectangle()
+            .fill(line)
+            .frame(height: 0.5)
+            .padding(.leading, 16)
+
+        // Row 4 — Sign out (destructive)
         Button {
             confirmAppleSignOut = true
         } label: {
@@ -1097,6 +1131,104 @@ private struct FriendlyToggle: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Link a computer
+
+/// Shows a 6-digit pairing code. The CLI (`fastshared login <code>`) or the
+/// web account page redeems it and joins this account, so the open alert for a
+/// link published from a computer pings this device.
+private struct LinkComputerSheet: View {
+    let apiClient: APIClientProtocol
+    let onDone: () -> Void
+
+    @State private var code: LinkCodeResponse?
+    @State private var errorMessage: String?
+    @State private var isLoading = false
+    @State private var now = Date()
+
+    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Link a computer")
+                    .font(.system(size: 28, weight: .bold))
+                Text("Publish from your computer and get the open alert on this device.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+
+                if let code, code.expiresAt > now {
+                    Text(spaced(code.code))
+                        .font(.system(size: 44, weight: .semibold, design: .monospaced))
+                        .textSelection(.enabled)
+                        .accessibilityLabel("Code \(code.code.map(String.init).joined(separator: " "))")
+                    Text("Expires in \(remaining(until: code.expiresAt)). Use it once.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("In the terminal:")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("fastshared login \(code.code)")
+                            .font(.system(size: 14, design: .monospaced))
+                            .textSelection(.enabled)
+                        Text("Or open fastsha.red/account in your browser and enter the code.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Button {
+                        Task { await createCode() }
+                    } label: {
+                        Text(isLoading ? "Getting a code…" : (code == nil ? "Get a code" : "Get a new code"))
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(BrandPalette.accentHot)
+                    .disabled(isLoading)
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.system(size: 13))
+                        .foregroundStyle(BrandPalette.urgencyCritical)
+                }
+                Spacer()
+            }
+            .padding(24)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done", action: onDone)
+                }
+            }
+        }
+        .onReceive(ticker) { now = $0 }
+        .task { await createCode() }
+    }
+
+    private func createCode() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            code = try await apiClient.createLinkCode()
+            now = Date()
+        } catch {
+            errorMessage = "Couldn't get a code. Check that you're signed in and try again."
+        }
+    }
+
+    private func spaced(_ digits: String) -> String {
+        guard digits.count == 6 else { return digits }
+        return "\(digits.prefix(3)) \(digits.suffix(3))"
+    }
+
+    private func remaining(until date: Date) -> String {
+        let seconds = max(0, Int(date.timeIntervalSince(now)))
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 }
 

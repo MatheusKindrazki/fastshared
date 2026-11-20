@@ -494,6 +494,25 @@ export const emailLoginToken = pgTable('email_login_token', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Short-lived pairing code: an app device that belongs to a user shows it,
+// and a CLI or web device claims it to join the same account. Only a hash is
+// stored; the code itself never touches the database.
+export const deviceLinkCode = pgTable('device_link_code', {
+  codeHash: text('code_hash').primaryKey(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  createdByDeviceId: uuid('created_by_device_id').references(() => device.id, {
+    onDelete: 'set null',
+  }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  consumedByDeviceId: uuid('consumed_by_device_id').references(() => device.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = InferSelectModel<typeof user>;
 export type NewUser = InferInsertModel<typeof user>;
 export type Device = InferSelectModel<typeof device>;

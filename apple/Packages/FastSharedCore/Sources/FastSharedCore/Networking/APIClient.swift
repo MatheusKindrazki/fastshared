@@ -31,6 +31,15 @@ public protocol APIClientProtocol: Sendable {
     /// Permanently deletes the authenticated account and all its data
     /// (App Store Guideline 5.1.1v). Authenticated DELETE; throws on non-2xx.
     func deleteAccount() async throws
+    /// Creates a short-lived pairing code for linking a CLI or browser to the
+    /// signed-in account. Requires Sign in with Apple on this device.
+    func createLinkCode() async throws -> LinkCodeResponse
+}
+
+public extension APIClientProtocol {
+    func createLinkCode() async throws -> LinkCodeResponse {
+        throw APIError.unauthorized(detail: "link_codes_unsupported")
+    }
 }
 
 /// Response from `POST /v1/auth/apple`. Server issues a first-class device token
@@ -231,6 +240,15 @@ public final class APIClient: APIClientProtocol, @unchecked Sendable {
     public func fetchPricingFlags() async throws -> PricingFlags {
         var request = URLRequest(url: baseURL.appendingPathComponent(APIEndpoint.pricingFlags.path))
         request.httpMethod = APIEndpoint.pricingFlags.method.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        try await attachAuth(&request)
+        return try await send(request)
+    }
+
+    public func createLinkCode() async throws -> LinkCodeResponse {
+        let endpoint = APIEndpoint.createLinkCode
+        var request = URLRequest(url: baseURL.appendingPathComponent(endpoint.path))
+        request.httpMethod = endpoint.method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         try await attachAuth(&request)
         return try await send(request)

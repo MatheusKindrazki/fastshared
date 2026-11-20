@@ -6,6 +6,7 @@ import {
   clearToken,
   consumeHashToken,
   fillStatus,
+  linkWithAppCode,
   readToken,
   type PublicationSummary,
 } from './session';
@@ -109,6 +110,8 @@ export function mountAccount(root: HTMLElement): void {
   const status = root.querySelector<HTMLElement>('[data-account-status]');
   const billing = root.querySelector<HTMLButtonElement>('[data-billing]');
   const signOut = root.querySelector<HTMLButtonElement>('[data-sign-out]');
+  const linkForm = root.querySelector<HTMLFormElement>('[data-link-code]');
+  const linkStatus = root.querySelector<HTMLElement>('[data-link-status]');
   if (!signedOut || !signedIn || !signIn || !signInStatus || !list || !empty || !status || !billing || !signOut) return;
 
   const paint = () => {
@@ -137,6 +140,26 @@ export function mountAccount(root: HTMLElement): void {
       fillStatus(status, error instanceof Error ? error.message : 'Publications could not be loaded.');
     }
   };
+
+  linkForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const input = linkForm.querySelector<HTMLInputElement>('input[name="code"]');
+    const button = linkForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const code = (input?.value ?? '').replace(/\s+/g, '');
+    if (button) button.disabled = true;
+    if (linkStatus) fillStatus(linkStatus, 'Linking this browser.');
+    void linkWithAppCode(code)
+      .then(async () => {
+        if (linkStatus) fillStatus(linkStatus, '');
+        await load();
+      })
+      .catch((error: unknown) => {
+        if (linkStatus) fillStatus(linkStatus, error instanceof Error ? error.message : 'Linking failed.');
+      })
+      .finally(() => {
+        if (button) button.disabled = false;
+      });
+  });
 
   consumeHashToken();
   bindEmailForm(signIn, signInStatus, () => undefined);
