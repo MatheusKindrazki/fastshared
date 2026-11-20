@@ -163,9 +163,11 @@ export type ParsedCommand =
       action?: 'list' | 'revoke' | 'opens';
       target?: string;
     } & CommandFlags)
-  | ({ command: 'mcp' } & CommandFlags);
+  | ({ command: 'mcp' } & CommandFlags)
+  | ({ command: 'login'; code?: string } & CommandFlags)
+  | ({ command: 'whoami' } & CommandFlags);
 
-const SUBCOMMANDS = new Set(['publish', 'publications', 'mcp']);
+const SUBCOMMANDS = new Set(['publish', 'publications', 'mcp', 'login', 'whoami']);
 
 export function parseCommand(argv: string[]): ParsedCommand {
   const { consumed, rest } = peelLeadingGlobals(argv);
@@ -187,8 +189,12 @@ export function usage(): string {
        fastshared publications revoke <id|slug>
        fastshared publications opens <id|slug>
        fastshared mcp
+       fastshared login <code>
+       fastshared whoami
 
 Uploads a file to FastShared and prints the temporary URL.
+login links this CLI to your FastShared account with the 6-digit code from
+the app (Settings → Link a computer), so open alerts reach your iPhone.
 publish, publications, and mcp require the publications API.
 
 Options:
@@ -296,6 +302,21 @@ function consumeFlags(args: string[], allowed: { title: boolean; update: boolean
 
 function buildSubcommand(head: string, state: FlagState): ParsedCommand {
   const flags = commandFlags(state);
+  if (head === 'login') {
+    const code = state.positionals[0];
+    if (!state.help && !state.version) {
+      if (state.positionals.length !== 1 || !code || !/^\d{6}$/.test(code)) {
+        throw new UsageError('login expects the 6-digit code from the app. Usage: fastshared login 123456');
+      }
+    }
+    return { command: 'login', ...flags, ...(code ? { code } : {}) };
+  }
+  if (head === 'whoami') {
+    if (!state.help && !state.version && state.positionals.length > 0) {
+      throw new UsageError('whoami does not take arguments.');
+    }
+    return { command: 'whoami', ...flags };
+  }
   if (head === 'mcp') {
     if (!state.help && !state.version && state.positionals.length > 0) {
       throw new UsageError('mcp does not take a path. Usage: fastshared mcp');

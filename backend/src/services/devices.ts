@@ -35,6 +35,17 @@ export async function findDeviceById(db: Db, deviceId: string): Promise<Device |
   return rows[0] ?? null;
 }
 
+export async function listUserDevices(db: Db, userId: string): Promise<Device[]> {
+  return db.select().from(device).where(eq(device.userId, userId));
+}
+
+export async function linkDeviceToUser(db: Db, deviceId: string, userId: string): Promise<void> {
+  await db
+    .update(device)
+    .set({ userId, lastSeenAt: sql`now()` })
+    .where(eq(device.id, deviceId));
+}
+
 export async function updateDevicePushToken(
   db: Db,
   deviceId: string,

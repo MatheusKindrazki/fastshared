@@ -165,6 +165,32 @@ export async function apiJson<T>(
   return JSON.parse(text) as T;
 }
 
+// Pairs this browser with the account of the FastShared app on iPhone, iPad or
+// Mac: the app shows a 6-digit code, the browser registers itself as a web
+// device and redeems the code. No email or password involved.
+export async function linkWithAppCode(code: string): Promise<void> {
+  if (!/^\d{6}$/.test(code)) {
+    throw new ApiError('Enter the 6-digit code from the app.', 400, 'invalid_code');
+  }
+  let token = readToken();
+  if (!token) {
+    const registered = await apiJson<{ deviceToken: string }>('/v1/devices', {
+      method: 'POST',
+      body: { platform: 'web', appVersion: 'web' },
+    });
+    token = registered.deviceToken;
+    writeToken(token);
+  }
+  try {
+    await apiJson('/v1/link-codes/claim', { method: 'POST', token, body: { code } });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) throw error;
+    throw error instanceof ApiError && error.status === 400
+      ? new ApiError('That code is invalid or expired. Get a new one in the app.', 400, 'invalid_code')
+      : error;
+  }
+}
+
 export async function startEmailLogin(email: string): Promise<void> {
   let res: Response;
   try {

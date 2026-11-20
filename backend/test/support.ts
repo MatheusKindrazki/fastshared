@@ -132,6 +132,7 @@ export interface Store {
   entitlements: Record<string, any>[];
   billingEvents: Record<string, any>[];
   emailLoginTokens: Record<string, any>[];
+  deviceLinkCodes: Record<string, any>[];
   publicationAbuseReports: Record<string, any>[];
 }
 
@@ -156,6 +157,7 @@ function emptyStore(): Store {
     entitlements: [],
     billingEvents: [],
     emailLoginTokens: [],
+    deviceLinkCodes: [],
     publicationAbuseReports: [],
   };
 }
@@ -178,6 +180,7 @@ export function resetStore(): void {
   store.entitlements.length = 0;
   store.billingEvents.length = 0;
   store.emailLoginTokens.length = 0;
+  store.deviceLinkCodes.length = 0;
   store.publicationAbuseReports.length = 0;
 }
 
@@ -461,6 +464,7 @@ export function installDrizzleFake(): void {
                 entitlement: store.entitlements,
                 billing_event: store.billingEvents,
                 email_login_token: store.emailLoginTokens,
+                device_link_code: store.deviceLinkCodes,
                 publication_abuse_report: store.publicationAbuseReports,
               };
               if (publicationTables[name])
@@ -685,6 +689,15 @@ export function installDrizzleFake(): void {
                     const row = { consumedAt: null, createdAt: new Date(), ...v };
                     store.emailLoginTokens.push(row);
                     out.push(row);
+                  } else if (name === 'device_link_code') {
+                    const row = {
+                      consumedAt: null,
+                      consumedByDeviceId: null,
+                      createdAt: new Date(),
+                      ...v,
+                    };
+                    store.deviceLinkCodes.push(row);
+                    out.push(row);
                   } else if (name === 'entitlement') {
                     const existing = store.entitlements.find(
                       (row) => row.source === v.source && row.externalId === v.externalId,
@@ -849,6 +862,20 @@ export function installDrizzleFake(): void {
                   if (name === 'publication_abuse_report') applyAll(store.publicationAbuseReports);
                   if (name === 'billing_event') applyAll(store.billingEvents);
                   if (name === 'entitlement') applyAll(store.entitlements);
+                  if (name === 'device_link_code') {
+                    const now = Date.now();
+                    store.deviceLinkCodes
+                      .filter(
+                        (r) =>
+                          conds.includes(r.codeHash) &&
+                          r.consumedAt === null &&
+                          r.expiresAt.getTime() > now,
+                      )
+                      .forEach((r) => {
+                        apply(r);
+                        updatedRows.push(r);
+                      });
+                  }
                   if (name === 'email_login_token') {
                     const now = Date.now();
                     store.emailLoginTokens
@@ -865,7 +892,11 @@ export function installDrizzleFake(): void {
                   }
                   return {
                     returning() {
-                      if (name === 'email_login_token' || name === 'billing_event')
+                      if (
+                        name === 'email_login_token' ||
+                        name === 'billing_event' ||
+                        name === 'device_link_code'
+                      )
                         return Promise.resolve(updatedRows);
                       if (name === 'share_link') return Promise.resolve(updatedRows);
                       if (name === 'user') {

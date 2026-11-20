@@ -24,6 +24,7 @@ public enum APIEndpoint: Sendable {
     case me
     case pricingFlags
     case deleteAccount
+    case createLinkCode
 
     public var path: String {
         switch self {
@@ -42,12 +43,13 @@ public enum APIEndpoint: Sendable {
         case .me: return "/v1/me"
         case .pricingFlags: return "/v1/pricing-flags"
         case .deleteAccount: return "/v1/account"
+        case .createLinkCode: return "/v1/link-codes"
         }
     }
 
     public var method: HTTPMethod {
         switch self {
-        case .registerDevice, .updatePushToken, .signInApple, .requestUpload, .requestBatchUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify: return .post
+        case .registerDevice, .updatePushToken, .signInApple, .requestUpload, .requestBatchUpload, .completeUpload, .failUpload, .abortMultipartUpload, .revokeLink, .iapVerify, .createLinkCode: return .post
         case .fetchHistory, .me, .pricingFlags: return .get
         case .deleteAsset, .deleteAccount: return .delete
         }
@@ -622,6 +624,18 @@ public struct IAPVerifyResponse: Sendable, Codable, Equatable {
 }
 
 /// Response for `GET /v1/me`. Same shape as `IAPVerifyResponse` — aliased for intent.
+/// Response from `POST /v1/link-codes`: a 6-digit pairing code that a CLI or
+/// browser redeems to join this account, so open alerts reach this device.
+public struct LinkCodeResponse: Sendable, Codable, Equatable {
+    public let code: String
+    public let expiresAt: Date
+
+    public init(code: String, expiresAt: Date) {
+        self.code = code
+        self.expiresAt = expiresAt
+    }
+}
+
 public struct MeResponse: Sendable, Codable, Equatable {
     public let isPro: Bool
     public let tier: String?

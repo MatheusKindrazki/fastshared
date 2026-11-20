@@ -8,7 +8,7 @@ import { ratelimit } from '~/middleware/ratelimit';
 import { auth } from '~/middleware/auth';
 
 const registerSchema = z.object({
-  platform: z.enum(['ios', 'ipados', 'macos', 'cli']),
+  platform: z.enum(['ios', 'ipados', 'macos', 'cli', 'web']),
   appVersion: z.string().min(1).max(64),
   idfv: z.string().min(1).max(128).optional(),
 });

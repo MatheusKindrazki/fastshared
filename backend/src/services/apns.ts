@@ -1,7 +1,8 @@
 import { SignJWT, importPKCS8 } from 'jose';
 import type { Db } from '~/db/client';
 import type { Env } from '~/env';
-import { clearDevicePushToken, findDeviceById } from '~/services/devices';
+import { clearDevicePushToken, findDeviceById, listUserDevices } from '~/services/devices';
+import type { Device } from '~/db/schema';
 import { log } from '~/lib/logger';
 
 export interface SendLinkOpenedNotificationArgs {
@@ -13,6 +14,12 @@ export interface SendLinkOpenedNotificationArgs {
   shortUrl: string;
 }
 
+const MAX_ALERT_DEVICES = 10;
+
+// Sends the open alert to every push-capable device of the owner's account,
+// not only the device that created the link. A publication made from the CLI
+// or the web has no push token of its own; the owner's iPhone is the one that
+// should ping. Returns true when at least one device accepted the alert.
 export async function sendLinkOpenedNotification(
   args: SendLinkOpenedNotificationArgs,
 ): Promise<boolean> {
@@ -22,14 +29,33 @@ export async function sendLinkOpenedNotification(
     return false;
   }
 
-  const device = await findDeviceById(args.db, args.deviceId);
-  if (!device?.apnsToken || !device.apnsEnvironment) return false;
+  const origin = await findDeviceById(args.db, args.deviceId);
+  if (!origin) return false;
+  const candidates = origin.userId ? await listUserDevices(args.db, origin.userId) : [];
+  const seen = new Set<string>();
+  const targets = [origin, ...candidates]
+    .filter((d) => d.apnsToken && d.apnsEnvironment)
+    .filter((d) => (seen.has(d.id) ? false : (seen.add(d.id), true)))
+    .slice(0, MAX_ALERT_DEVICES);
+  if (targets.length === 0) return false;
 
   const jwt = await providerToken(config);
+  const results = await Promise.all(
+    targets.map((d) => sendToDevice(args, config, jwt, d).catch(() => false)),
+  );
+  return results.some(Boolean);
+}
+
+async function sendToDevice(
+  args: SendLinkOpenedNotificationArgs,
+  config: APNSConfig,
+  jwt: string,
+  target: Device,
+): Promise<boolean> {
   const endpoint =
-    device.apnsEnvironment === 'development'
-      ? `https://api.sandbox.push.apple.com/3/device/${device.apnsToken}`
-      : `https://api.push.apple.com/3/device/${device.apnsToken}`;
+    target.apnsEnvironment === 'development'
+      ? `https://api.sandbox.push.apple.com/3/device/${target.apnsToken}`
+      : `https://api.push.apple.com/3/device/${target.apnsToken}`;
 
   const payload = {
     aps: {
@@ -64,12 +90,12 @@ export async function sendLinkOpenedNotification(
     msg: 'apns_send_failed',
     status: response.status,
     reason: detail,
-    deviceId: args.deviceId,
+    deviceId: target.id,
     token: args.token,
   });
 
   if (response.status === 410 || /BadDeviceToken|Unregistered/i.test(detail)) {
-    await clearDevicePushToken(args.db, args.deviceId);
+    await clearDevicePushToken(args.db, target.id);
   }
   return false;
 }
